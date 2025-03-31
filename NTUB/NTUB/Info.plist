@@ -1,0 +1,11 @@
+<key>CFBundleURLTypes</key>
+<array>
+    <dict>
+        <key>CFBundleURLSchemes</key>
+        <array>
+            <string>com.googleusercontent.apps.448182731678-g7b3qs9t2fldltht51ih0rejra9r4gl6</string>
+        </array>
+    </dict>
+</array>
+<key>GoogleClientID</key>
+<string>448182731678-g7b3qs9t2fldltht51ih0rejra9r4gl6.apps.googleusercontent.com</string> 
