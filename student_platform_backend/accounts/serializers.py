@@ -17,8 +17,8 @@ class RegisterSerializer(serializers.ModelSerializer):
             email=validated_data['email'],
         )
         user.set_password(validated_data['password'])
-        # 註冊時先設為未啟用，待 email 驗證通過後再啟用
-        user.is_active = False
+        # 註冊時直接設為啟用，跳過 email 驗證 (僅供測試)
+        user.is_active = True 
         user.save()
         return user
 

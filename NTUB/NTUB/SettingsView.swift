@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct SettingsView: View {
+    // 從環境獲取 AuthManager
+    @EnvironmentObject var authManager: AuthManager
+    
     // --- State Variables for Toggles ---
     // Account & Security
     @State private var useAppLock = false
@@ -94,6 +97,7 @@ struct SettingsView: View {
                          // TODO: Implement logout logic
                          print("Logout button tapped")
                          // Example: Clear tokens, navigate to LoginView
+                         authManager.logout() // 調用 AuthManager 的登出方法
                      }
                      .foregroundColor(.red)
                      .frame(maxWidth: .infinity, alignment: .center)
@@ -139,4 +143,5 @@ struct PrivacyPolicyView: View { var body: some View { Text("隱私政策頁面"
 // MARK: - Preview
 #Preview {
     SettingsView()
+        .environmentObject(AuthManager()) // 在預覽中注入一個 AuthManager 實例
 } 

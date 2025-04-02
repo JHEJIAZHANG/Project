@@ -78,7 +78,8 @@ struct CommunityView: View {
                          )
                  }
                  .padding(.horizontal)
-                 .padding(.vertical, 10)
+                 .padding(.bottom, 10)
+                 .padding(.top, -8) // 新增：給搜尋框負的 top padding 將其上移
 
                 // 2. Topic Pills (Similar to Marketplace Categories)
                  ScrollView(.horizontal, showsIndicators: false) {
@@ -110,7 +111,7 @@ struct CommunityView: View {
                 .background(Color(.systemGray6)) // List background
             }
             .navigationTitle("社群討論")
-            .navigationBarHidden(true)
+            .navigationBarTitleDisplayMode(.inline)
             .overlay(alignment: .bottomTrailing) { // Add Post Button
                  Button {
                      showingAddPostSheet = true

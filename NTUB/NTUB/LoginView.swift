@@ -4,10 +4,12 @@ import GoogleSignIn
 // import LineSDK // 註解掉
 
 struct LoginView: View {
-    @State private var email = ""
+    // 從環境獲取 AuthManager
+    @EnvironmentObject var authManager: AuthManager
+    
+    @State private var identifier = "" // 改為 identifier 以符合後端
     @State private var password = ""
     @State private var showingRegistration = false
-    @State private var showingMainView = false
     @State private var showingAlert = false
     @State private var alertMessage = ""
     @State private var isLoading = false
@@ -26,10 +28,9 @@ struct LoginView: View {
                     .padding(.bottom, 30)
 
                 VStack(spacing: 15) {
-                    TextField("學號", text: $email)
+                    TextField("學號或電子郵件", text: $identifier)
                         .textFieldStyle(RoundedTextFieldStyle())
                         .autocapitalization(.none)
-                        .keyboardType(.numberPad)
                     
                     SecureField("密碼", text: $password)
                         .textFieldStyle(RoundedTextFieldStyle())
@@ -126,8 +127,8 @@ struct LoginView: View {
                 .padding(.top, 30)
 
                 Button("開發者模式：跳過登入") {
-                     print("開發者模式按鈕觸發：跳過登入")
-                     showingMainView = true // 直接顯示主畫面
+                    print("開發者模式按鈕觸發：跳過登入")
+                    authManager.login() // 調用 AuthManager 的無參數登入方法
                 }
                 .padding(.top, 20) // 與上方按鈕間隔
                 .font(.caption)
@@ -137,9 +138,6 @@ struct LoginView: View {
             }
             .padding(.bottom, 20)
             .navigationBarHidden(true)
-        }
-        .fullScreenCover(isPresented: $showingMainView) {
-            MainTabView()
         }
         .sheet(isPresented: $showingRegistration) {
             RegistrationView()
@@ -152,8 +150,9 @@ struct LoginView: View {
     }
     
     private func handleLogin() {
-        guard !email.isEmpty else {
-            alertMessage = "請輸入學號"
+        // 驗證 identifier 和 password 是否為空
+        guard !identifier.isEmpty else {
+            alertMessage = "請輸入學號或電子郵件"
             showingAlert = true
             return
         }
@@ -166,11 +165,111 @@ struct LoginView: View {
         
         isLoading = true
         
-        // TODO: 實作登入邏輯
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+        // 後端登入 API URL
+        let urlString = "http://127.0.0.1:8000/api/login/"
+        guard let url = URL(string: urlString) else {
+            print("無效的後端 API URL: \\(urlString)")
+            alertMessage = "內部錯誤：API URL 配置錯誤"
+            showingAlert = true
             isLoading = false
-            showingMainView = true
+            return
         }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body: [String: String] = [
+            "identifier": identifier,
+            "password": password
+        ]
+        
+        do {
+            request.httpBody = try JSONEncoder().encode(body)
+        } catch {
+            print("無法編碼請求主體: \\(error)")
+            alertMessage = "請求格式錯誤"
+            showingAlert = true
+            isLoading = false
+            return
+        }
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                isLoading = false
+                
+                if let error = error {
+                    print("登入請求錯誤: \\(error.localizedDescription)")
+                    alertMessage = "登入失敗，請檢查網路連線或稍後再試。\\(error.localizedDescription)"
+                    showingAlert = true
+                    return
+                }
+                
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    print("無效的回應")
+                    alertMessage = "登入失敗：收到無效的回應。"
+                    showingAlert = true
+                    return
+                }
+
+                guard let data = data else {
+                    print("沒有收到資料")
+                    alertMessage = "登入失敗：未收到伺服器資料。"
+                    showingAlert = true
+                    return
+                }
+
+                print("狀態碼: \\(httpResponse.statusCode)")
+                print("回應資料: \\(String(data: data, encoding: .utf8) ?? \"無法解碼\")")
+
+
+                if httpResponse.statusCode == 200 {
+                    // 登入成功
+                    do {
+                        let loginResponse = try JSONDecoder().decode(LoginResponse.self, from: data)
+                        print("登入成功！")
+                        print("Access Token: \\(loginResponse.access)")
+                        print("Refresh Token: \\(loginResponse.refresh)")
+                        
+                        // TODO: 將 token 安全地儲存 (例如 Keychain)
+                        // UserDefaults.standard.set(loginResponse.access, forKey: "accessToken")
+                        // UserDefaults.standard.set(loginResponse.refresh, forKey: "refreshToken")
+                        
+                        authManager.login(accessToken: loginResponse.access, refreshToken: loginResponse.refresh)
+                    } catch {
+                        print("無法解碼登入回應: \\(error)")
+                        alertMessage = "登入失敗：無法處理伺服器回應。\\(error)"
+                        showingAlert = true
+                    }
+                } else {
+                    // 登入失敗，嘗試解析錯誤訊息
+                    do {
+                        let errorResponse = try JSONDecoder().decode(LoginErrorResponse.self, from: data)
+                         // 組合錯誤訊息
+                        var errorMessage = "登入失敗："
+                        if let detail = errorResponse.detail {
+                            errorMessage += "\\n\(detail)"
+                        }
+                        if let identifierErrors = errorResponse.identifier {
+                            errorMessage += "\\n帳號/信箱: \(identifierErrors.joined(separator: ", "))"
+                        }
+                        if let passwordErrors = errorResponse.password {
+                            errorMessage += "\\n密碼: \(passwordErrors.joined(separator: ", "))"
+                        }
+                        if let nonFieldErrors = errorResponse.non_field_errors {
+                             errorMessage += "\\n\(nonFieldErrors.joined(separator: ", "))"
+                        }
+                         alertMessage = errorMessage
+                         showingAlert = true
+                    } catch {
+                        // 如果無法解析特定錯誤結構，顯示通用錯誤
+                        print("無法解碼錯誤回應: \\(error)")
+                        alertMessage = "登入失敗，狀態碼：\(httpResponse.statusCode)。請檢查輸入或稍後再試。"
+                        showingAlert = true
+                    }
+                }
+            }
+        }.resume() // 啟動請求
     }
     
     private func handleGoogleSignIn() {
@@ -228,12 +327,11 @@ struct LoginView: View {
     private func verifyTokenWithBackend(provider: String, accessToken: String) {
         isLoading = true
         
-        let urlString = "http://127.0.0.1:8000/api/social-login/"
-        let potentialUrl: URL? = URL(string: urlString)
-        
-        guard let url = potentialUrl else {
-            print("無效的後端 API URL: \(urlString)")
-            alertMessage = "內部錯誤：API URL 配置錯誤"
+        // 確保 URL 正確
+        let urlString = "http://127.0.0.1:8000/api/social-login/" // 這裡可能是 Google 登入的後端驗證 URL
+        guard let url = URL(string: urlString) else {
+            print("無效的後端社交登入 API URL: \\(urlString)")
+            alertMessage = "內部錯誤：社交登入 API URL 配置錯誤"
             showingAlert = true
             isLoading = false
             return
@@ -248,78 +346,95 @@ struct LoginView: View {
             "access_token": accessToken
         ]
         
-        guard let requestBody = try? JSONEncoder().encode(body) else {
-            print("無法編碼請求主體")
-            alertMessage = "內部錯誤：無法準備請求"
+        do {
+            request.httpBody = try JSONEncoder().encode(body)
+        } catch {
+            print("無法編碼社交登入請求主體: \\(error)")
+            alertMessage = "社交登入請求格式錯誤"
             showingAlert = true
             isLoading = false
             return
         }
-        request.httpBody = requestBody
-        
-        print("Sending request to backend: \(url) with body: \(String(data: requestBody, encoding: .utf8) ?? "")")
-        
-        URLSession.shared.dataTask(with: request) { data, response, error in
+
+         URLSession.shared.dataTask(with: request) { data, response, error in
             DispatchQueue.main.async {
-                isLoading = false
-                
+                isLoading = false // 確保無論成功或失敗都停止加載指示器
+
                 if let error = error {
-                    print("後端驗證錯誤: \(error.localizedDescription)")
-                    alertMessage = "登入失敗：無法連接伺服器 (\(error.localizedDescription))"
+                    print("社交登入驗證請求錯誤: \\(error.localizedDescription)")
+                    alertMessage = "社交登入驗證失敗：\\(error.localizedDescription)"
                     showingAlert = true
                     return
                 }
-                
-                guard let httpResponse = response as? HTTPURLResponse else {
-                    print("無效的後端回應")
-                    alertMessage = "登入失敗：伺服器回應無效"
+
+                guard let httpResponse = response as? HTTPURLResponse, let data = data else {
+                    print("無效的社交登入驗證回應")
+                    alertMessage = "社交登入驗證失敗：收到無效的回應。"
                     showingAlert = true
                     return
                 }
-                
-                print("Backend response status code: \(httpResponse.statusCode)")
-                if let responseData = data {
-                    print("Backend response data: \(String(data: responseData, encoding: .utf8) ?? "")")
-                }
-                
-                guard (200...299).contains(httpResponse.statusCode) else {
-                    print("後端驗證失敗，狀態碼: \(httpResponse.statusCode)")
-                    var backendErrorMsg = "伺服器錯誤"
-                    if let data = data, 
-                       let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
-                       let detail = json["detail"] as? String {
-                        backendErrorMsg = detail
-                    } else if let data = data, let plainMsg = String(data: data, encoding: .utf8) {
-                        backendErrorMsg = plainMsg
-                    }
-                    alertMessage = "登入失敗：\(backendErrorMsg) (代碼: \(httpResponse.statusCode))"
-                    showingAlert = true
-                    return
-                }
-                
-                if let data = data {
+
+                print("社交登入驗證狀態碼: \\(httpResponse.statusCode)")
+                print("社交登入驗證回應資料: \\(String(data: data, encoding: .utf8) ?? \"無法解碼\")")
+
+
+                if httpResponse.statusCode == 200 {
+                    // 社交登入驗證成功
                     do {
-                        if let json = try JSONSerialization.jsonObject(with: data, options: []) as? [String: String] {
-                            let accessToken = json["access"]
-                            let refreshToken = json["refresh"]
-                            print("後端驗證成功！")
-                            print("Access Token: \(accessToken ?? "N/A")")
-                            print("Refresh Token: \(refreshToken ?? "N/A")")
-                        } else {
-                            print("無法解析後端回傳的 Token JSON")
-                        }
+                        // 假設社交登入成功後也返回類似的 Token 結構
+                        let loginResponse = try JSONDecoder().decode(LoginResponse.self, from: data)
+                        print("社交登入驗證成功！")
+                        print("Access Token: \\(loginResponse.access)")
+                        print("Refresh Token: \\(loginResponse.refresh)")
+
+                        // TODO: 將 token 安全地儲存 (例如 Keychain)
+                        // UserDefaults.standard.set(loginResponse.access, forKey: "accessToken")
+                        // UserDefaults.standard.set(loginResponse.refresh, forKey: "refreshToken")
+
+                        authManager.login(accessToken: loginResponse.access, refreshToken: loginResponse.refresh)
                     } catch {
-                        print("解碼後端回應錯誤: \(error)")
+                        print("無法解碼社交登入驗證回應: \\(error)")
+                        alertMessage = "社交登入驗證失敗：無法處理伺服器回應。"
+                        showingAlert = true
                     }
+                } else {
+                    // 社交登入驗證失敗
+                     // 嘗試解析可能的錯誤訊息結構 (可以根據後端實際返回調整)
+                    var backendErrorMessage = "社交登入驗證失敗。"
+                    if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                       let detail = json["detail"] as? String {
+                        backendErrorMessage += "\\n\(detail)"
+                    } else if let responseString = String(data: data, encoding: .utf8) {
+                         backendErrorMessage += "\\n伺服器回應：\(responseString)"
+                    }
+                    
+                    alertMessage = backendErrorMessage
+                    showingAlert = true
                 }
-                showingMainView = true
             }
         }.resume()
     }
 
+    // 新增用於解碼登入成功回應的結構
+    struct LoginResponse: Codable {
+        let access: String
+        let refresh: String
+    }
+
+    // 新增用於解碼登入失敗回應的結構 (根據後端可能的錯誤格式調整)
+    struct LoginErrorResponse: Codable {
+        let detail: String?
+        let identifier: [String]? // 根據後端 Serializer 的 field name
+        let password: [String]?
+        let non_field_errors: [String]? // Django REST framework 常見的非欄位錯誤
+    }
+
+    // 處理 Facebook 登入的函數 (目前是空的)
     private func handleFacebookLogin() {
-        print("Facebook 登入按鈕被點擊 (功能待實作)")
-        alertMessage = "Facebook 登入功能開發中"
+        print("Facebook 登入按鈕被點擊")
+        // TODO: 實作 Facebook 登入邏輯
+        // 需要整合 Facebook SDK
+        alertMessage = "Facebook 登入功能尚未實作。"
         showingAlert = true
     }
 }
@@ -327,10 +442,13 @@ struct LoginView: View {
 struct RoundedTextFieldStyle: TextFieldStyle {
     func _body(configuration: TextField<Self._Label>) -> some View {
         configuration
-            .padding(15)
-            .background(
+            .padding(.vertical, 15)
+            .padding(.horizontal, 20)
+            .background(Color(UIColor.systemGray6)) // 使用 systemGray6 更符合 iOS 風格
+            .cornerRadius(10)
+            .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(Color(.systemGray6))
+                    .stroke(Color.gray.opacity(0.2), lineWidth: 1) // 細微邊框
             )
     }
 }
