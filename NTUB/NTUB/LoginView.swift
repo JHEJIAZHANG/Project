@@ -342,39 +342,38 @@ struct MainTabView: View {
                 .tabItem {
                     Label("首頁", systemImage: "house.fill")
                 }
+
+            // 將社群移到第二個 Tab
+            NavigationView { 
+                 CommunityView() // 社群討論列表
+                 // ChatListView() 
+            }
+            .tabItem {
+                 Label("社群", systemImage: "message.fill")
+            }
             
+            // 移除課表 Tab
+            /*
             TimetableView() // 課表
                 .tabItem {
                     Label("課表", systemImage: "calendar")
                 }
+            */
             
-            TaskView() // 待辦
+            TaskView() // 待辦 (現在是第三個)
                 .tabItem {
-                    Label("待辦", systemImage: "checklist") // 使用 checklist 圖示
+                    Label("待辦", systemImage: "checklist")
                 }
                 
-            MarketplaceView() // 二手市集
+            MarketplaceView() // 二手市集 (現在是第四個)
                  .tabItem {
-                     Label("二手市集", systemImage: "storefront") // 使用 storefront 圖示
+                     Label("二手市集", systemImage: "storefront")
                  }
-
-            // 將社群相關視圖包在 NavigationView 中，以便 ChatListView 的導航標題能正常顯示
-            NavigationView { 
-                 CommunityView() // 社群討論列表
-                 // 考慮將聊天列表放在社群 Tab 的第二層或作為獨立 Tab
-                 // ChatListView() 
-            }
-            .tabItem {
-                 Label("社群", systemImage: "message.fill") // 使用 message 圖示
-            }
             
-            // 移除 FriendsView
-            /*
-            FriendsView()
+            SettingsView() // 設定 (現在是第五個)
                 .tabItem {
-                    Label("好友", systemImage: "message.fill")
+                    Label("設定", systemImage: "gear")
                 }
-            */
         }
     }
 }

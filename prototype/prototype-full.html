@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NTUB校園生活應用 - 完整原型</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'SF Pro Display', 'Helvetica Neue', sans-serif;
+        }
+        body {
+            background-color: #f5f5f7;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 28px;
+            text-align: center;
+            margin: 30px 0;
+            color: #333;
+        }
+        .section {
+            margin-bottom: 50px;
+        }
+        .section-title {
+            font-size: 24px;
+            text-align: center;
+            margin-bottom: 30px;
+            color: #007aff;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .screens-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 40px;
+        }
+        .screen {
+            width: 320px;
+            height: 650px;
+            background-color: white;
+            border-radius: 40px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+            position: relative;
+            border: 10px solid #000;
+        }
+        .screen-content {
+            height: 100%;
+            padding: 20px;
+            position: relative;
+            overflow-y: auto;
+            background-color: white;
+        }
+        .screen-title {
+            text-align: center;
+            margin-bottom: 15px;
+            font-size: 18px;
+            font-weight: bold;
+            padding-top: 10px;
+        }
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            padding: 5px 20px;
+            background-color: #f8f8f8;
+        }
+        .tab-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: space-around;
+            padding: 15px 0;
+            background-color: #fff;
+            border-top: 1px solid #eee;
+        }
+        .tab-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 12px;
+        }
+        .tab-item i {
+            font-size: 22px;
+            margin-bottom: 5px;
+            color: #007aff;
+        }
+        .btn {
+            background-color: #007aff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 100%;
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .btn-outline {
+            background-color: transparent;
+            border: 1px solid #007aff;
+            color: #007aff;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 16px;
+            color: #333;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        .card {
+            background-color: white;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .section-title {
+            font-size: 20px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .back-button {
+            display: block;
+            text-align: center;
+            margin: 30px auto;
+            background-color: #007aff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            width: 200px;
+            text-decoration: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>NTUB校園生活應用 - 完整原型設計</h1>
+        
+        <a href="index.html" class="back-button">
+            <i class="fas fa-arrow-left" style="margin-right: 8px;"></i> 返回首頁
+        </a>
+        
+        <!-- 登入與註冊頁面 -->
+        <div class="section">
+            <div class="section-title">登入與註冊頁面</div>
+            <div class="screens-container">
+                <!-- 歡迎頁面 -->
+                <div class="screen">
+                    <div class="status-bar">
+                        <span>9:41</span>
+                        <span><i class="fas fa-battery-full"></i> 100%</span>
+                    </div>
+                    <div class="screen-content">
+                        <div style="display: flex; flex-direction: column; justify-content: center; align-items: center; height: 90%;">
+                            <div style="width: 120px; height: 120px; background-color: #007aff; border-radius: 30px; display: flex; justify-content: center; align-items: center; margin-bottom: 30px;">
+                                <i class="fas fa-graduation-cap" style="font-size: 60px; color: white;"></i>
+                            </div>
+                            <h2 style="font-size: 28px; margin-bottom: 15px; text-align: center;">NTUB校園生活</h2>
+                            <p style="font-size: 16px; color: #666; text-align: center; margin-bottom: 50px;">您的完美校園助手</p>
+                            <div class="btn">開始使用</div>
+                            <p style="font-size: 14px; color: #666; text-align: center;">已有帳號？<a href="#" style="color: #007aff; text-decoration: none;">登入</a></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 登入頁面 -->
+                <div class="screen">
+                    <div class="status-bar">
+                        <span>9:41</span>
+                        <span><i class="fas fa-battery-full"></i> 100%</span>
+                    </div>
+                    <div class="screen-content">
+                        <div style="padding: 20px 0;">
+                            <i class="fas fa-arrow-left" style="font-size: 20px;"></i>
+                        </div>
+                        <h2 style="font-size: 28px; margin-bottom: 30px;">登入</h2>
+                        <div class="form-group">
+                            <label>學號</label>
+                            <input type="text" placeholder="請輸入您的學號">
+                        </div>
+                        <div class="form-group">
+                            <label>密碼</label>
+                            <input type="password" placeholder="請輸入您的密碼">
+                        </div>
+                        <div style="text-align: right; margin-bottom: 30px;">
+                            <a href="#" style="color: #007aff; text-decoration: none; font-size: 14px;">忘記密碼？</a>
+                        </div>
+                        <div class="btn">登入</div>
+                        <div style="margin-top: 20px; margin-bottom: 30px; text-align: center; position: relative;">
+                            <hr style="border: none; height: 1px; background-color: #ddd;">
+                            <span style="position: absolute; top: -10px; background-color: white; padding: 0 10px; color: #666;">或</span>
+                        </div>
+                        <div class="btn btn-outline" style="display: flex; justify-content: center; align-items: center;">
+                            <i class="fab fa-google" style="margin-right: 10px;"></i> 使用Google登入
+                        </div>
+                        <div class="btn btn-outline" style="display: flex; justify-content: center; align-items: center; background-color: #4267B2; color: white; border: none;">
+                            <i class="fab fa-facebook" style="margin-right: 10px;"></i> 使用Facebook登入
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 註冊頁面 -->
+                <div class="screen">
+                    <div class="status-bar">
+                        <span>9:41</span>
+                        <span><i class="fas fa-battery-full"></i> 100%</span>
+                    </div>
+                    <div class="screen-content">
+                        <div style="padding: 20px 0;">
+                            <i class="fas fa-arrow-left" style="font-size: 20px;"></i>
+                        </div>
+                        <h2 style="font-size: 28px; margin-bottom: 30px;">註冊</h2>
+                        <div class="form-group">
+                            <label>姓名</label>
+                            <input type="text" placeholder="請輸入您的姓名">
+                        </div>
+                        <div class="form-group">
+                            <label>學號</label>
+                            <input type="text" placeholder="請輸入您的學號">
+                        </div>
+                        <div class="form-group">
+                            <label>信箱</label>
+                            <input type="email" placeholder="請輸入您的信箱">
+                        </div>
+                        <div class="form-group">
+                            <label>密碼</label>
+                            <input type="password" placeholder="請設定密碼">
+                        </div>
+                        <div class="form-group">
+                            <label>確認密碼</label>
+                            <input type="password" placeholder="請再次輸入密碼">
+                        </div>
+                        <div style="display: flex; align-items: center; margin-bottom: 30px;">
+                            <input type="checkbox" id="terms" style="margin-right: 10px;">
+                            <label for="terms" style="font-size: 14px; color: #666;">我同意<a href="#" style="color: #007aff; text-decoration: none;">服務條款</a>和<a href="#" style="color: #007aff; text-decoration: none;">隱私政策</a></label>
+                        </div>
+                        <div class="btn">註冊</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+</div>

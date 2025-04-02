@@ -1,0 +1,2133 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>校園 App 原型</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+            color: #333;
+        }
+        .iphone-frame {
+            width: 375px; /* iPhone SE/8 size */
+            height: 667px;
+            border: 1px solid #ccc;
+            margin: 20px auto;
+            overflow: hidden;
+            background-color: #fff;
+            display: flex;
+            flex-direction: column;
+            position: relative; /* Needed for absolute positioning of tab bar */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            border-radius: 10px;
+        }
+        .screen {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding-bottom: 60px; /* Space for tab bar */
+            display: none; /* Hide all screens initially */
+            background-color: #fff; /* Default screen background */
+        }
+        .screen.active {
+            display: block; /* Show the active screen */
+        }
+
+        /* --- Navigation & Tab Bar --- */
+        .header {
+            background-color: #4A90E2; /* 主色調 */
+            color: white;
+            padding: 10px 15px;
+            text-align: center;
+            font-weight: 600; /* Slightly bolder */
+            font-size: 17px; /* Standard iOS title */
+            height: 44px; /* Standard iOS Nav Bar height */
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky; /* Make header sticky */
+            top: 0;
+            z-index: 10;
+        }
+        .header.transparent {
+            background-color: transparent;
+            color: #333; /* Adjust text color for light backgrounds */
+            position: absolute; /* Allows content to scroll underneath */
+        }
+        .header.transparent .left-icon a, .header.transparent .right-icon a {
+             color: #4A90E2; /* Or white depending on background */
+        }
+
+        .header .left-icon, .header .right-icon {
+            font-size: 22px;
+            min-width: 60px; /* Ensure adequate tap area */
+            text-align: center;
+            display: flex;
+            align-items: center;
+        }
+         .header .left-icon a, .header .right-icon a {
+            color: white;
+            text-decoration: none;
+            padding: 5px; /* Increase tap area */
+         }
+        .header .left-icon { justify-content: flex-start; } /* Align icons */
+        .header .right-icon { justify-content: flex-end; }
+        .header .header-title {
+            flex-grow: 1; /* Allow title to take remaining space */
+        }
+
+        .tab-bar {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-top: 1px solid #ddd;
+            background-color: rgba(248, 248, 248, 0.95); /* Slightly transparent */
+            backdrop-filter: blur(10px);
+            height: 60px;
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            z-index: 10;
+        }
+        .tab-item {
+            text-align: center;
+            color: #999;
+            font-size: 10px;
+            flex-grow: 1;
+            padding: 5px 0;
+            cursor: pointer;
+            text-decoration: none; /* Remove underline from links */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+        }
+        .tab-item i {
+            font-size: 22px;
+            margin-bottom: 3px;
+        }
+        .tab-item.active {
+            color: #4A90E2; /* 主色調 */
+        }
+
+        /* --- Common Elements --- */
+         .content-padding {
+            padding: 15px;
+         }
+        h2 {
+            font-size: 22px;
+            font-weight: 600;
+            color: #000;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            padding: 0 15px;
+        }
+         h3 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #555;
+            margin-top: 15px;
+            margin-bottom: 8px;
+            padding: 0 15px; /* Add padding to section headers */
+         }
+        .list-item {
+            background-color: white;
+            border-bottom: 1px solid #eee;
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 44px; /* iOS standard touch height */
+            text-decoration: none; /* Remove underline from links */
+            color: inherit; /* Inherit text color */
+        }
+         .list-item-simple {
+             background-color: white;
+             border-bottom: 1px solid #eee;
+             padding: 12px 15px;
+         }
+        .list-item i.icon {
+            margin-right: 15px; /* More spacing */
+            color: #4A90E2;
+            width: 22px; /* Align text */
+            text-align: center;
+            font-size: 18px; /* Slightly smaller icon */
+        }
+         .list-item .details {
+             flex-grow: 1;
+         }
+        .list-item .title {
+            font-weight: 400; /* Standard iOS weight */
+            font-size: 17px;
+        }
+        .list-item .subtitle {
+            font-size: 14px;
+            color: #888;
+            margin-top: 2px;
+        }
+        .list-item .arrow {
+            color: #ccc;
+            font-size: 14px; /* Smaller arrow */
+            margin-left: 10px;
+        }
+        .button {
+            display: block;
+            width: calc(100% - 30px);
+            padding: 14px;
+            margin: 20px 15px;
+            background-color: #4A90E2;
+            color: white;
+            border: none;
+            border-radius: 10px; /* More rounded */
+            font-size: 17px;
+            font-weight: 500;
+            text-align: center;
+            cursor: pointer;
+            text-decoration: none;
+        }
+         .button-secondary {
+            background-color: #f0f0f0;
+            color: #4A90E2;
+            border: 1px solid #ddd;
+         }
+         .button-danger {
+             background-color: #e74c3c;
+         }
+
+        input[type="text"], input[type="password"], input[type="email"], input[type="number"], textarea, select {
+            width: 100%; /* Use 100% and control padding with container */
+            padding: 12px 15px;
+            /* margin: 10px 15px 5px 15px; */
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box; /* Include padding in width */
+        }
+        textarea {
+            min-height: 100px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px; /* Space between label and input */
+            font-size: 14px;
+            color: #666;
+            font-weight: 500;
+        }
+         .form-group {
+             margin-bottom: 20px;
+             padding: 0 15px; /* Consistent padding for form groups */
+         }
+
+         /* --- Specific Screen Styles --- */
+
+         /* Timetable */
+         .timetable-container { padding: 0 10px; }
+        .timetable-grid {
+             display: grid;
+             grid-template-columns: 30px repeat(7, 1fr); /* Time column + 7 days */
+             gap: 1px; /* Use gap for lines */
+             background-color: #eee; /* Grid lines */
+             border: 1px solid #eee;
+             margin-top: 10px;
+         }
+         .grid-cell {
+             background-color: #fff;
+             min-height: 50px;
+             font-size: 10px;
+             padding: 4px;
+             position: relative;
+             display: flex;
+             flex-direction: column; /* Stack elements */
+             justify-content: center; /* Center content */
+             align-items: center; /* Center content */
+             text-align: center;
+         }
+         .day-header {
+             font-size: 12px;
+             font-weight: 500;
+             padding: 8px 4px;
+             color: #555;
+             background-color: #f9f9f9;
+         }
+         .time-label {
+             font-size: 10px;
+             color: #888;
+             padding: 8px 0;
+             background-color: #f9f9f9;
+         }
+         .course-block {
+             background-color: #d6eaff; /* Lighter blue for courses */
+             border: none; /* Remove border, use grid gap */
+             color: #004a8f;
+             font-weight: 500;
+             font-size: 11px; /* Slightly larger */
+             cursor: pointer;
+             border-radius: 4px;
+             width: 100%; /* Fill cell */
+             height: 100%; /* Fill cell */
+             box-sizing: border-box;
+             overflow: hidden;
+             line-height: 1.3;
+             padding: 5px 3px;
+         }
+         .course-block .location {
+            font-size: 9px;
+            color: #3a7ab5;
+            margin-top: 2px;
+            display: block; /* Ensure it's on a new line */
+         }
+         .weather-info {
+             display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+             padding: 5px 15px; background-color: #f0f8ff; border-bottom: 1px solid #eee;
+         }
+         .weather-info span { font-size: 14px; color: #555;}
+         .weather-info i { margin-right: 5px; color: #ffcc00; }
+         .weather-info i.rain { color: #6c7a89; }
+         .week-switcher {
+            padding: 3px 8px; font-size: 12px; background-color: #eee; border: 1px solid #ccc; border-radius: 5px; color: #555; cursor: pointer;
+         }
+
+         /* Tasks */
+         .task-item {
+            display: flex;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+            padding: 10px 15px;
+            background-color: white;
+            min-height: 50px;
+         }
+         .task-checkbox {
+             margin-right: 15px;
+             font-size: 22px;
+             color: #ccc;
+             cursor: pointer;
+         }
+         .task-checkbox.checked {
+             color: #4A90E2;
+         }
+         .task-details { flex-grow: 1; }
+         .task-title { font-weight: 400; font-size: 16px; }
+         .task-title.completed { text-decoration: line-through; color: #aaa; }
+         .task-subtitle { font-size: 13px; color: #888; margin-top: 3px; }
+         .task-priority {
+             padding: 3px 8px;
+             border-radius: 12px; /* Pill shape */
+             font-size: 10px;
+             font-weight: 500;
+             color: white;
+             margin-left: 10px;
+         }
+         .priority-high { background-color: #e74c3c; }
+         .priority-medium { background-color: #f39c12; }
+         .priority-low { background-color: #2ecc71; }
+         .segmented-control {
+            display: flex;
+            margin: 0 15px 15px 15px; /* Add margin */
+            background-color: #e0e0e0; /* Gray background */
+            border-radius: 8px;
+            padding: 2px; /* Inner padding for separation */
+            overflow: hidden;
+         }
+         .segment {
+             padding: 6px 15px;
+             background-color: transparent; /* Transparent segments */
+             border: none;
+             color: #555; /* Default text color */
+             cursor: pointer;
+             flex-grow: 1;
+             text-align: center;
+             font-size: 14px;
+             font-weight: 500;
+             border-radius: 7px; /* Rounded corners for segments */
+             transition: background-color 0.3s ease, color 0.3s ease;
+         }
+         .segment.active {
+             background-color: white; /* White background for active */
+             color: #4A90E2; /* Active text color */
+             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+         }
+
+         /* Marketplace */
+         .search-bar {
+             padding: 10px 15px;
+             background-color: #fff;
+             border-bottom: 1px solid #eee;
+             position: sticky; /* Sticky search bar */
+             top: 44px; /* Below header */
+             z-index: 9;
+         }
+         .search-bar input {
+            width: 100%;
+            padding: 8px 15px 8px 35px; /* Space for icon */
+            border: none;
+            border-radius: 10px;
+            background-color: #f0f0f0; /* Light gray background */
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%23aaa" class="bi bi-search" viewBox="0 0 16 16"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>');
+            background-repeat: no-repeat;
+            background-position: 10px center;
+            box-sizing: border-box;
+            margin: 0;
+            font-size: 15px;
+         }
+         .category-tabs {
+            display: flex;
+            overflow-x: auto; /* Scrollable horizontally */
+            padding: 10px 15px;
+            background-color: #fff;
+            border-bottom: 1px solid #eee;
+            white-space: nowrap; /* Prevent wrapping */
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+            scrollbar-width: none; /* Hide scrollbar Firefox */
+         }
+         .category-tabs::-webkit-scrollbar { display: none; } /* Hide scrollbar Chrome/Safari */
+         .category-tab {
+            padding: 6px 12px;
+            margin-right: 8px;
+            border-radius: 15px;
+            background-color: #f0f0f0;
+            color: #555;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s ease, color 0.3s ease;
+         }
+         .category-tab.active {
+             background-color: #4A90E2;
+             color: white;
+         }
+         .item-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px; /* Slightly more gap */
+            padding: 15px;
+         }
+         .item-card {
+            background-color: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+         }
+         .item-card img {
+            width: 100%;
+            height: 130px; /* Slightly taller image */
+            object-fit: cover;
+            background-color: #eee; /* Placeholder bg */
+         }
+         .item-info {
+            padding: 10px;
+            flex-grow: 1;
+         }
+         .item-title {
+            font-weight: 500;
+            font-size: 15px;
+            margin-bottom: 4px;
+            line-height: 1.3;
+            /* Clamp to 2 lines */
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-height: 39px; /* Height for 2 lines */
+         }
+         .item-price {
+            color: #e74c3c;
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 6px;
+         }
+         .item-seller {
+            font-size: 12px;
+            color: #888;
+            display: flex;
+            align-items: center;
+         }
+         .item-seller i { margin-right: 4px; font-size: 11px; }
+
+         /* Item Detail */
+         .item-detail-image {
+             width: 100%;
+             height: 250px; /* Fixed height */
+             object-fit: cover;
+             background-color: #eee;
+             display: block; /* Remove extra space below image */
+         }
+         .item-detail-content { padding: 20px 15px; }
+         .item-detail-content h2 { padding: 0; margin-top: 0; margin-bottom: 10px; font-size: 24px; }
+         .item-detail-content .item-price { font-size: 22px; margin-bottom: 15px; color: #e74c3c; font-weight: bold;}
+         .item-detail-content p.description { font-size: 16px; line-height: 1.6; margin-bottom: 15px; }
+         .item-detail-content .meta-info { font-size: 13px; color: #888; margin-bottom: 20px; }
+
+         .seller-info {
+             display: flex;
+             align-items: center;
+             background-color: #f9f9f9;
+             padding: 12px 15px;
+             border-top: 1px solid #eee;
+             border-bottom: 1px solid #eee;
+             /* margin: 15px -15px; Remove negative margin */
+         }
+         .seller-info img {
+             width: 45px;
+             height: 45px;
+             border-radius: 50%;
+             margin-right: 12px;
+             background-color: #ccc; /* Placeholder */
+         }
+         .seller-info .seller-name { font-weight: 500; font-size: 16px; }
+         .seller-info .seller-details { font-size: 13px; color: #666; }
+         .item-detail-actions {
+            padding: 10px 15px;
+            display: flex;
+            gap: 10px;
+            position: sticky; /* Stick action buttons at the bottom */
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid #eee;
+         }
+         .item-detail-actions .button {
+            margin: 0;
+            flex: 1;
+         }
+         .item-detail-actions .wishlist-btn {
+            flex: 0 0 50px; /* Fixed width for wishlist */
+            background-color: #f0f0f0;
+            color: #888;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            cursor: pointer;
+         }
+         .item-detail-actions .wishlist-btn.active { color: #e74c3c; } /* Active wishlist color */
+
+         /* Publish Item */
+         .image-upload-area {
+            padding: 15px;
+         }
+         .image-preview-container {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            overflow-x: auto;
+            padding-bottom: 10px; /* Space for scrollbar if needed */
+         }
+         .image-preview-item, .add-image-button {
+             width: 70px;
+             height: 70px;
+             border-radius: 8px;
+             flex-shrink: 0; /* Prevent shrinking */
+         }
+         .image-preview-item img {
+             width: 100%;
+             height: 100%;
+             object-fit: cover;
+             border-radius: 8px;
+         }
+         .add-image-button {
+            border: 2px dashed #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ccc;
+            cursor: pointer;
+         }
+         .add-image-button i { font-size: 24px; }
+
+         /* Community */
+         .post-card {
+             background-color: white;
+             margin-bottom: 8px; /* Space between cards */
+             border-top: 1px solid #eee;
+             border-bottom: 1px solid #eee;
+             padding: 15px;
+         }
+         .post-card:first-child { border-top: none; }
+         .post-header {
+             display: flex;
+             align-items: center;
+             margin-bottom: 12px;
+         }
+         .post-avatar {
+             width: 40px;
+             height: 40px;
+             border-radius: 50%;
+             background-color: #ccc; /* Placeholder */
+             margin-right: 10px;
+             flex-shrink: 0;
+         }
+          .post-avatar.anonymous { background-color: #aaa; display: flex; align-items: center; justify-content: center; }
+          .post-avatar.anonymous i { color: white; font-size: 20px;}
+         .post-author-info { flex-grow: 1; }
+         .post-author { font-weight: 600; font-size: 15px; }
+         .post-meta { font-size: 13px; color: #888; }
+         .post-time { font-size: 13px; color: #888; margin-left: auto; flex-shrink: 0; }
+         .post-content { margin-bottom: 15px; line-height: 1.5; font-size: 16px; }
+         .post-actions {
+             display: flex;
+             justify-content: space-around;
+             color: #666; /* Darker action icons */
+             font-size: 14px;
+             border-top: 1px solid #f5f5f5;
+             padding-top: 10px;
+         }
+         .post-actions span { cursor: pointer; display: flex; align-items: center; gap: 5px; }
+         .post-actions i { font-size: 18px; }
+
+        /* Post Detail */
+        .comment-section { padding-bottom: 70px; /* Space for input area */ }
+        .comment-item {
+            display: flex;
+            align-items: flex-start;
+            padding: 12px 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .comment-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background-color: #ccc;
+            margin-right: 10px;
+            flex-shrink: 0;
+        }
+        .comment-avatar.anonymous { background-color: #aaa; display: flex; align-items: center; justify-content: center; }
+        .comment-avatar.anonymous i { color: white; font-size: 18px; }
+        .comment-content {
+            flex-grow: 1;
+        }
+        .comment-author {
+            font-weight: 600;
+            font-size: 14px;
+            margin-right: 5px;
+        }
+        .comment-time {
+            font-size: 12px;
+            color: #888;
+        }
+        .comment-text {
+            font-size: 15px;
+            margin-top: 3px;
+            line-height: 1.4;
+        }
+        .comment-input-area {
+             display: flex;
+             align-items: center;
+             padding: 8px 15px;
+             border-top: 1px solid #ddd;
+             background-color: #f8f8f8;
+             position: fixed; /* Stick to bottom */
+             bottom: 0; /* Adjust if tab bar is visible */
+             left: 0;
+             right: 0;
+             width: 375px; /* Match frame width */
+             box-sizing: border-box;
+             margin: 0 auto; /* Center it */
+             z-index: 11; /* Above tab bar */
+             padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); /* Handle notch */
+        }
+        #screen-post-detail .comment-input-area { bottom: 0; } /* No tab bar here */
+        #screen-chat-room .comment-input-area { bottom: 0; }
+
+         .comment-input-area input {
+            flex-grow: 1;
+            margin: 0 10px 0 0;
+            padding: 10px 15px;
+            border-radius: 18px;
+            border: 1px solid #ddd;
+            font-size: 15px;
+         }
+          .comment-input-area button {
+              padding: 8px 15px;
+              border: none;
+              background-color: #4A90E2;
+              color: white;
+              border-radius: 18px;
+              cursor: pointer;
+              font-size: 15px;
+              font-weight: 500;
+          }
+
+          /* Chat Room */
+          .chat-bubble {
+              padding: 10px 15px;
+              border-radius: 18px;
+              margin-bottom: 8px;
+              max-width: 75%;
+              line-height: 1.4;
+              font-size: 16px;
+          }
+          .chat-bubble-sent {
+              background-color: #4A90E2;
+              color: white;
+              border-bottom-right-radius: 4px; /* iOS style */
+              margin-left: auto; /* Align right */
+              text-align: left; /* Keep text left-aligned */
+          }
+          .chat-bubble-received {
+              background-color: #eee;
+              color: #333;
+              border-bottom-left-radius: 4px; /* iOS style */
+              margin-right: auto; /* Align left */
+          }
+          .chat-messages-container {
+              flex-grow: 1;
+              padding: 15px;
+              overflow-y: auto;
+              display: flex;
+              flex-direction: column-reverse; /* Newest messages at bottom */
+          }
+          #screen-chat-room .content-padding { padding: 0; display: flex; flex-direction: column; flex-grow: 1; }
+
+          /* Profile */
+          .profile-screen-content { padding-bottom: 60px; } /* Space for tab bar */
+          .profile-header {
+              /* background-color: #4A90E2; */ /* Applied dynamically or remove if using image bg */
+              background: linear-gradient(180deg, #4A90E2 0%, #6aa9f0 100%);
+              padding: 60px 15px 20px 15px; /* More padding top for status bar */
+              display: flex;
+              align-items: center;
+              color: white;
+              margin-bottom: 10px; /* Space before stats */
+          }
+          .profile-avatar {
+              width: 75px;
+              height: 75px;
+              border-radius: 50%;
+              background-color: #eee; /* Placeholder */
+              margin-right: 15px;
+              border: 3px solid rgba(255,255,255,0.8);
+              flex-shrink: 0;
+          }
+          .profile-info .name { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+          .profile-info .details { font-size: 14px; opacity: 0.9;}
+          .profile-stats {
+              display: flex;
+              justify-content: space-around;
+              background-color: white;
+              padding: 15px 0;
+              /* border-bottom: 1px solid #eee; */
+              box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+              margin: -30px 15px 15px 15px; /* Overlap header slightly */
+              border-radius: 10px;
+              position: relative; /* Ensure it's above other content */
+              z-index: 2;
+          }
+          .stat-item { text-align: center; }
+          .stat-item .value { font-size: 18px; font-weight: 600;}
+          .stat-item .label { font-size: 12px; color: #888; margin-top: 2px;}
+          .profile-menu { margin-top: 10px; }
+
+        /* Login/Register Screen Specifics */
+        .auth-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            padding: 40px;
+            box-sizing: border-box;
+        }
+        .auth-container .app-icon {
+             font-size: 60px;
+             color: #4A90E2;
+             margin-bottom: 15px;
+        }
+        .auth-container h1 {
+            color: #4A90E2;
+            margin-bottom: 30px;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .auth-container .form-group {
+             width: 100%;
+             padding: 0; /* Remove padding for this container */
+             margin-bottom: 15px;
+        }
+        .auth-container input {
+            width: 100%;
+            /* margin: 10px 0; */
+        }
+        .auth-container .button {
+            width: 100%;
+            margin: 20px 0 0 0;
+        }
+        .switch-auth {
+            margin-top: 25px;
+            font-size: 14px;
+            color: #666;
+        }
+        .switch-auth a {
+            color: #4A90E2;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        /* Toggle Switch CSS (Copied from previous) */
+         .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+         .switch input { opacity: 0; width: 0; height: 0; }
+         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; }
+         .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; }
+         input:checked + .slider { background-color: #4A90E2; }
+         input:checked + .slider:before { transform: translateX(22px); }
+         .slider.round { border-radius: 28px; }
+         .slider.round:before { border-radius: 50%; }
+
+        /* --- Helper Classes --- */
+        .text-center { text-align: center; }
+        .mt-1 { margin-top: 5px; }
+        .mt-2 { margin-top: 10px; }
+        .mb-1 { margin-bottom: 5px; }
+        .mb-2 { margin-bottom: 10px; }
+        .p-1 { padding: 5px; }
+        .p-2 { padding: 10px; }
+
+    </style>
+</head>
+<body>
+
+    <div class="iphone-frame">
+
+        <!-- ======================== LOGIN SCREEN ======================== -->
+        <div id="screen-login" class="screen active">
+             <div class="auth-container">
+                 <i class="fas fa-graduation-cap app-icon"></i>
+                <h1>歡迎使用 校園通</h1>
+                 <div class="form-group">
+                     <label for="login-email">電子郵件 (學校信箱)</label>
+                     <input type="email" id="login-email" placeholder="student@ntub.edu.tw">
+                 </div>
+                 <div class="form-group">
+                     <label for="login-password">密碼</label>
+                    <input type="password" id="login-password" placeholder="請輸入密碼">
+                 </div>
+                <a href="#screen-timetable" class="button">登入</a>
+                <div class="switch-auth">
+                    還沒有帳號？ <a href="#screen-register">立即註冊</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================== REGISTER SCREEN ======================== -->
+        <div id="screen-register" class="screen">
+             <div class="auth-container">
+                 <i class="fas fa-user-plus app-icon"></i>
+                <h1>建立您的帳號</h1>
+                <div class="form-group">
+                    <label for="reg-nickname">暱稱</label>
+                    <input type="text" id="reg-nickname" placeholder="顯示在個人資料和社群中">
+                </div>
+                 <div class="form-group">
+                     <label for="reg-email">電子郵件 (學校信箱)</label>
+                     <input type="email" id="reg-email" placeholder="student@ntub.edu.tw">
+                 </div>
+                  <div class="form-group">
+                     <label for="reg-password">密碼</label>
+                     <input type="password" id="reg-password" placeholder="至少 6 個字元">
+                 </div>
+                  <div class="form-group">
+                     <label for="reg-confirm-password">確認密碼</label>
+                    <input type="password" id="reg-confirm-password" placeholder="再次輸入密碼">
+                </div>
+                 <div class="form-group">
+                    <label for="reg-dept">系級</label>
+                    <select id="reg-dept">
+                        <option value="">請選擇</option>
+                        <option value="cs1">資訊工程系 一年級</option>
+                        <option value="cs2">資訊工程系 二年級</option>
+                        <option value="ba1">企業管理系 一年級</option>
+                        {/* Add more departments/years */}
+                    </select>
+                </div>
+                <a href="#screen-timetable" class="button">註冊</a>
+                <div class="switch-auth">
+                    已經有帳號了？ <a href="#screen-login">前往登入</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================== TIMETABLE SCREEN ======================== -->
+        <div id="screen-timetable" class="screen">
+            <div class="header">
+                <span class="left-icon"><a href="#screen-friend-timetable"><i class="fa-solid fa-user-group"></i></a></span>
+                <span class="header-title">我的課表</span>
+                <span class="right-icon"><a href="#screen-add-course"><i class="fa-solid fa-plus"></i></a></span>
+            </div>
+             <div class="weather-info">
+                 <span><i class="fa-solid fa-cloud-sun"></i> 今日天氣: 多雲 24°C</span>
+                 <button class="week-switcher">第 10 週 <i class="fa-solid fa-chevron-down" style="font-size: 10px; margin-left: 3px;"></i></button>
+             </div>
+
+            <div class="timetable-container">
+                <div class="timetable-grid">
+                    <!-- Headers -->
+                    <div class="grid-cell day-header"></div>
+                    <div class="grid-cell day-header">一</div>
+                    <div class="grid-cell day-header">二</div>
+                    <div class="grid-cell day-header">三</div>
+                    <div class="grid-cell day-header">四</div>
+                    <div class="grid-cell day-header">五</div>
+                    <div class="grid-cell day-header">六</div>
+                    <div class="grid-cell day-header">日</div>
+
+                    <!-- Time slots & Courses -->
+                    <div class="grid-cell time-label">08</div> <div class="grid-cell"></div> <div class="grid-cell"><div class="course-block" onclick="navigateTo('screen-course-detail')">作業系統<span class="location">綜科301</span></div></div> <div class="grid-cell"></div> <div class="grid-cell"><div class="course-block" onclick="navigateTo('screen-course-detail')">資料結構<span class="location">綜科205</span></div></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div>
+                    <div class="grid-cell time-label">09</div> <div class="grid-cell"></div> <div class="grid-cell"><div class="course-block" onclick="navigateTo('screen-course-detail')">作業系統<span class="location">綜科301</span></div></div> <div class="grid-cell"></div> <div class="grid-cell"><div class="course-block" onclick="navigateTo('screen-course-detail')">資料結構<span class="location">綜科205</span></div></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div>
+                    <div class="grid-cell time-label">10</div> <div class="grid-cell"><div class="course-block" onclick="navigateTo('screen-course-detail')">線性代數<span class="location">綜科101</span></div></div> <div class="grid-cell"></div> <div class="grid-cell"><div class="course-block" onclick="navigateTo('screen-course-detail')">微積分<span class="location">綜科102</span></div></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div>
+                    <div class="grid-cell time-label">11</div> <div class="grid-cell"><div class="course-block" onclick="navigateTo('screen-course-detail')">線性代數<span class="location">綜科101</span></div></div> <div class="grid-cell"></div> <div class="grid-cell"><div class="course-block" onclick="navigateTo('screen-course-detail')">微積分<span class="location">綜科102</span></div></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div>
+                    <div class="grid-cell time-label">12</div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div>
+                    <div class="grid-cell time-label">13</div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"><div class="course-block" onclick="navigateTo('screen-course-detail')" style="background-color: #ffe8cc;">程式設計<span class="location">計中101</span></div></div> <div class="grid-cell"></div> <div class="grid-cell"><div class="course-block" onclick="navigateTo('screen-course-detail')" style="background-color: #d1f7c4;">體育<span class="location">體育館</span></div></div> <div class="grid-cell"></div> <div class="grid-cell"></div>
+                    <div class="grid-cell time-label">14</div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"><div class="course-block" onclick="navigateTo('screen-course-detail')" style="background-color: #ffe8cc;">程式設計<span class="location">計中101</span></div></div> <div class="grid-cell"></div> <div class="grid-cell"><div class="course-block" onclick="navigateTo('screen-course-detail')" style="background-color: #d1f7c4;">體育<span class="location">體育館</span></div></div> <div class="grid-cell"></div> <div class="grid-cell"></div>
+                    {/* ... Add more time slots ... */}
+                    <div class="grid-cell time-label">15</div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div>
+                    <div class="grid-cell time-label">16</div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div> <div class="grid-cell"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================== COURSE DETAIL SCREEN ======================== -->
+        <div id="screen-course-detail" class="screen">
+             <div class="header">
+                 <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-chevron-left"></i></a></span>
+                 <span class="header-title">課程詳情</span>
+                 <span class="right-icon"><a href="#screen-edit-course"><i class="fa-solid fa-pen-to-square"></i></a></span>
+             </div>
+             <div class="content-padding" style="padding-top: 20px;">
+                 <h2 style="padding: 0; margin-bottom: 20px;">作業系統</h2>
+                 <div class="list-item-simple">
+                     <i class="fa-regular fa-clock icon"></i> 時間：星期二 08:00 - 09:50 (第 1-2 節)
+                 </div>
+                 <div class="list-item-simple">
+                     <i class="fa-solid fa-location-dot icon"></i> 地點：綜科 301
+                 </div>
+                 <div class="list-item-simple">
+                    <i class="fa-solid fa-user-tie icon"></i> 老師：陳大明 教授
+                 </div>
+                 <div class="list-item-simple">
+                     <i class="fa-solid fa-chalkboard-user icon"></i> 類型：資訊系 必修 (3學分)
+                 </div>
+                 <div class="list-item-simple">
+                     <i class="fa-solid fa-link icon"></i> 課程網址：<a href="#" style="color: #4A90E2;">moodle.ntub.edu.tw/...</a>
+                 </div>
+                  <h3 style="padding: 0; margin-top: 25px; margin-bottom: 10px;">共享此課程的好友 (2)</h3>
+                  <div class="list-item-simple">
+                      <i class="fa-regular fa-user icon"></i> 好友A (資工三), 好友B (資工三)
+                  </div>
+                  <h3 style="padding: 0; margin-top: 25px; margin-bottom: 10px;">天氣提示 (週二)</h3>
+                   <div class="list-item-simple" style="background-color: #fff3cd;">
+                       <i class="fas fa-umbrella icon" style="color: #856404;"></i> 當日可能下雨，建議攜帶雨具。
+                   </div>
+
+                 <a href="#" onclick="alert('刪除確認')" class="button button-danger" style="margin-top: 30px;">刪除課程</a>
+             </div>
+        </div>
+
+        <!-- ======================== ADD/EDIT COURSE SCREEN ======================== -->
+        <div id="screen-add-course" class="screen">
+             <div class="header">
+                 <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-xmark"></i></a></span>
+                 <span class="header-title">新增課程</span>
+                 <span class="right-icon"><a href="#" onclick="goBack()" style="font-size: 17px; font-weight: 600;">儲存</a></span>
+             </div>
+             <div style="padding-top: 20px;">
+                <div class="form-group">
+                     <label for="course-name">課程名稱 *</label>
+                     <input type="text" id="course-name" placeholder="例如：作業系統">
+                 </div>
+                 <div class="form-group">
+                     <label for="course-teacher">授課老師</label>
+                     <input type="text" id="course-teacher" placeholder="例如：陳教授">
+                 </div>
+                 <div class="form-group">
+                     <label for="course-location">上課地點 *</label>
+                     <input type="text" id="course-location" placeholder="例如：綜科 301">
+                 </div>
+                 <div class="form-group">
+                     <label for="course-day">星期 *</label>
+                     <select id="course-day">
+                         <option value="1">星期一</option>
+                         <option value="2">星期二</option>
+                         <option value="3">星期三</option>
+                         <option value="4">星期四</option>
+                         <option value="5">星期五</option>
+                         <option value="6">星期六</option>
+                         <option value="7">星期日</option>
+                     </select>
+                 </div>
+                 <div style="display: flex; gap: 15px; padding: 0 15px; margin-bottom: 20px;">
+                    <div style="flex: 1;">
+                        <label for="course-start-time">開始時間 *</label>
+                        <input type="time" id="course-start-time">
+                    </div>
+                    <div style="flex: 1;">
+                        <label for="course-end-time">結束時間 *</label>
+                        <input type="time" id="course-end-time">
+                    </div>
+                 </div>
+                  <div class="form-group">
+                     <label for="course-type">類型</label>
+                     <select id="course-type">
+                         <option value="required">必修</option>
+                         <option value="elective">選修</option>
+                         <option value="general">通識</option>
+                         <option value="other">其他</option>
+                     </select>
+                 </div>
+                 <div class="form-group">
+                     <label for="course-url">課程網址 (選填)</label>
+                     <input type="text" id="course-url" placeholder="http://...">
+                 </div>
+                 <div class="form-group">
+                    <label for="course-color">標籤顏色</label>
+                    <input type="color" id="course-color" value="#d6eaff" style="padding: 5px; height: 40px;">
+                 </div>
+             </div>
+        </div>
+         <div id="screen-edit-course" class="screen">
+             <!-- Similar to add course, but pre-filled -->
+             <div class="header">
+                 <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-xmark"></i></a></span>
+                 <span class="header-title">編輯課程</span>
+                 <span class="right-icon"><a href="#" onclick="goBack()" style="font-size: 17px; font-weight: 600;">儲存</a></span>
+             </div>
+              <div style="padding-top: 20px;">
+                 <div class="form-group">
+                    <label for="edit-course-name">課程名稱 *</label>
+                    <input type="text" id="edit-course-name" value="作業系統">
+                 </div>
+                 {/* ... other fields pre-filled ... */}
+                  <div class="form-group">
+                     <label for="edit-course-location">上課地點 *</label>
+                     <input type="text" id="edit-course-location" value="綜科 301">
+                 </div>
+             </div>
+         </div>
+
+         <!-- ======================== FRIEND TIMETABLE SCREEN ======================== -->
+        <div id="screen-friend-timetable" class="screen">
+             <div class="header">
+                 <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-chevron-left"></i></a></span>
+                 <span class="header-title">好友課表</span>
+                 <span class="right-icon"></span>
+             </div>
+             <div class="form-group" style="margin-top: 15px;">
+                 <select onchange="/* Logic to show selected friend's timetable */">
+                     <option value="">選擇好友查看課表</option>
+                     <option value="friendA">好友A (資工三)</option>
+                     <option value="friendB">好友B (國貿二)</option>
+                 </select>
+             </div>
+             <div class="timetable-container">
+                <h3 style="padding: 0; margin-bottom: 5px;">好友A 的課表</h3>
+                 <p class="text-center mt-1 mb-2" style="color: #888; font-size: 14px;">(模擬顯示好友A的課表)</p>
+                 <div class="timetable-grid">
+                    <div class="grid-cell day-header"></div> <div class="grid-cell day-header">一</div> ... <div class="grid-cell day-header">日</div>
+                    <div class="grid-cell time-label">08</div> <div class="grid-cell"><div class="course-block">國文</div></div> ...
+                     {/* Friend's timetable grid */}
+                 </div>
+             </div>
+             <div style="padding: 15px; margin-top: 10px;">
+                 <h3>共同空堂時間</h3>
+                 <div class="list-item-simple">星期一 10:00 - 12:00</div>
+                 <div class="list-item-simple">星期三 13:00 - 15:00</div>
+                 <div class="list-item-simple" style="color: #aaa;"> (無更多共同空堂)</div>
+             </div>
+        </div>
+
+
+        <!-- ======================== TASKS SCREEN ======================== -->
+        <div id="screen-tasks" class="screen">
+            <div class="header">
+                 <span class="left-icon"></span>
+                <span class="header-title">任務清單</span>
+                <span class="right-icon"><a href="#screen-add-task"><i class="fa-solid fa-plus"></i></a></span>
+            </div>
+            <div class="segmented-control" style="margin-top: 15px;">
+                <div class="segment active">待辦</div>
+                <div class="segment">已完成</div>
+                <div class="segment">依分類</div>
+            </div>
+            <div>
+                <h3 style="padding-bottom: 0;">作業 <i class="fa-solid fa-chevron-down" style="font-size: 12px; color: #aaa; margin-left: 5px;"></i></h3>
+                <div class="task-item" onclick="navigateTo('screen-edit-task')">
+                    <i class="fa-regular fa-circle task-checkbox"></i>
+                    <div class="task-details">
+                        <div class="task-title">完成 OS 作業 Chapter 3</div>
+                        <div class="task-subtitle">截止：明天 18:00 <i class="fa-regular fa-bell" style="margin-left: 5px;"></i></div>
+                    </div>
+                    <span class="task-priority priority-high">高</span>
+                </div>
+                <div class="task-item" onclick="navigateTo('screen-edit-task')">
+                    <i class="fa-regular fa-circle task-checkbox"></i>
+                    <div class="task-details">
+                        <div class="task-title">預習微積分 P.50-65</div>
+                        <div class="task-subtitle">截止：週三 23:59</div>
+                    </div>
+                     <span class="task-priority priority-medium">中</span>
+                </div>
+                 <h3 style="padding-bottom: 0;">生活 <i class="fa-solid fa-chevron-down" style="font-size: 12px; color: #aaa; margin-left: 5px;"></i></h3>
+                 <div class="task-item" onclick="navigateTo('screen-edit-task')">
+                     <i class="fa-regular fa-circle-check task-checkbox checked"></i>
+                     <div class="task-details">
+                         <div class="task-title completed">繳交社團費用 $500</div>
+                         <div class="task-subtitle">已完成 @ 05/10 14:30</div>
+                     </div>
+                 </div>
+                 <div class="task-item" onclick="navigateTo('screen-edit-task')">
+                    <i class="fa-regular fa-circle task-checkbox"></i>
+                    <div class="task-details">
+                        <div class="task-title">整理房間</div>
+                         <div class="task-subtitle">無截止日期</div>
+                    </div>
+                    <span class="task-priority priority-low">低</span>
+                </div>
+                 {/* Add more tasks/sections */}
+            </div>
+        </div>
+
+        <!-- ======================== ADD/EDIT TASK SCREEN ======================== -->
+        <div id="screen-add-task" class="screen">
+            <div class="header">
+                 <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-xmark"></i></a></span>
+                 <span class="header-title">新增任務</span>
+                 <span class="right-icon"><a href="#" onclick="goBack()" style="font-size: 17px; font-weight: 600;">儲存</a></span>
+             </div>
+              <div style="padding-top: 20px;">
+                <div class="form-group">
+                    <label for="task-title">任務標題 *</label>
+                    <input type="text" id="task-title" placeholder="例如：完成 OS 作業">
+                </div>
+                <div class="form-group">
+                    <label for="task-desc">說明 (選填)</label>
+                    <textarea id="task-desc" placeholder="詳細內容..."></textarea>
+                </div>
+                 <div class="form-group">
+                     <label for="task-due-date">截止日期</label>
+                     <input type="datetime-local" id="task-due-date">
+                 </div>
+                 <div class="form-group">
+                     <label for="task-reminder">提醒時間</label>
+                     <select id="task-reminder">
+                         <option value="none">不提醒</option>
+                         <option value="5m">截止前 5 分鐘</option>
+                         <option value="1h">截止前 1 小時</option>
+                         <option value="1d">截止前 1 天</option>
+                         <option value="custom">自訂...</option>
+                     </select>
+                 </div>
+                 <div class="form-group">
+                     <label for="task-category">分類</label>
+                     <select id="task-category">
+                         <option value="study">課業</option>
+                         <option value="life">生活</option>
+                         <option value="club">社團</option>
+                         <option value="other">其他</option>
+                         <option value="add_new">新增分類...</option>
+                     </select>
+                 </div>
+                 <div class="form-group">
+                    <label for="task-priority">優先級</label>
+                    <select id="task-priority">
+                        <option value="high">高</option>
+                        <option value="medium" selected>中</option>
+                        <option value="low">低</option>
+                    </select>
+                 </div>
+             </div>
+        </div>
+        <div id="screen-edit-task" class="screen">
+            <!-- Similar to add task, but pre-filled -->
+            <div class="header">
+                 <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-chevron-left"></i></a></span>
+                 <span class="header-title">編輯任務</span>
+                 <span class="right-icon"><a href="#" onclick="goBack()" style="font-size: 17px; font-weight: 600;">儲存</a></span>
+            </div>
+             <div style="padding-top: 20px;">
+                 <div class="form-group">
+                     <label for="edit-task-title">任務標題 *</label>
+                    <input type="text" id="edit-task-title" value="完成 OS 作業 Chapter 3">
+                 </div>
+                {/* ... other fields pre-filled ... */}
+                 <div class="form-group">
+                     <label for="edit-task-due-date">截止日期</label>
+                     <input type="datetime-local" id="edit-task-due-date" value="2024-05-15T18:00">
+                 </div>
+             </div>
+             <a href="#" onclick="alert('刪除確認')" class="button button-danger">刪除任務</a>
+        </div>
+
+
+        <!-- ======================== MARKETPLACE SCREEN ======================== -->
+        <div id="screen-marketplace" class="screen">
+            <div class="header">
+                 <span class="left-icon"></span>
+                <span class="header-title">二手市集</span>
+                <span class="right-icon"><a href="#screen-publish-item"><i class="fa-solid fa-plus"></i></a></span>
+            </div>
+            <div class="search-bar">
+                <input type="text" placeholder="搜尋二手書、物品...">
+            </div>
+             <div class="category-tabs">
+                <div class="category-tab active">全部</div>
+                <div class="category-tab">教科書</div>
+                <div class="category-tab">生活用品</div>
+                <div class="category-tab">3C 電子</div>
+                <div class="category-tab">宿舍專區</div>
+                <div class="category-tab">其他</div>
+             </div>
+            <div class="item-grid">
+                <div class="item-card" onclick="navigateTo('screen-item-detail')">
+                    <img src="https://via.placeholder.com/300x260/eee/999?text=課本" alt="Item Image">
+                    <div class="item-info">
+                        <div class="item-title">微積分課本 Calculus by Stewart (九成新)</div>
+                        <div class="item-price">$250</div>
+                        <div class="item-seller"><i class="fa-regular fa-user"></i> 賣家A (資工三)</div>
+                    </div>
+                </div>
+                <div class="item-card" onclick="navigateTo('screen-item-detail')">
+                    <img src="https://via.placeholder.com/300x260/eee/999?text=檯燈" alt="Item Image">
+                    <div class="item-info">
+                        <div class="item-title">IKEA 白色簡約檯燈 功能正常</div>
+                        <div class="item-price">$100</div>
+                        <div class="item-seller"><i class="fa-regular fa-user"></i> 賣家B (國貿二)</div>
+                    </div>
+                </div>
+                 <div class="item-card" onclick="navigateTo('screen-item-detail')">
+                    <img src="https://via.placeholder.com/300x260/eee/999?text=恐龍本" alt="Item Image">
+                    <div class="item-info">
+                        <div class="item-title">OS 作業系統 恐龍本 第十版 中文版 有筆記</div>
+                        <div class="item-price">$300</div>
+                        <div class="item-seller"><i class="fa-regular fa-user"></i> 賣家C (資工三)</div>
+                    </div>
+                </div>
+                 <div class="item-card" onclick="navigateTo('screen-item-detail')">
+                    <img src="https://via.placeholder.com/300x260/eee/999?text=計算機" alt="Item Image">
+                    <div class="item-info">
+                        <div class="item-title">工程計算機 Casio fx-991ES PLUS</div>
+                        <div class="item-price">$150</div>
+                        <div class="item-seller"><i class="fa-regular fa-user"></i> 賣家D (企管一)</div>
+                    </div>
+                </div>
+                {/* Add more items */}
+            </div>
+        </div>
+
+        <!-- ======================== ITEM DETAIL SCREEN ======================== -->
+        <div id="screen-item-detail" class="screen" style="padding-bottom: 0;"> {/* Remove padding for action bar */}
+             <div class="header transparent"> {/* Transparent header */}
+                 <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-chevron-left" style="background-color: rgba(0,0,0,0.3); color: white; padding: 5px; border-radius: 50%; font-size: 16px;"></i></a></span>
+                 <span class="header-title"></span>
+                 <span class="right-icon"><a href="#"><i class="fa-solid fa-share-nodes" style="background-color: rgba(0,0,0,0.3); color: white; padding: 5px; border-radius: 50%; font-size: 16px;"></i></a></span>
+             </div>
+             <div style="overflow-y: auto; flex-grow: 1; padding-bottom: 75px;"> {/* Scrollable area, space for action bar */}
+                <img class="item-detail-image" src="https://via.placeholder.com/375x250/eee/999?text=課本大圖" alt="Item Image">
+                <div class="item-detail-content">
+                    <div class="item-price">$250</div>
+                    <h2>微積分課本 Calculus by Stewart (九成新)</h2>
+                    <p class="description">經典微積分教科書，由 Stewart 編寫，第九版。書況保持良好，大概九成新，只有前兩章有少量鉛筆筆記，不影響閱讀。
+                    <br><br>適合微積分(一)、(二)課程使用。
+                    <br>可約時間在校內面交，綜科館或圖書館門口佳。</p>
+                    <div class="meta-info">分類：教科書 | 發佈時間：2 小時前</div>
+                </div>
+                <div class="seller-info">
+                    <img src="https://via.placeholder.com/45/ccc/fff?text=A" alt="Seller Avatar">
+                    <div>
+                        <div class="seller-name">賣家A</div>
+                        <div class="seller-details">資訊工程系 三年級 | 上線時間: 活躍</div>
+                    </div>
+                     <a href="#screen-profile-other" style="margin-left: auto; color: #4A90E2; font-size: 14px; text-decoration: none;">查看賣場 <i class="fa-solid fa-chevron-right"></i></a>
+                </div>
+                 <div style="padding: 15px;">
+                     <h3>位置</h3>
+                     <p style="font-size: 14px; color: #555;"><i class="fa-solid fa-location-dot"></i> 國立臺北商業大學 校區面交</p>
+                     {/* Simple map placeholder */}
+                     <img src="https://via.placeholder.com/345x150/eee/ccc?text=Map+Placeholder" style="width: 100%; border-radius: 8px; margin-top: 10px;">
+                 </div>
+             </div>
+             <div class="item-detail-actions">
+                <span class="wishlist-btn" onclick="this.classList.toggle('active')"><i class="fa-regular fa-heart"></i></span>
+                 <a href="#screen-chat-room" class="button"><i class="fa-regular fa-comments"></i> 聯絡賣家</a>
+             </div>
+        </div>
+
+        <!-- ======================== PUBLISH ITEM SCREEN ======================== -->
+        <div id="screen-publish-item" class="screen">
+             <div class="header">
+                 <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-xmark"></i></a></span>
+                 <span class="header-title">發佈商品</span>
+                 <span class="right-icon"><a href="#" onclick="goBack()" style="font-size: 17px; font-weight: 600;">發佈</a></span>
+             </div>
+              <div style="padding-top: 15px;">
+                  <div class="image-upload-area">
+                     <label style="padding: 0;">上傳照片 (第一張為封面)</label>
+                     <div class="image-preview-container">
+                        <div class="add-image-button"><i class="fa-solid fa-camera"></i></div>
+                         <div class="image-preview-item">
+                            <img src="https://via.placeholder.com/70/eee/999?text=1" alt="Preview 1">
+                         </div>
+                         {/* Add more previews dynamically */}
+                     </div>
+                 </div>
+
+                <div class="form-group">
+                    <label for="item-name">商品名稱 *</label>
+                    <input type="text" id="item-name" placeholder="例如：IKEA 黑色檯燈">
+                </div>
+                <div class="form-group">
+                    <label for="item-desc">商品描述 *</label>
+                    <textarea id="item-desc" placeholder="詳細說明商品狀況、新舊程度、交易方式等..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="item-price">價格 *</label>
+                    <input type="number" id="item-price" placeholder="NT$" min="0">
+                </div>
+                <div class="form-group">
+                    <label for="item-category">分類 *</label>
+                     <select id="item-category">
+                         <option value="">請選擇分類</option>
+                         <option value="book">教科書</option>
+                         <option value="supplies">生活用品</option>
+                         <option value="electronics">3C 電子</option>
+                         <option value="dorm">宿舍專區</option>
+                         <option value="other">其他</option>
+                     </select>
+                 </div>
+                  <div class="form-group">
+                     <label for="item-location">交易地點 *</label>
+                     <input type="text" id="item-location" placeholder="例如：校內面交、7-11 校門口">
+                 </div>
+             </div>
+        </div>
+
+
+        <!-- ======================== COMMUNITY SCREEN ======================== -->
+        <div id="screen-community" class="screen">
+            <div class="header">
+                 <span class="left-icon"></span>
+                <span class="header-title">社群</span>
+                <span class="right-icon"><a href="#screen-publish-post"><i class="fa-solid fa-pen-to-square"></i></a></span>
+            </div>
+             <div class="segmented-control" style="margin: 15px;">
+                <div class="segment active">探索</div>
+                <div class="segment">好友圈</div>
+                <div class="segment" onclick="navigateTo('screen-chat-list')">訊息 <span style="background-color: #e74c3c; color: white; font-size: 10px; padding: 1px 5px; border-radius: 8px; margin-left: 3px;">5</span></div>
+             </div>
+             <div style="padding: 0;"> {/* Remove padding for full-width cards */}
+                 <div class="post-card" onclick="navigateTo('screen-post-detail')">
+                     <div class="post-header">
+                         <img src="https://via.placeholder.com/40/A0D2DB/fff?text=A" alt="Avatar" class="post-avatar">
+                         <div class="post-author-info">
+                             <div class="post-author">同學A</div>
+                              <div class="post-meta">資訊二 · 15 分鐘前</div>
+                         </div>
+                         <i class="fa-solid fa-ellipsis" style="color: #aaa; cursor: pointer;"></i>
+                     </div>
+                     <div class="post-content">
+                         有人知道明天作業系統要不要交報告嗎？助教上次好像沒說清楚...
+                     </div>
+                     <div class="post-actions">
+                         <span><i class="fa-regular fa-thumbs-up"></i> 5</span>
+                         <span><i class="fa-regular fa-comment"></i> 3</span>
+                         <span><i class="fa-regular fa-bookmark"></i> 收藏</span>
+                     </div>
+                 </div>
+
+                 <div class="post-card" onclick="navigateTo('screen-post-detail')">
+                     <div class="post-header">
+                         <div class="post-avatar anonymous"><i class="fa-solid fa-user-secret"></i></div>
+                         <div class="post-author-info">
+                             <div class="post-author">匿名</div>
+                             <div class="post-meta">1 小時前</div>
+                         </div>
+                         <i class="fa-solid fa-ellipsis" style="color: #aaa; cursor: pointer;"></i>
+                     </div>
+                     <div class="post-content">
+                         學校附近有沒有推薦的宵夜啊？最好是走路 10 分鐘內可以到的，感謝各位學長姐 🙏
+                     </div>
+                      {/* Example Image in Post */}
+                     <img src="https://via.placeholder.com/345x200/eee/999?text=美食圖片?" style="width: calc(100% + 30px); margin: 10px -15px 15px -15px; max-height: 250px; object-fit: cover;">
+                     <div class="post-actions">
+                         <span><i class="fa-regular fa-thumbs-up"></i> 12</span>
+                         <span><i class="fa-regular fa-comment"></i> 8</span>
+                         <span><i class="fa-regular fa-bookmark"></i> 收藏</span>
+                     </div>
+                 </div>
+                 {/* Add more posts */}
+             </div>
+        </div>
+
+        <!-- ======================== POST DETAIL SCREEN ======================== -->
+        <div id="screen-post-detail" class="screen" style="padding-bottom: 60px;"> {/* Space for comment input */}
+            <div class="header">
+                <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-chevron-left"></i></a></span>
+                <span class="header-title">貼文</span>
+                <span class="right-icon"><i class="fa-solid fa-ellipsis"></i></span> {/* More options: Report, etc. */}
+            </div>
+            <div class="comment-section" style="overflow-y: auto; flex-grow: 1;">
+                <div class="post-card" style="margin: 0; border: none;">
+                     <div class="post-header">
+                         <img src="https://via.placeholder.com/40/A0D2DB/fff?text=A" alt="Avatar" class="post-avatar">
+                         <div class="post-author-info">
+                             <div class="post-author">同學A</div>
+                              <div class="post-meta">資訊二 · 15 分鐘前</div>
+                         </div>
+                     </div>
+                     <div class="post-content" style="font-size: 17px;">
+                         有人知道明天作業系統要不要交報告嗎？助教上次好像沒說清楚... 講師上課說好像要，但又不太確定範圍，有人問過助教嗎？
+                     </div>
+                     <div class="post-actions" style="border-top: none; padding-top: 0;">
+                         <span><i class="fa-regular fa-thumbs-up"></i> 5 讚</span>
+                         <span><i class="fa-regular fa-bookmark"></i> 收藏</span>
+                     </div>
+                 </div>
+
+                 <h3 style="font-size: 15px; color: #666; border-top: 1px solid #eee; padding-top: 15px;">留言 (3)</h3>
+                 <div class="comment-item">
+                     <img src="https://via.placeholder.com/35/f7b7a3/fff?text=B" alt="Avatar" class="comment-avatar">
+                     <div class="comment-content">
+                         <div>
+                             <span class="comment-author">同學B</span>
+                             <span class="comment-time">5 分鐘前</span>
+                         </div>
+                         <div class="comment-text">我問了，助教說下禮拜才要交。</div>
+                         {/* Add reply button/like */}
+                     </div>
+                 </div>
+                 <div class="comment-item">
+                      <div class="comment-avatar anonymous"><i class="fa-solid fa-user-secret"></i></div>
+                     <div class="comment-content">
+                         <div>
+                             <span class="comment-author">匿名</span>
+                             <span class="comment-time">2 分鐘前</span>
+                         </div>
+                         <div class="comment-text">真的嗎？太好了！感謝樓上！</div>
+                     </div>
+                 </div>
+                 <div class="comment-item">
+                     <img src="https://via.placeholder.com/35/A0D2DB/fff?text=A" alt="Avatar" class="comment-avatar">
+                     <div class="comment-content">
+                         <div>
+                             <span class="comment-author">同學A</span> <span style="font-size: 12px; color: #4A90E2; background-color: #e9f5ff; padding: 1px 4px; border-radius: 4px;">作者</span>
+                             <span class="comment-time">1 分鐘前</span>
+                         </div>
+                         <div class="comment-text">收到，謝謝 B 同學！</div>
+                     </div>
+                 </div>
+                {/* More comments */}
+            </div>
+            <div class="comment-input-area">
+                 <input type="text" placeholder="新增留言...">
+                 <button>送出</button>
+            </div>
+        </div>
+
+        <!-- ======================== PUBLISH POST SCREEN ======================== -->
+        <div id="screen-publish-post" class="screen">
+            <div class="header">
+                <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-xmark"></i></a></span>
+                <span class="header-title">建立貼文</span>
+                <span class="right-icon"><a href="#" onclick="goBack()" style="font-size: 17px; font-weight: 600;">發佈</a></span>
+            </div>
+             <div class="form-group" style="padding: 15px; height: calc(100% - 120px); display: flex; flex-direction: column;">
+                 <textarea placeholder="分享你的校園新鮮事..." style="flex-grow: 1; border: none; padding: 0; margin: 0; width: 100%; box-sizing: border-box; font-size: 17px; outline: none; resize: none;"></textarea>
+
+             </div>
+             <div style="border-top: 1px solid #eee; padding: 10px 15px;">
+                <i class="fa-solid fa-camera" style="font-size: 22px; color: #4A90E2; margin-right: 20px; cursor: pointer;"></i>
+                <i class="fa-solid fa-tags" style="font-size: 22px; color: #4A90E2; margin-right: 20px; cursor: pointer;"></i>
+                 <i class="fa-solid fa-location-dot" style="font-size: 22px; color: #4A90E2; cursor: pointer;"></i>
+                 {/* Add more icons */}
+                 <div style="float: right; display: flex; align-items: center;">
+                    <label for="anonymous-post" style="margin: 0 5px 0 0; font-size: 14px; color: #666;">匿名發文</label>
+                    <label class="switch" style="transform: scale(0.8);"> <input type="checkbox" id="anonymous-post"> <span class="slider round"></span> </label>
+                 </div>
+            </div>
+        </div>
+
+        <!-- ======================== CHAT LIST SCREEN ======================== -->
+        <div id="screen-chat-list" class="screen">
+            <div class="header">
+                <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-chevron-left"></i></a></span>
+                <span class="header-title">訊息</span>
+                 <span class="right-icon"><a href="#" title="新增群組"><i class="fa-solid fa-users"></i></a></span>
+            </div>
+            <div class="search-bar" style="top: 44px;">
+                <input type="text" placeholder="搜尋對話...">
+            </div>
+            <div style="padding-top: 54px;"> {/* Space for sticky search bar */}
+                <a href="#screen-chat-room" class="list-item" style="padding: 10px 15px;">
+                    <img src="https://via.placeholder.com/48/ccc/fff?text=A" alt="Avatar" style="width: 48px; height: 48px; border-radius: 50%; margin-right: 12px;">
+                    <div class="details">
+                        <div class="title" style="font-weight: 500;">賣家A (微積分課本)</div>
+                        <div class="subtitle" style="color: #333; font-weight: 500;">好的，明天下午綜科門口見。</div> {/* Highlight unread */}
+                    </div>
+                    <div style="text-align: right; flex-shrink: 0; margin-left: 10px;">
+                        <div style="font-size: 13px; color: #888;">下午 3:15</div>
+                        <span style="background-color: #4A90E2; color: white; font-size: 11px; padding: 2px 7px; border-radius: 10px; display: inline-block; margin-top: 5px; font-weight: 500;">1</span> {/* Unread count */}
+                    </div>
+                </a>
+                 <a href="#screen-chat-room" class="list-item" style="padding: 10px 15px;">
+                    <img src="https://via.placeholder.com/48/f7b7a3/fff?text=B" alt="Avatar" style="width: 48px; height: 48px; border-radius: 50%; margin-right: 12px;">
+                    <div class="details">
+                        <div class="title" style="font-weight: 500;">好友B</div>
+                        <div class="subtitle">明天幾點圖書館？</div>
+                    </div>
+                     <div style="text-align: right; flex-shrink: 0; margin-left: 10px;">
+                        <div style="font-size: 13px; color: #888;">昨天</div>
+                    </div>
+                </a>
+                 <a href="#screen-chat-room" class="list-item" style="padding: 10px 15px;">
+                    <div style="width: 48px; height: 48px; border-radius: 50%; margin-right: 12px; background: linear-gradient(45deg, #4A90E2, #86b7f3); display:flex; align-items: center; justify-content: center; flex-shrink: 0;"><i class="fa-solid fa-users" style="color: white; font-size: 22px;"></i></div>
+                    <div class="details">
+                        <div class="title" style="font-weight: 500;">專題討論群組 (5)</div>
+                        <div class="subtitle">同學C: @所有人 記得明天要開會...</div>
+                    </div>
+                     <div style="text-align: right; flex-shrink: 0; margin-left: 10px;">
+                        <div style="font-size: 13px; color: #888;">上午 10:30</div>
+                         <span style="background-color: #4A90E2; color: white; font-size: 11px; padding: 2px 7px; border-radius: 10px; display: inline-block; margin-top: 5px; font-weight: 500;">3</span>
+                    </div>
+                </a>
+                {/* More chats */}
+            </div>
+        </div>
+
+         <!-- ======================== CHAT ROOM SCREEN ======================== -->
+        <div id="screen-chat-room" class="screen" style="padding-bottom: 0;">
+            <div class="header">
+                <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-chevron-left"></i></a></span>
+                <span class="header-title">賣家A (微積分課本)</span>
+                <span class="right-icon"><a href="#"><i class="fa-solid fa-ellipsis-vertical"></i></a></span> {/* Chat options: View Profile, etc. */}
+            </div>
+            <div class="chat-messages-container">
+                 {/* Messages should be added here dynamically, from bottom up */}
+                 <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+                     <div class="chat-bubble chat-bubble-sent">好的，明天下午綜科門口見。</div>
+                 </div>
+                 <div style="display: flex; justify-content: flex-start; margin-bottom: 8px;">
+                    <div class="chat-bubble chat-bubble-received">那跟你約明天下午方便嗎？在綜科門口。</div>
+                 </div>
+                  <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+                     <div class="chat-bubble chat-bubble-sent">還在喔，大概九成新，只有一點點筆記。</div>
+                 </div>
+                 <div style="display: flex; justify-content: flex-start; margin-bottom: 8px;">
+                    <div class="chat-bubble chat-bubble-received">請問課本還在嗎？書況如何？</div>
+                 </div>
+                 {/* Date Separator Example */}
+                 <div style="text-align: center; color: #aaa; font-size: 12px; margin: 15px 0;">5月14日</div>
+             </div>
+            <div class="comment-input-area">
+                 <input type="text" placeholder="輸入訊息...">
+                 <button>送出</button>
+            </div>
+        </div>
+
+        <!-- ======================== PROFILE SCREEN ======================== -->
+        <div id="screen-profile" class="screen" style="background-color: #f0f0f0;"> {/* Lighter gray bg */}
+             <div class="header transparent"> {/* Transparent header initially */}
+                 <span class="left-icon"></span>
+                 <span class="header-title"></span> {/* Title hidden initially */}
+                 <span class="right-icon"><a href="#screen-settings" style="color: white;"><i class="fa-solid fa-gear"></i></a></span>
+             </div>
+             <div class="profile-screen-content" style="overflow-y: auto; flex-grow: 1;">
+                <div class="profile-header">
+                    <img src="https://via.placeholder.com/75/ddd/fff?text=Me" alt="Avatar" class="profile-avatar">
+                    <div class="profile-info">
+                        <div class="name">我的暱稱</div>
+                        <div class="details">資訊工程系 三年級</div>
+                    </div>
+                </div>
+                <div class="profile-stats">
+                    <div class="stat-item">
+                        <div class="value">5</div>
+                        <div class="label">刊登中</div>
+                    </div>
+                     <div class="stat-item">
+                        <div class="value">12</div>
+                        <div class="label">好友</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="value">8</div>
+                        <div class="label">我的貼文</div>
+                    </div>
+                </div>
+
+                <div class="profile-menu" style="background-color: white; border-radius: 10px; margin: 15px; overflow: hidden;">
+                    <a href="#screen-my-items" class="list-item">
+                        <i class="fa-solid fa-box-archive icon"></i>
+                        <span class="details title">我的刊登物品</span>
+                        <i class="fa-solid fa-chevron-right arrow"></i>
+                    </a>
+                     <a href="#screen-my-wishlist" class="list-item">
+                        <i class="fa-regular fa-heart icon"></i>
+                        <span class="details title">我的收藏</span>
+                        <i class="fa-solid fa-chevron-right arrow"></i>
+                    </a>
+                    <a href="#screen-friends" class="list-item">
+                        <i class="fa-solid fa-user-group icon"></i>
+                        <span class="details title">我的好友</span>
+                        <i class="fa-solid fa-chevron-right arrow"></i>
+                    </a>
+                     <a href="#screen-notifications" class="list-item">
+                         <i class="fa-regular fa-bell icon"></i>
+                        <span class="details title">通知中心</span>
+                         <span style="background-color: #e74c3c; color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px; margin-left: auto;">2</span> {/* Notification count */}
+                        <i class="fa-solid fa-chevron-right arrow" style="margin-left: 8px;"></i>
+                     </a>
+                 </div>
+
+                 <div class="profile-menu" style="background-color: white; border-radius: 10px; margin: 15px; overflow: hidden;">
+                     <a href="#" class="list-item">
+                         <i class="fa-regular fa-calendar-days icon"></i>
+                        <span class="details title">校園行事曆</span>
+                        <i class="fa-solid fa-chevron-right arrow"></i>
+                     </a>
+                     <a href="#" class="list-item">
+                         <i class="fa-regular fa-map icon"></i>
+                        <span class="details title">校園地圖</span>
+                        <i class="fa-solid fa-chevron-right arrow"></i>
+                     </a>
+                      <a href="#screen-settings" class="list-item">
+                         <i class="fa-solid fa-gear icon"></i>
+                        <span class="details title">設定</span>
+                        <i class="fa-solid fa-chevron-right arrow"></i>
+                     </a>
+                 </div>
+
+                 <a href="#screen-login" class="button button-danger" style="background-color: white; color: #e74c3c; margin: 30px 15px;">登出帳號</a>
+            </div>
+        </div>
+
+        <!-- ======================== MY ITEMS SCREEN ======================== -->
+        <div id="screen-my-items" class="screen">
+             <div class="header">
+                 <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-chevron-left"></i></a></span>
+                 <span class="header-title">我的刊登物品</span>
+                 <span class="right-icon"></span>
+             </div>
+              <div class="segmented-control" style="margin-top: 15px;">
+                <div class="segment active">刊登中 (5)</div>
+                <div class="segment">已售出 (2)</div>
+                <div class="segment">已下架 (1)</div>
+             </div>
+             <div class="item-grid">
+                 <div class="item-card"> {/* Can add edit/delete options here */}
+                    <img src="https://via.placeholder.com/300x260/eee/999?text=課本" alt="Item Image">
+                    <div class="item-info">
+                        <div class="item-title">微積分課本 (九成新)</div>
+                        <div class="item-price">$250</div>
+                        <div class="item-seller" style="color: #2ecc71; font-weight: 500;"><i class="fa-solid fa-check-circle"></i> 刊登中</div>
+                    </div>
+                     <div style="display: flex; border-top: 1px solid #eee;">
+                         <a href="#screen-publish-item" style="flex: 1; text-align: center; padding: 8px; font-size: 14px; color: #4A90E2; text-decoration: none; border-right: 1px solid #eee;">編輯</a>
+                         <a href="#" onclick="alert('下架確認')" style="flex: 1; text-align: center; padding: 8px; font-size: 14px; color: #e74c3c; text-decoration: none;">下架</a>
+                     </div>
+                </div>
+                 {/* More items */}
+                 <div class="item-card">
+                    <img src="https://via.placeholder.com/300x260/eee/999?text=檯燈" alt="Item Image">
+                     <div class="item-info">
+                        <div class="item-title">IKEA 白色檯燈</div>
+                        <div class="item-price">$100</div>
+                        <div class="item-seller" style="color: #2ecc71; font-weight: 500;"><i class="fa-solid fa-check-circle"></i> 刊登中</div>
+                    </div>
+                     <div style="display: flex; border-top: 1px solid #eee;">
+                         <a href="#screen-publish-item" style="flex: 1; text-align: center; padding: 8px; font-size: 14px; color: #4A90E2; text-decoration: none; border-right: 1px solid #eee;">編輯</a>
+                         <a href="#" onclick="alert('下架確認')" style="flex: 1; text-align: center; padding: 8px; font-size: 14px; color: #e74c3c; text-decoration: none;">下架</a>
+                     </div>
+                </div>
+             </div>
+        </div>
+
+         <!-- ======================== FRIENDS SCREEN ======================== -->
+         <div id="screen-friends" class="screen">
+            <div class="header">
+                 <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-chevron-left"></i></a></span>
+                 <span class="header-title">我的好友</span>
+                 <span class="right-icon"><a href="#screen-add-friend"><i class="fa-solid fa-user-plus"></i></a></span>
+             </div>
+              <div class="search-bar" style="top: 44px;">
+                 <input type="text" placeholder="搜尋好友...">
+             </div>
+              <div style="padding-top: 54px;">
+                 <h3 style="padding-bottom: 0;">好友邀請 (1)</h3>
+                  <div class="list-item">
+                     <img src="https://via.placeholder.com/40/e0a2f7/fff?text=C" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 10px;">
+                    <div class="details">
+                         <div class="title" style="font-weight: 500;">同學C</div>
+                          <div class="subtitle">企管一</div>
+                     </div>
+                      <button style="background-color: #4A90E2; color: white; border: none; padding: 6px 12px; border-radius: 15px; margin-left: 10px; font-size: 13px; cursor: pointer;">接受</button>
+                      <button style="background-color: #eee; color: #555; border: none; padding: 6px 12px; border-radius: 15px; margin-left: 5px; font-size: 13px; cursor: pointer;">拒絕</button>
+                 </div>
+
+                  <h3 style="padding-bottom: 0;">好友列表 (12)</h3>
+                <div class="list-item">
+                     <img src="https://via.placeholder.com/40/f7b7a3/fff?text=B" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 10px;">
+                    <div class="details">
+                         <div class="title" style="font-weight: 500;">好友B</div>
+                         <div class="subtitle">國貿二</div>
+                    </div>
+                     <i class="fa-regular fa-message" style="color: #4A90E2; margin-left: 15px; font-size: 20px; cursor: pointer;" onclick="navigateTo('screen-chat-room')"></i>
+                    <i class="fa-solid fa-ellipsis-vertical arrow" style="font-size: 16px; margin-left: 15px; cursor: pointer;"></i> {/* Options: Remove friend etc. */}
+                </div>
+                <div class="list-item">
+                     <img src="https://via.placeholder.com/40/ccc/fff?text=D" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 10px;">
+                    <div class="details">
+                         <div class="title" style="font-weight: 500;">同學D</div>
+                          <div class="subtitle">財金二</div>
+                     </div>
+                      <i class="fa-regular fa-message" style="color: #4A90E2; margin-left: 15px; font-size: 20px; cursor: pointer;" onclick="navigateTo('screen-chat-room')"></i>
+                      <i class="fa-solid fa-ellipsis-vertical arrow" style="font-size: 16px; margin-left: 15px; cursor: pointer;"></i>
+                </div>
+                 {/* Add more friends */} A-Z index might be useful here
+             </div>
+         </div>
+
+         <!-- ======================== ADD FRIEND SCREEN ======================== -->
+         <div id="screen-add-friend" class="screen">
+             <div class="header">
+                 <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-chevron-left"></i></a></span>
+                 <span class="header-title">新增好友</span>
+                 <span class="right-icon"></span>
+             </div>
+             <div class="search-bar" style="top: 44px;">
+                 <input type="text" placeholder="輸入好友暱稱或 Email 搜尋...">
+             </div>
+              <div style="padding-top: 64px;">
+                 {/* Search results appear here */}
+                  <p style="text-align: center; color: #888; margin-top: 30px; font-size: 14px;">輸入關鍵字開始搜尋用戶</p>
+                 {/* Example Result */}
+                 <div class="list-item" style="display: none;"> {/* Show when results appear */}
+                     <img src="https://via.placeholder.com/40/ccc/fff?text=D" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 10px;">
+                     <div class="details">
+                         <div class="title" style="font-weight: 500;">搜尋到的同學D</div>
+                         <div class="subtitle">財金二</div>
+                     </div>
+                     <button style="background-color: #4A90E2; color: white; border: none; padding: 6px 12px; border-radius: 15px; font-size: 13px; cursor: pointer;">發送邀請</button>
+                 </div>
+                 <div class="list-item" style="display: none;"> {/* Show when results appear */}
+                     <img src="https://via.placeholder.com/40/ccc/fff?text=E" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%; margin-right: 10px;">
+                     <div class="details">
+                         <div class="title" style="font-weight: 500;">搜尋到的同學E</div>
+                         <div class="subtitle">應外一</div>
+                     </div>
+                      <span style="font-size: 13px; color: #888;">邀請已發送</span>
+                 </div>
+             </div>
+         </div>
+
+         <!-- ======================== NOTIFICATIONS SCREEN ======================== -->
+        <div id="screen-notifications" class="screen">
+            <div class="header">
+                 <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-chevron-left"></i></a></span>
+                 <span class="header-title">通知中心</span>
+                 <span class="right-icon" style="font-size: 14px; font-weight: 400;"><a href="#" style="color: white;">全部標示已讀</a></span>
+            </div>
+            <div style="padding-top: 5px;">
+                 <div class="list-item-simple" style="background-color: #eaf6ff; border-left: 3px solid #4A90E2;"> {/* Unread style */}
+                     <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                        <i class="fa-regular fa-comment" style="color: #4A90E2; margin-right: 8px; width: 16px;"></i>
+                        <span style="font-weight: 600; font-size: 15px;">新留言</span>
+                        <span style="font-size: 12px; color: #888; margin-left: auto;">5 分鐘前</span>
+                     </div>
+                     <div style="font-size: 15px; padding-left: 24px;">同學B 在 "學校附近宵夜推薦" 貼文中回覆了你的留言：「那間牛肉麵真的不錯！」。</div>
+                 </div>
+                 <div class="list-item-simple" style="background-color: #eaf6ff; border-left: 3px solid #4A90E2;"> {/* Unread style */}
+                     <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                        <i class="fa-solid fa-receipt" style="color: #27ae60; margin-right: 8px; width: 16px;"></i>
+                        <span style="font-weight: 600; font-size: 15px;">交易訊息</span>
+                        <span style="font-size: 12px; color: #888; margin-left: auto;">1 小時前</span>
+                     </div>
+                     <div style="font-size: 15px; padding-left: 24px;">買家C 傳送了新訊息給你關於 "二手檯燈"。</div>
+                 </div>
+                 <div class="list-item-simple">
+                     <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                        <i class="fa-solid fa-user-plus" style="color: #f39c12; margin-right: 8px; width: 16px;"></i>
+                        <span style="font-weight: 600; font-size: 15px;">好友邀請</span>
+                        <span style="font-size: 12px; color: #888; margin-left: auto;">3 小時前</span>
+                     </div>
+                     <div style="font-size: 15px; padding-left: 24px;">同學C (企管一) 向你傳送了好友邀請。 <a href="#screen-friends" style="color: #4A90E2; text-decoration: none;">前往查看</a></div>
+                 </div>
+                 <div class="list-item-simple">
+                     <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                        <i class="fa-regular fa-calendar-check" style="color: #e74c3c; margin-right: 8px; width: 16px;"></i>
+                        <span style="font-weight: 600; font-size: 15px;">任務提醒</span>
+                        <span style="font-size: 12px; color: #888; margin-left: auto;">昨天 18:00</span>
+                     </div>
+                     <div style="font-size: 15px; padding-left: 24px;">"完成 OS 作業 Chapter 3" 已於 昨天 18:00 到期。</div>
+                 </div>
+                 {/* More notifications */}
+            </div>
+        </div>
+
+        <!-- ======================== SETTINGS SCREEN ======================== -->
+        <div id="screen-settings" class="screen" style="background-color: #f0f0f0;">
+            <div class="header">
+                <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-chevron-left"></i></a></span>
+                <span class="header-title">設定</span>
+                <span class="right-icon"></span>
+            </div>
+            <div style="padding-top: 15px;">
+                 <div class="profile-menu" style="background-color: white; border-radius: 10px; margin: 0 15px 15px 15px; overflow: hidden;">
+                    <a href="#screen-edit-profile" class="list-item">
+                         <i class="fa-regular fa-user-circle icon"></i>
+                        <span class="details title">編輯個人資料</span>
+                        <i class="fa-solid fa-chevron-right arrow"></i>
+                    </a>
+                    <a href="#" class="list-item"> {/* Link to change password screen */}
+                        <i class="fa-solid fa-lock icon"></i>
+                        <span class="details title">帳號與安全</span>
+                        <i class="fa-solid fa-chevron-right arrow"></i>
+                    </a>
+                 </div>
+
+                 <div class="profile-menu" style="background-color: white; border-radius: 10px; margin: 0 15px 15px 15px; overflow: hidden;">
+                     <div class="list-item">
+                        <i class="fa-regular fa-bell icon"></i>
+                        <span class="details title">通知設定</span>
+                        <label class="switch" style="margin-left: auto;"> <input type="checkbox" checked> <span class="slider round"></span> </label>
+                     </div>
+                      <div class="list-item">
+                         <i class="fa-solid fa-list-check icon"></i>
+                        <span class="details title">任務到期提醒</span>
+                         <label class="switch" style="margin-left: auto;"> <input type="checkbox" checked> <span class="slider round"></span> </label>
+                     </div>
+                      <div class="list-item">
+                         <i class="fa-regular fa-message icon"></i>
+                        <span class="details title">新訊息通知</span>
+                        <label class="switch" style="margin-left: auto;"> <input type="checkbox" checked> <span class="slider round"></span> </label>
+                     </div>
+                     {/* More granular notification settings could link to a sub-screen */}
+                 </div>
+
+                  <div class="profile-menu" style="background-color: white; border-radius: 10px; margin: 0 15px 15px 15px; overflow: hidden;">
+                     <a href="#" class="list-item">
+                        <i class="fa-solid fa-shield-halved icon"></i>
+                        <span class="details title">隱私權設定</span>
+                        <i class="fa-solid fa-chevron-right arrow"></i>
+                     </a>
+                      <a href="#" class="list-item">
+                        <i class="fa-solid fa-circle-info icon"></i>
+                        <span class="details title">關於 校園通</span>
+                        <i class="fa-solid fa-chevron-right arrow"></i>
+                     </a>
+                     <a href="#" class="list-item">
+                         <i class="fa-regular fa-star icon"></i>
+                        <span class="details title">評價 App</span>
+                        <i class="fa-solid fa-chevron-right arrow"></i>
+                     </a>
+                      <a href="#" class="list-item">
+                         <i class="fa-regular fa-life-ring icon"></i>
+                        <span class="details title">幫助與回饋</span>
+                        <i class="fa-solid fa-chevron-right arrow"></i>
+                     </a>
+                 </div>
+
+                 <div class="profile-menu" style="background-color: white; border-radius: 10px; margin: 0 15px 15px 15px; overflow: hidden;">
+                     <a href="#screen-login" class="list-item" style="justify-content: center; color: #e74c3c;">
+                        <span class="title" style="font-weight: 500;">登出帳號</span>
+                     </a>
+                 </div>
+            </div>
+        </div>
+
+        <!-- ======================== EDIT PROFILE SCREEN ======================== -->
+        <div id="screen-edit-profile" class="screen">
+            <div class="header">
+                 <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-xmark"></i></a></span>
+                 <span class="header-title">編輯個人資料</span>
+                 <span class="right-icon"><a href="#" onclick="goBack()" style="font-size: 17px; font-weight: 600;">儲存</a></span>
+             </div>
+              <div class="content-padding" style="text-align: center; padding-top: 30px;">
+                 <img src="https://via.placeholder.com/100/ddd/fff?text=Me" alt="Avatar" style="width: 100px; height: 100px; border-radius: 50%; margin: 0 auto 10px auto; display: block; cursor: pointer;">
+                  <a href="#" style="color: #4A90E2; text-decoration: none; font-size: 15px;">更換頭像</a>
+              </div>
+              <div style="padding-top: 20px;">
+                 <div class="form-group">
+                     <label for="profile-nickname">暱稱 *</label>
+                     <input type="text" id="profile-nickname" value="我的暱稱">
+                 </div>
+                 <div class="form-group">
+                     <label for="profile-dept">系級 *</label>
+                     <select id="profile-dept">
+                         <option value="cs1">資訊工程系 一年級</option>
+                         <option value="cs2">資訊工程系 二年級</option>
+                         <option value="cs3" selected>資訊工程系 三年級</option>
+                         {/* Add more */}
+                     </select>
+                 </div>
+                 <div class="form-group">
+                     <label for="profile-bio">個人簡介 (選填)</label>
+                     <textarea id="profile-bio" placeholder="介紹一下自己吧... (例如：興趣、專長)"></textarea>
+                 </div>
+                  <div class="form-group">
+                     <label>電子郵件 (不可更改)</label>
+                     <input type="email" value="s12345678@ntub.edu.tw" disabled style="background-color: #eee;">
+                 </div>
+              </div>
+        </div>
+
+        {/* Add other screens like My Wishlist, Other User Profile etc. as needed */}
+        <div id="screen-my-wishlist" class="screen">
+             <div class="header">
+                 <span class="left-icon"><a href="#" onclick="goBack()"><i class="fa-solid fa-chevron-left"></i></a></span>
+                 <span class="header-title">我的收藏</span>
+                 <span class="right-icon"></span>
+             </div>
+             <div class="item-grid" style="padding-top: 15px;">
+                 {/* Display bookmarked items, similar to marketplace grid */} 
+                  <div class="item-card" onclick="navigateTo('screen-item-detail')">
+                    <img src="https://via.placeholder.com/300x260/eee/999?text=計算機" alt="Item Image">
+                    <div class="item-info">
+                        <div class="item-title">工程計算機 Casio fx-991ES PLUS</div>
+                        <div class="item-price">$150</div>
+                        <div class="item-seller"><i class="fa-regular fa-user"></i> 賣家D (企管一)</div>
+                    </div>
+                </div>
+                 <p style="grid-column: 1 / -1; text-align: center; color: #888;">(顯示已收藏的商品)</p>
+             </div>
+        </div>
+
+
+        <!-- ======================== TAB BAR ======================== -->
+        <div class="tab-bar">
+            <a href="#screen-timetable" class="tab-item active" onclick="switchTab(this)">
+                <i class="fa-regular fa-calendar-days"></i>
+                <span>課表</span>
+            </a>
+            <a href="#screen-tasks" class="tab-item" onclick="switchTab(this)">
+                <i class="fa-solid fa-list-check"></i>
+                <span>任務</span>
+            </a>
+            <a href="#screen-marketplace" class="tab-item" onclick="switchTab(this)">
+                <i class="fa-solid fa-store"></i>
+                <span>市集</span>
+            </a>
+            <a href="#screen-community" class="tab-item" onclick="switchTab(this)">
+                <i class="fa-regular fa-comments"></i>
+                <span>社群</span>
+            </a>
+            <a href="#screen-profile" class="tab-item" onclick="switchTab(this)">
+                <i class="fa-regular fa-user-circle"></i>
+                <span>我的</span>
+            </a>
+        </div>
+
+    </div>
+
+    <script>
+        const screens = document.querySelectorAll('.screen');
+        const tabItems = document.querySelectorAll('.tab-item');
+        let historyStack = []; // Start empty, determine initial screen below
+
+        function navigateTo(screenId, isBack = false) {
+            console.log(`${isBack ? 'Going back to' : 'Navigating to'}: ${screenId}`);
+            const targetScreen = document.getElementById(screenId);
+
+            if (targetScreen) {
+                // Deactivate all screens first
+                screens.forEach(screen => screen.classList.remove('active'));
+                // Activate the target screen
+                targetScreen.classList.add('active');
+
+                // Update Tab Bar active state if navigating to a main tab screen
+                const isMainTab = Array.from(tabItems).some(tab => tab.getAttribute('href') === `#${screenId}`);
+                const tabBar = document.querySelector('.tab-bar');
+
+                if (isMainTab) {
+                    tabItems.forEach(tab => tab.classList.remove('active'));
+                    const activeTab = document.querySelector(`.tab-item[href="#${screenId}"]`);
+                    if (activeTab) {
+                        activeTab.classList.add('active');
+                    }
+                    if (tabBar) tabBar.style.display = 'flex'; // Ensure tab bar is shown for main tabs
+                     // When switching to a main tab, reset history to just that tab
+                     if (!isBack) { // Only reset if it's a forward navigation to a main tab
+                         historyStack = [`#${screenId}`];
+                         console.log("Reset history for main tab:", historyStack);
+                     }
+                } else {
+                    // For non-main tab screens, typically keep tab bar visible unless it's auth
+                     if (screenId === 'screen-login' || screenId === 'screen-register') {
+                         if (tabBar) tabBar.style.display = 'none';
+                     } else {
+                         if (tabBar) tabBar.style.display = 'flex';
+                         // Keep the previous tab highlighted? Or clear it?
+                         // Let's clear it for simplicity, or keep the last main tab active.
+                         // Current approach: Tab bar reflects the *last visited main tab screen*
+                         // Find the last main tab in history and activate it.
+                         const lastMainTabHash = [...historyStack].reverse().find(hash => Array.from(tabItems).some(tab => tab.getAttribute('href') === hash));
+                          tabItems.forEach(tab => tab.classList.remove('active'));
+                         if(lastMainTabHash) {
+                             const activeTab = document.querySelector(`.tab-item[href="${lastMainTabHash}"]`);
+                             if (activeTab) activeTab.classList.add('active');
+                         }
+
+                     }
+                }
+
+                // Manage history stack
+                if (!isBack) {
+                    // Avoid pushing duplicates if already the last element
+                    if (historyStack.length === 0 || historyStack[historyStack.length - 1] !== `#${screenId}`) {
+                        historyStack.push(`#${screenId}`);
+                    }
+                }
+
+                 // Scroll to top of the new screen
+                 targetScreen.scrollTop = 0;
+
+                 // Adjust header style (e.g., for profile or item detail)
+                 const header = targetScreen.querySelector('.header');
+                 if (header && header.classList.contains('transparent')) {
+                     targetScreen.querySelector('[style*="overflow-y: auto"]').onscroll = (e) => {
+                        if (e.target.scrollTop > 50) {
+                            header.style.backgroundColor = '#4A90E2'; // Solid color on scroll
+                            header.querySelector('.header-title').style.opacity = '1'; // Show title
+                            // Adjust icon colors if needed
+                            header.querySelectorAll('.left-icon a, .right-icon a').forEach(a => a.style.color = 'white');
+                        } else {
+                            header.style.backgroundColor = 'transparent';
+                             header.querySelector('.header-title').style.opacity = '0'; // Hide title
+                             // Reset icon colors for transparent header
+                             header.querySelectorAll('.left-icon a, .right-icon a').forEach(a => a.style.color = 'white'); // Assuming white icons on transparent is desired initially
+                             header.querySelectorAll('.left-icon i, .right-icon i').forEach(i => {
+                                // Example: Make icons stand out on transparent bg
+                                if (i.style.backgroundColor.includes('rgba(0,0,0,0.3)')) {
+                                     // Keep the background
+                                 } else {
+                                     // Reset or set default transparent style
+                                     i.style.color = 'white';
+                                 }
+                             });
+                        }
+                     };
+                 } else if (header) {
+                     // Ensure non-transparent headers have visible title etc.
+                     const title = header.querySelector('.header-title');
+                     if(title) title.style.opacity = '1';
+                     // Reset scroll listener if it exists from a previous transparent header screen
+                      const scrollableContent = targetScreen.querySelector('[style*="overflow-y: auto"]');
+                      if (scrollableContent) scrollableContent.onscroll = null;
+                 }
+
+
+                console.log("Current History:", historyStack);
+
+            } else {
+                console.error("Screen not found:", screenId);
+                 // Fallback to a default screen if target not found
+                 navigateTo('screen-timetable'); // Default to timetable if error
+            }
+        }
+
+        function goBack() {
+             if (historyStack.length > 1) {
+                 historyStack.pop(); // Remove current screen from history
+                 const previousScreenId = historyStack[historyStack.length - 1]; // Get the new last screen
+                 navigateTo(previousScreenId.substring(1), true); // Navigate, indicating it's a 'back' action
+             } else {
+                 console.log("No previous screen in history.");
+                  // If only one item (or zero) is left, maybe go to a default like timetable or login?
+                  // Or simply do nothing.
+                   if (historyStack.length === 1 && historyStack[0] !== '#screen-login') {
+                        // If the only screen left isn't login, go to login?
+                        // Or maybe the first tab?
+                        navigateTo('screen-timetable', true);
+                   } else if (historyStack.length === 0) {
+                       navigateTo('screen-login', true);
+                   }
+             }
+         }
+
+        function switchTab(tabElement) {
+            const targetScreenId = tabElement.getAttribute('href');
+            // Navigate to the tab's screen. navigateTo handles history reset for main tabs.
+            navigateTo(targetScreenId.substring(1));
+        }
+
+        // Initial setup on page load
+         document.addEventListener('DOMContentLoaded', () => {
+             const initialHash = window.location.hash;
+             let startScreenId = 'screen-login'; // Default to login
+
+             if (initialHash) {
+                 const potentialScreenId = initialHash.substring(1);
+                 if (document.getElementById(potentialScreenId)) {
+                     startScreenId = potentialScreenId;
+                 }
+             }
+
+             historyStack = [`#${startScreenId}`]; // Set initial history
+             navigateTo(startScreenId);
+             console.log("Initial load, History:", historyStack);
+
+             // Add basic checkbox toggle visual feedback for tasks
+             document.querySelectorAll('.task-checkbox').forEach(checkbox => {
+                 checkbox.addEventListener('click', (e) => {
+                      e.stopPropagation(); // Prevent triggering navigateTo if on task item
+                     checkbox.classList.toggle('fa-circle');
+                     checkbox.classList.toggle('fa-regular');
+                     checkbox.classList.toggle('fa-circle-check');
+                     checkbox.classList.toggle('checked');
+                     const taskItem = checkbox.closest('.task-item');
+                     const taskTitle = taskItem.querySelector('.task-title');
+                     if (taskTitle) {
+                         taskTitle.classList.toggle('completed');
+                     }
+                 });
+             });
+
+             // Segmented Control Logic (Example for Tasks)
+             document.querySelectorAll('#screen-tasks .segmented-control .segment').forEach(segment => {
+                 segment.addEventListener('click', function() {
+                    document.querySelectorAll('#screen-tasks .segmented-control .segment').forEach(s => s.classList.remove('active'));
+                    this.classList.add('active');
+                    // Add logic here to filter tasks based on the selected segment
+                    console.log('Task Segment Selected:', this.textContent);
+                 });
+             });
+             // Example for Marketplace Categories
+             document.querySelectorAll('.category-tabs .category-tab').forEach(tab => {
+                tab.addEventListener('click', function() {
+                    document.querySelectorAll('.category-tabs .category-tab').forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    // Add logic here to filter items
+                    console.log('Marketplace Category Selected:', this.textContent);
+                });
+             });
+             // Example for My Items Filter
+             document.querySelectorAll('#screen-my-items .segmented-control .segment').forEach(segment => {
+                 segment.addEventListener('click', function() {
+                    document.querySelectorAll('#screen-my-items .segmented-control .segment').forEach(s => s.classList.remove('active'));
+                    this.classList.add('active');
+                    console.log('My Items Segment Selected:', this.textContent);
+                 });
+             });
+         });
+
+         // Handle hash changes for potential deep linking (basic)
+         window.addEventListener('hashchange', () => {
+            const newHash = window.location.hash;
+            if (newHash && newHash !== historyStack[historyStack.length - 1]) {
+                 console.log("Hash changed to:", newHash);
+                 // This might interfere with back button logic, use carefully
+                 // navigateTo(newHash.substring(1));
+             }
+         });
+
+    </script>
+
+</body>
+</html>

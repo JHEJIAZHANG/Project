@@ -52,17 +52,28 @@ struct HomeView: View {
     // --- End Mock Data ---
 
     var body: some View {
-        // 保持 NavigationView 以便放置標題和可能的導航
         NavigationView {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) { // 調整間距
+                VStack(alignment: .leading, spacing: 20) {
 
-                    // 1. 歡迎標語和用戶頭像
+                    // 1. 歡迎標語和用戶頭像 + 課表入口
                     HStack {
                         Text("你好，\\(username)")
-                            .font(.system(size: 24, weight: .semibold)) // 調整字體大小和粗細
+                            .font(.system(size: 24, weight: .semibold))
                         Spacer()
-                        Image(systemName: "person.circle.fill") // 用戶頭像圖示
+                        
+                        // 新增：課表入口按鈕
+                        NavigationLink(destination: TimetableView()) {
+                            Image(systemName: "calendar")
+                                .font(.title2)
+                                .foregroundColor(.blue)
+                                .padding(8) // Add padding to increase tap area
+                                .background(Color.blue.opacity(0.1))
+                                .clipShape(Circle())
+                        }
+                        .padding(.trailing, 5)
+                        
+                        Image(systemName: "person.circle.fill")
                             .resizable()
                             .scaledToFit()
                             .frame(width: 40, height: 40)
@@ -116,10 +127,8 @@ struct HomeView: View {
                 }
                 .padding() // 為最外層 VStack 加上 padding
             }
-            // .navigationTitle("首頁") // 首頁通常不顯示標題
             .navigationBarHidden(true) // 隱藏導航欄
         }
-        // 移除舊的 .navigationBarTitleDisplayMode
     }
 }
 
