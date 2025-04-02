@@ -1,172 +1,208 @@
 import SwiftUI
 
+// --- 新增：模擬資料模型 - REMOVE THESE ---
+// 課程模型
+struct Course: Identifiable {
+    let id = UUID()
+    let name: String
+    let time: String
+    let location: String
+    let color: Color // 可選，用於課表顏色等
+}
+
+// 待辦事項模型 - REMOVE THIS
+/*
+struct TodoItem: Identifiable {
+    let id = UUID()
+    let title: String
+    let deadline: String // 簡化為字串表示
+    let priority: Priority
+    var isCompleted: Bool = false
+
+    enum Priority {
+        case high, medium, low
+        
+        var color: Color {
+            switch self {
+            case .high: return .red
+            case .medium: return .orange
+            case .low: return .blue
+            }
+        }
+    }
+}
+*/
+// --- Models Removed ---
+
 struct HomeView: View {
 
-    // --- Mock Data (模擬資料) ---
-    // 實際應用中，這些資料會從 ViewModel 或其他來源取得
-    @State private var currentUser = User(username: "學習者") // 假設的使用者名稱
-    @State private var todayStats = DailyStats(date: Date(), totalStudyTime: 3600 + 1800 + 300, studySessions: 3) // 1h 35m
-    @State private var learningPlans = [
-        LearningPlan(title: "完成 Swift 基礎語法", deadline: Calendar.current.date(byAdding: .day, value: 2, to: Date())),
-        LearningPlan(title: "閱讀 SwiftUI 文件第一章", isCompleted: true),
-        LearningPlan(title: "準備期中專案簡報", deadline: Calendar.current.date(byAdding: .day, value: 7, to: Date()))
+    // --- Mock Data (符合新設計) ---
+    @State private var username = "陳同學" // 原型中的使用者名稱
+    // 今日課程假資料
+    @State private var todayCourses: [Course] = [
+        Course(name: "資料庫系統", time: "10:00 - 12:00", location: "E201教室", color: .blue.opacity(0.7)),
+        Course(name: "網頁程式設計", time: "13:30 - 15:30", location: "E401教室", color: .green.opacity(0.7))
     ]
-    @State private var studyPartners = [
-        StudyPartner(username: "Alice", isOnline: true),
-        StudyPartner(username: "Bob", isOnline: false),
-        StudyPartner(username: "Charlie", isOnline: true)
-    ]
-    @State private var calendarEvents = [
-        CalendarEvent(title: "小組討論", startDate: Calendar.current.date(byAdding: .hour, value: 2, to: Date())!, endDate: Calendar.current.date(byAdding: .hour, value: 3, to: Date())!, color: Color.orange),
-        CalendarEvent(title: "演算法複習", startDate: Calendar.current.date(byAdding: .day, value: 1, to: Date())!, endDate: Calendar.current.date(byAdding: .day, value: 1, to: Date())!, color: Color.green)
+    // 待辦事項假資料 (現在使用 Models/TodoItem.swift)
+    @State private var upcomingTodos: [TodoItem] = [
+        // Use the full initializer from Models/TodoItem.swift
+        TodoItem(title: "資料庫系統作業", category: .study, dueDate: Calendar.current.date(bySettingHour: 23, minute: 59, second: 0, of: Date()), priority: .high),
+        TodoItem(title: "購買計算機概論教科書", category: .life, dueDate: Calendar.current.date(byAdding: .day, value: 2, to: Date()), priority: .medium)
     ]
     // --- End Mock Data ---
 
     var body: some View {
-        NavigationView { // 加入 NavigationView 以便放置標題
-            ScrollView { // 使用 ScrollView 讓內容可以滾動
-                VStack(alignment: .leading, spacing: 25) {
-                    
-                    // 1. 歡迎標語
-                    Text("你好，\(currentUser.username)！")
-                        .font(.largeTitle)
-                        .fontWeight(.bold)
-                        .padding(.bottom, 5)
+        // 保持 NavigationView 以便放置標題和可能的導航
+        NavigationView {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) { // 調整間距
 
-                    // 2. 今日統計
-                    GroupBox("今日統計") { // 使用 GroupBox 來區塊化
-                        HStack(spacing: 20) {
-                            StatItem(value: todayStats.totalStudyTime.formattedDuration(), label: "專注時間")
-                            Divider()
-                            StatItem(value: "\(todayStats.studySessions)", label: "學習次數")
-                        }
-                        .padding(.vertical, 5)
+                    // 1. 歡迎標語和用戶頭像
+                    HStack {
+                        Text("你好，\\(username)")
+                            .font(.system(size: 24, weight: .semibold)) // 調整字體大小和粗細
+                        Spacer()
+                        Image(systemName: "person.circle.fill") // 用戶頭像圖示
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 40, height: 40)
+                            .foregroundColor(.gray.opacity(0.5))
                     }
-                    
-                    // 3. 行事曆 (Placeholder)
-                    GroupBox("行事曆") {
+
+                    // 2. 天氣提醒
+                    HStack(spacing: 15) {
+                        Image(systemName: "cloud.rain.fill") // 天氣圖示 (根據實際情況更換)
+                            .font(.system(size: 24))
+                            .foregroundColor(.blue)
                         VStack(alignment: .leading) {
-                            Text("今日: \(Date(), style: .date)")
+                            Text("今日天氣提醒")
                                 .font(.headline)
-                                .padding(.bottom, 5)
-                            // TODO: 在這裡加入實際的行事曆元件
-                            Text("未來的行事曆元件...")
+                            Text("今天有雨，記得帶傘去上課！") // 提醒內容 (可動態生成)
+                                .font(.subheadline)
                                 .foregroundColor(.gray)
-                                .frame(maxWidth: .infinity, minHeight: 100)
-                                .background(Color(.systemGray6))
-                                .cornerRadius(8)
+                        }
+                        Spacer() // 將內容推向左側
+                    }
+                    .padding()
+                    .background(Color.blue.opacity(0.1)) // 淡藍色背景
+                    .cornerRadius(12)
+
+                    // 3. 今日課程
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("今日課程")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                        
+                        // 使用 ForEach 顯示課程卡片
+                        ForEach(todayCourses) { course in
+                            CourseCardView(course: course)
                         }
                     }
 
-                    // 4. 學習計畫
-                    GroupBox("學習計畫") {
-                        VStack(alignment: .leading) {
-                            ForEach(learningPlans) { plan in
-                                LearningPlanRow(plan: plan)
-                                if plan.id != learningPlans.last?.id {
-                                    Divider()
-                                }
-                            }
-                            // 可以加上「查看更多」按鈕
+                    // 4. 待辦事項
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text("待辦事項")
+                            .font(.title2)
+                            .fontWeight(.semibold)
+                            .padding(.top) // 與上方區塊增加間距
+
+                        // 使用 ForEach 顯示待辦事項卡片
+                        ForEach(upcomingTodos) { todo in
+                            TodoCardView(todo: todo)
                         }
                     }
 
-                    // 5. 學習夥伴
-                    GroupBox("學習夥伴") {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 15) {
-                                ForEach(studyPartners) { partner in
-                                    StudyPartnerIcon(partner: partner)
-                                }
-                            }
-                            .padding(.vertical, 5)
-                        }
-                    }
-                    
                     Spacer() // 將內容推到頂部
                 }
-                .padding() // 為 VStack 加上 padding
+                .padding() // 為最外層 VStack 加上 padding
             }
-            .navigationTitle("首頁") // 設定 Navigation Bar 標題
-            .navigationBarTitleDisplayMode(.inline) // 可以設為 .large 或 .inline
+            // .navigationTitle("首頁") // 首頁通常不顯示標題
+            .navigationBarHidden(true) // 隱藏導航欄
         }
+        // 移除舊的 .navigationBarTitleDisplayMode
     }
 }
 
-// --- Helper Views (輔助視圖) ---
+// --- 輔助視圖 (符合新設計) ---
 
-// 用於顯示單個統計數據
-struct StatItem: View {
-    let value: String
-    let label: String
-    
+// 課程卡片視圖
+struct CourseCardView: View {
+    let course: Course // This uses the 'Course' struct defined above (temporarily)
+
     var body: some View {
-        VStack {
-            Text(value)
-                .font(.title2)
-                .fontWeight(.semibold)
-            Text(label)
-                .font(.caption)
-                .foregroundColor(.gray)
+        VStack(alignment: .leading) {
+            HStack {
+                Text(course.name)
+                    .font(.headline)
+                Spacer()
+                Text(course.time)
+                    .font(.subheadline)
+                    .foregroundColor(.blue) // 時間用藍色表示
+            }
+            HStack {
+                Image(systemName: "mappin.and.ellipse")
+                Text(course.location)
+            }
+            .font(.subheadline)
+            .foregroundColor(.gray)
         }
-        .frame(maxWidth: .infinity) // 讓項目平均分配寬度
+        .padding()
+        .background(Color(.systemGray6)) // 卡片背景色
+        .cornerRadius(12)
     }
 }
 
-// 用於顯示單個學習計畫
-struct LearningPlanRow: View {
-    let plan: LearningPlan
-    
+// 待辦事項卡片視圖
+struct TodoCardView: View {
+    let todo: TodoItem // This now uses the global Models/TodoItem.swift
+
     var body: some View {
-        HStack {
-            Image(systemName: plan.isCompleted ? "checkmark.circle.fill" : "circle")
-                .foregroundColor(plan.isCompleted ? .green : .gray)
-            Text(plan.title)
-                .strikethrough(plan.isCompleted, color: .gray) // 完成的加上刪除線
-                .foregroundColor(plan.isCompleted ? .gray : .primary)
-            Spacer()
-            if let deadline = plan.deadline {
-                Text(deadline, style: .date)
-                    .font(.caption)
+        HStack(spacing: 15) {
+            // 優先級指示器 (圓點)
+            Circle()
+                .fill(todo.priority.color)
+                .frame(width: 10, height: 10)
+
+            // 方框 (模擬原型中的方框)
+            Rectangle()
+                .stroke(todo.priority.color, lineWidth: 2)
+                .frame(width: 20, height: 20)
+                .cornerRadius(4)
+                // TODO: 添加點擊完成的功能
+
+            VStack(alignment: .leading) {
+                Text(todo.title)
+                    .font(.headline)
+                    .strikethrough(todo.isCompleted) // 完成加刪除線
+                Text(todo.deadlineString)
+                    .font(.subheadline)
                     .foregroundColor(.gray)
             }
+            Spacer() // 將內容推向左側
         }
-        .padding(.vertical, 8)
+        .padding()
+        .background(Color(.systemGray6)) // 卡片背景色
+        .cornerRadius(12)
     }
 }
 
-// 用於顯示學習夥伴頭像
-struct StudyPartnerIcon: View {
-    let partner: StudyPartner
-    
-    var body: some View {
-        VStack {
-            ZStack(alignment: .bottomTrailing) {
-                // 使用系統圖標作為 Placeholder
-                Image(systemName: "person.circle.fill") 
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 50, height: 50)
-                    .foregroundColor(.gray)
-                    // 如果有 profileImageURL，可以使用 AsyncImage 載入
-                
-                // 在線狀態指示燈
-                Circle()
-                    .fill(partner.isOnline ? Color.green : Color.gray)
-                    .frame(width: 12, height: 12)
-                    .overlay(Circle().stroke(Color.white, lineWidth: 2))
-            }
-            Text(partner.username)
-                .font(.caption)
-        }
-    }
-}
+
+// --- 移除舊的 Helper Views ---
+/*
+struct StatItem: View { ... }
+struct LearningPlanRow: View { ... }
+struct StudyPartnerIcon: View { ... }
+*/
 
 // --- Preview ---
 #Preview {
-    // 在 Preview 中可以直接創建 HomeView
-    // TabView { // 可以預覽在 TabView 中的樣子
+    // 預覽 HomeView
+    HomeView()
+    // 可以包在 TabView 中預覽
+    /*
+    TabView {
         HomeView()
-    //    .tabItem { Label("首頁", systemImage: "house.fill") }
-    // }
+            .tabItem { Label("首頁", systemImage: "house.fill") }
+    }
+    */
 } 

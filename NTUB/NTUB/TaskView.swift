@@ -1,286 +1,257 @@
 import SwiftUI
 
+// MARK: - Main Task View
 struct TaskView: View {
-    @State private var selectedCategory: TaskCategory? = nil
-    @State private var showingAddTask = false
-    @State private var showingSchedule = false
-    @State private var isTimerRunning = false
-    @State private var remainingTime: TimeInterval = 25 * 60 // 25分鐘
-    @State private var selectedTask: Task? = nil
-    @State private var weatherInfo: String = "晴天 26°C"
-    
-    // 模擬資料
-    @State private var tasks = [
-        Task(title: "準備統計學報告", description: "第五章課堂報告", category: .study, estimatedDuration: 25 * 60),
-        Task(title: "閱讀經濟學教材", description: "第三章預習", category: .reading, estimatedDuration: 30 * 60),
-        Task(title: "體育課", description: "籃球課程", category: .exercise, estimatedDuration: 45 * 60),
-        Task(title: "小組專題", description: "資料庫設計", category: .work, estimatedDuration: 120 * 60)
+    @State private var selectedCategory: TodoItem.TodoCategory? = nil // nil for '全部'
+    @State private var showingAddTaskSheet = false
+
+    // --- Mock Data ---
+    @State private var todos: [TodoItem] = [
+        TodoItem(title: "資料庫系統作業", category: .study, dueDate: Calendar.current.date(bySettingHour: 23, minute: 59, second: 0, of: Date()), priority: .high),
+        TodoItem(title: "購買計算機概論教科書", category: .life, dueDate: Calendar.current.date(byAdding: .day, value: 2, to: Date()), priority: .medium),
+        TodoItem(title: "網頁程式設計小組討論", category: .study, dueDate: Calendar.current.date(byAdding: .day, value: 3, to: Date())?.addingTimeInterval(15*3600+30*60), priority: .low),
+        TodoItem(title: "繳交社團費用", category: .life, dueDate: Calendar.current.date(byAdding: .day, value: 5, to: Date()), priority: .medium),
+        TodoItem(title: "行動應用開發報告", category: .study, dueDate: Calendar.current.date(byAdding: .day, value: -1, to: Date()), isCompleted: true)
     ]
-    
-    var filteredTasks: [Task] {
-        if let category = selectedCategory {
-            return tasks.filter { $0.category == category }
+
+    // Filtered and Grouped Todos
+    var filteredTodos: [TodoItem] {
+        todos.filter { todo in
+            guard let category = selectedCategory else { return true } // Show all if nil
+            return todo.category == category
         }
-        return tasks
+    }
+
+    var groupedTodos: [String: [TodoItem]] {
+        Dictionary(grouping: filteredTodos.filter { !$0.isCompleted }) { todo in
+            if let dueDate = todo.dueDate, Calendar.current.isDateInToday(dueDate) {
+                return "今日"
+            } else if let dueDate = todo.dueDate, Calendar.current.isDateInWeekend(dueDate) { // Example: Future grouping
+                return "未來三天" // Simplified, can be more precise
+            } else {
+                 return "未來" // Catch all for other future dates
+            }
+        }
     }
     
+    var completedTodos: [TodoItem] {
+        filteredTodos.filter { $0.isCompleted }
+    }
+    
+    let todoSections = ["今日", "未來三天", "未來"]
+
     var body: some View {
         NavigationView {
-            VStack(spacing: 0) {
-                // 天氣與課程提醒
-                WeatherReminderView(weatherInfo: weatherInfo)
-                
-                // 類別選擇區
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 12) {
-                        Button(action: { showingSchedule = true }) {
-                            HStack {
-                                Image(systemName: "calendar")
-                                Text("課表")
-                            }
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(Color.orange)
-                            .foregroundColor(.white)
-                            .cornerRadius(20)
+            VStack(alignment: .leading, spacing: 0) {
+                // 1. Top Filter Buttons
+                HStack {
+                    // Category Filters
+                    HStack(spacing: 10) {
+                        FilterButton(title: "全部", isSelected: selectedCategory == nil) {
+                            selectedCategory = Optional<TodoItem.TodoCategory>.none
                         }
-                        
-                        CategoryButton(title: "全部", icon: "list.bullet", isSelected: selectedCategory == nil) {
-                            selectedCategory = nil
+                        FilterButton(title: "課業", isSelected: selectedCategory == .study) {
+                            selectedCategory = .study
                         }
-                        
-                        ForEach(TaskCategory.allCases, id: \.self) { category in
-                            CategoryButton(
-                                title: category.rawValue,
-                                icon: category.icon,
-                                isSelected: selectedCategory == category
-                            ) {
-                                selectedCategory = category
-                            }
+                        FilterButton(title: "生活", isSelected: selectedCategory == .life) {
+                            selectedCategory = .life
                         }
                     }
-                    .padding()
+                    Spacer()
+                    // Add Button
+                    Button { showingAddTaskSheet = true } label: {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.title)
+                            .foregroundColor(.blue)
+                    }
                 }
-                .background(Color(.systemBackground))
-                .overlay(
-                    Rectangle()
-                        .frame(height: 1)
-                        .foregroundColor(Color(.systemGray5)),
-                    alignment: .bottom
-                )
+                .padding()
+                .background(Color(.systemBackground)) // Match background
                 
-                // 任務列表
-                if isTimerRunning {
-                    // 專注計時器視圖
-                    FocusTimerView(
-                        isRunning: $isTimerRunning,
-                        remainingTime: $remainingTime,
-                        task: selectedTask
-                    )
-                } else {
-                    // 任務列表視圖
-                    ScrollView {
-                        LazyVStack(spacing: 12) {
-                            ForEach(filteredTasks) { task in
-                                TaskCard(task: task) {
-                                    selectedTask = task
-                                    isTimerRunning = true
-                                    remainingTime = task.estimatedDuration
+                // 2. Todo List
+                List {
+                    // Upcoming sections
+                    ForEach(todoSections, id: \.self) { sectionTitle in
+                         if let sectionTodos = groupedTodos[sectionTitle], !sectionTodos.isEmpty {
+                            Section(header: Text(sectionTitle).font(.title3).fontWeight(.semibold)) {
+                                ForEach(sectionTodos) { todo in
+                                     TodoRowView(todo: $todos[getIndex(for: todo)!]) // Use binding
                                 }
                             }
                         }
-                        .padding()
+                    }
+                    
+                    // Completed section
+                    if !completedTodos.isEmpty {
+                        Section(header: Text("已完成").font(.title3).fontWeight(.semibold)) {
+                             ForEach(completedTodos) { todo in
+                                 TodoRowView(todo: $todos[getIndex(for: todo)!]) // Use binding
+                            }
+                        }
                     }
                 }
+                .listStyle(PlainListStyle()) // Use PlainListStyle to remove default insets/background
             }
-            .navigationTitle("課表與任務")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showingAddTask = true }) {
-                        Image(systemName: "plus")
-                    }
-                }
-            }
-            .sheet(isPresented: $showingSchedule) {
-                ScheduleView()
-            }
-            .sheet(isPresented: $showingAddTask) {
-                AddTaskView()
+            .navigationTitle("待辦事項")
+            .navigationBarHidden(true) // Hide default nav bar as we have custom top bar
+            .sheet(isPresented: $showingAddTaskSheet) {
+                 AddTaskView(todos: $todos) // Pass binding to AddTaskView
             }
         }
     }
-}
-
-// 天氣提醒視圖
-struct WeatherReminderView: View {
-    let weatherInfo: String
     
-    var body: some View {
-        HStack {
-            Image(systemName: "cloud.sun.fill")
-                .foregroundColor(.orange)
-            Text(weatherInfo)
-            Spacer()
-            Text("下節課：程式設計 @E201")
-                .foregroundColor(.blue)
-        }
-        .padding()
-        .background(Color(.systemGray6))
+    // Helper to find the index of a todo item in the original array for binding
+    private func getIndex(for todo: TodoItem) -> Int? {
+        todos.firstIndex { $0.id == todo.id }
     }
 }
 
-// 課表視圖
-struct ScheduleView: View {
-    var body: some View {
-        Text("課表視圖")
-            .navigationTitle("我的課表")
-    }
-}
+// MARK: - Helper Views
 
-// 新增任務視圖
-struct AddTaskView: View {
-    var body: some View {
-        Text("新增任務")
-            .navigationTitle("新增任務")
-    }
-}
-
-// 類別按鈕元件
-struct CategoryButton: View {
+// Filter Button
+struct FilterButton: View {
     let title: String
-    let icon: String
     let isSelected: Bool
     let action: () -> Void
     
     var body: some View {
         Button(action: action) {
-            HStack {
-                Image(systemName: icon)
-                Text(title)
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(isSelected ? Color.blue : Color(.systemGray6))
-            .foregroundColor(isSelected ? .white : .primary)
-            .cornerRadius(20)
+            Text(title)
+                .font(.subheadline)
+                .padding(.horizontal, 15)
+                .padding(.vertical, 8)
+                .background(isSelected ? Color.blue : Color(.systemGray5))
+                .foregroundColor(isSelected ? .white : .primary)
+                .cornerRadius(20)
         }
     }
 }
 
-// 任務卡片元件
-struct TaskCard: View {
-    let task: Task
-    let action: () -> Void
-    
+// Todo Row View
+struct TodoRowView: View {
+    @Binding var todo: TodoItem
+
     var body: some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack {
-                    Image(systemName: task.category.icon)
-                        .foregroundColor(Color(task.category.color))
-                    Text(task.title)
-                        .font(.headline)
-                    Spacer()
-                    Image(systemName: "play.circle.fill")
-                        .foregroundColor(.blue)
-                        .imageScale(.large)
+        HStack(spacing: 15) {
+            // Checkbox
+            Image(systemName: todo.isCompleted ? "checkmark.circle.fill" : "circle")
+                .foregroundColor(todo.isCompleted ? .gray : todo.priority.color)
+                .font(.title2)
+                .onTapGesture {
+                    todo.isCompleted.toggle()
                 }
-                
-                if let description = task.description {
-                    Text(description)
+
+            // Title and Deadline
+            VStack(alignment: .leading) {
+                Text(todo.title)
+                    .font(.headline)
+                    .strikethrough(todo.isCompleted, color: .gray)
+                    .foregroundColor(todo.isCompleted ? .gray : .primary)
+                if let dueDate = todo.dueDate {
+                     Text(todo.deadlineString)
                         .font(.subheadline)
                         .foregroundColor(.gray)
                 }
-                
-                HStack {
-                    Text("預計時間：\(Int(task.estimatedDuration / 60))分鐘")
-                        .font(.caption)
-                        .foregroundColor(.gray)
-                    Spacer()
-                    Text(task.category.rawValue)
-                        .font(.caption)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color(task.category.color).opacity(0.2))
-                        .cornerRadius(8)
-                }
             }
-            .padding()
-            .background(Color(.systemBackground))
-            .cornerRadius(12)
-            .shadow(color: Color.black.opacity(0.1), radius: 5, x: 0, y: 2)
+
+            Spacer()
+
+            // Priority Tag
+            Text(todo.priority.rawValue)
+                .font(.caption)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(todo.priority.color.opacity(0.2))
+                .foregroundColor(todo.priority.color)
+                .cornerRadius(10)
         }
-        .buttonStyle(PlainButtonStyle())
+        .padding(.vertical, 8)
+        .opacity(todo.isCompleted ? 0.6 : 1.0) // Dim completed items
     }
 }
 
-// 專注計時器視圖
-struct FocusTimerView: View {
-    @Binding var isRunning: Bool
-    @Binding var remainingTime: TimeInterval
-    let task: Task?
+// MARK: - Add Task View (Placeholder for now, needs implementation)
+struct AddTaskView: View {
+    @Environment(\.presentationMode) var presentationMode
+    @Binding var todos: [TodoItem] // Receive the binding
     
-    let timer = Timer.publish(every: 1, on: .main, in: .common).autoconnect()
-    
+    // Add State variables for the form fields
+    @State private var taskTitle: String = ""
+    @State private var selectedCategory: TodoItem.TodoCategory = .study
+    @State private var selectedPriority: TodoItem.Priority = .medium
+    @State private var dueDate: Date = Date()
+    @State private var includeDate: Bool = false // Toggle for setting due date
+    @State private var selectedReminder: TodoItem.ReminderOption = .none
+    @State private var notes: String = ""
+
     var body: some View {
-        VStack(spacing: 30) {
-            Spacer()
-            
-            if let task = task {
-                Text(task.title)
-                    .font(.title2)
-                    .fontWeight(.medium)
-            }
-            
-            Text(timeString(from: remainingTime))
-                .font(.system(size: 60, weight: .bold, design: .rounded))
-                .monospacedDigit()
-            
-            HStack(spacing: 20) {
-                Button(action: { isRunning = false }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .resizable()
-                        .frame(width: 44, height: 44)
-                        .foregroundColor(.red)
-                }
-                
-                Button(action: {
-                    // TODO: 暫停/繼續計時
-                }) {
-                    Image(systemName: "pause.circle.fill")
-                        .resizable()
-                        .frame(width: 60, height: 60)
-                        .foregroundColor(.blue)
-                }
-                
-                Button(action: {
-                    // TODO: 完成任務
-                }) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .resizable()
-                        .frame(width: 44, height: 44)
-                        .foregroundColor(.green)
-                }
-            }
-            
-            Spacer()
-        }
-        .padding()
-        .onReceive(timer) { _ in
-            if remainingTime > 0 {
-                remainingTime -= 1
-            }
-        }
+         NavigationView {
+             // TODO: Implement the form based on prototype
+             Form {
+                 Section("任務資訊") {
+                     TextField("任務名稱", text: $taskTitle)
+                     Picker("分類", selection: $selectedCategory) {
+                         ForEach(TodoItem.TodoCategory.allCases) { cat in
+                             Text(cat.rawValue).tag(cat)
+                         }
+                     }
+                     Picker("優先級", selection: $selectedPriority) {
+                         ForEach(TodoItem.Priority.allCases) { prio in
+                             Text(prio.rawValue).tag(prio)
+                         }
+                     }
+                 }
+                 
+                 Section("時間與提醒") {
+                     Toggle("設定截止日期", isOn: $includeDate)
+                     if includeDate {
+                         DatePicker("截止日期", selection: $dueDate, displayedComponents: [.date, .hourAndMinute])
+                     }
+                     Picker("提醒", selection: $selectedReminder) {
+                         ForEach(TodoItem.ReminderOption.allCases, id: \.rawValue) { reminder in
+                             Text(reminder.rawValue).tag(reminder)
+                         }
+                     }
+                 }
+                 
+                 Section("備註") {
+                      TextField("輸入備註 (選填)", text: $notes, axis: .vertical)
+                          .lineLimit(3...)
+                 }
+                 
+                 Section {
+                     Button("添加任務") {
+                         addTask()
+                     }
+                 }
+             }
+             .navigationTitle("添加待辦事項")
+             .navigationBarItems(
+                 leading: Button("取消") {
+                     presentationMode.wrappedValue.dismiss()
+                 }
+             )
+         }
     }
     
-    private func timeString(from timeInterval: TimeInterval) -> String {
-        let minutes = Int(timeInterval) / 60
-        let seconds = Int(timeInterval) % 60
-        return String(format: "%02d:%02d", minutes, seconds)
+    private func addTask() {
+        guard !taskTitle.isEmpty else { /* show alert */ return }
+        
+        let newTodo = TodoItem(
+            title: taskTitle,
+            category: selectedCategory,
+            dueDate: includeDate ? dueDate : nil,
+            priority: selectedPriority,
+            reminder: selectedReminder,
+            notes: notes.isEmpty ? nil : notes
+        )
+        todos.append(newTodo)
+        presentationMode.wrappedValue.dismiss()
     }
 }
 
+
+// MARK: - Preview
 #Preview {
     TaskView()
 } 
