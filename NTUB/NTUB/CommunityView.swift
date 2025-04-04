@@ -59,78 +59,74 @@ struct CommunityView: View {
     }
 
     var body: some View {
-        NavigationView {
-            VStack(spacing: 0) {
-                // 1. Search Bar (Similar to Marketplace)
-                 HStack {
-                     TextField("搜尋話題...", text: $searchText)
-                         .padding(10)
-                         .padding(.leading, 30)
-                         .background(Color(.systemGray6))
-                         .cornerRadius(10)
-                         .overlay(
-                             HStack {
-                                 Image(systemName: "magnifyingglass")
-                                     .foregroundColor(.gray)
-                                     .padding(.leading, 8)
-                                 Spacer()
-                             }
-                         )
-                 }
-                 .padding(.horizontal)
-                 .padding(.bottom, 10)
-                 .padding(.top, -8) // 新增：給搜尋框負的 top padding 將其上移
+        VStack(spacing: 0) {
+            // 1. Search Bar (Similar to Marketplace)
+             HStack {
+                 TextField("搜尋話題...", text: $searchText)
+                     .padding(10)
+                     .padding(.leading, 30)
+                     .background(Color(.systemGray6))
+                     .cornerRadius(10)
+                     .overlay(
+                         HStack {
+                             Image(systemName: "magnifyingglass")
+                                 .foregroundColor(.gray)
+                                 .padding(.leading, 8)
+                             Spacer()
+                         }
+                     )
+             }
+             .padding(.horizontal)
+             .padding(.bottom, 10)
+             .padding(.top, -8) // 新增：給搜尋框負的 top padding 將其上移
 
-                // 2. Topic Pills (Similar to Marketplace Categories)
-                 ScrollView(.horizontal, showsIndicators: false) {
-                     HStack(spacing: 10) {
-                         ForEach(PostTopic.allCases) { topic in
-                             TopicPill(topic: topic, isSelected: selectedTopic == topic) {
-                                 selectedTopic = topic
-                             }
+            // 2. Topic Pills (Similar to Marketplace Categories)
+             ScrollView(.horizontal, showsIndicators: false) {
+                 HStack(spacing: 10) {
+                     ForEach(PostTopic.allCases) { topic in
+                         TopicPill(topic: topic, isSelected: selectedTopic == topic) {
+                             selectedTopic = topic
                          }
                      }
-                     .padding(.horizontal)
-                     .padding(.bottom, 15)
                  }
+                 .padding(.horizontal)
+                 .padding(.bottom, 15)
+             }
 
-                // 3. Posts List
-                List { // Use List for swipe actions later if needed
-                    ForEach($posts) { $post in // Use binding to allow interaction
-                        // Filter based on selected topic and search text
-                         if (selectedTopic == .all || post.topic == selectedTopic) &&
-                            (searchText.isEmpty || post.content.localizedCaseInsensitiveContains(searchText) || post.authorName.localizedCaseInsensitiveContains(searchText)) {
-                            
-                            PostCardView(post: $post) // Pass binding
-                                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)) // Adjust padding
-                                .listRowSeparator(.hidden) // Hide default separators
-                        }
+            // 3. Posts List
+            List { // Use List for swipe actions later if needed
+                ForEach($posts) { $post in // Use binding to allow interaction
+                    // Filter based on selected topic and search text
+                     if (selectedTopic == .all || post.topic == selectedTopic) &&
+                        (searchText.isEmpty || post.content.localizedCaseInsensitiveContains(searchText) || post.authorName.localizedCaseInsensitiveContains(searchText)) {
+                        
+                        PostCardView(post: $post) // Pass binding
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16)) // Adjust padding
+                            .listRowSeparator(.hidden) // Hide default separators
                     }
                 }
-                .listStyle(PlainListStyle())
-                .background(Color(.systemGray6)) // List background
             }
-            .navigationTitle("社群討論")
-            .navigationBarTitleDisplayMode(.inline)
-            .overlay(alignment: .bottomTrailing) { // Add Post Button
-                 Button {
-                     showingAddPostSheet = true
-                 } label: {
-                     Image(systemName: "pencil.circle.fill") // Changed icon to pencil
-                         .resizable()
-                         .frame(width: 50, height: 50)
-                         .foregroundColor(.blue)
-                         .background(.white)
-                         .clipShape(Circle())
-                         .shadow(radius: 5)
-                         .padding()
-                 }
-             }
-             .sheet(isPresented: $showingAddPostSheet) {
-                  // AddPostView(posts: $posts) // Pass binding later
-                  Text("Add Post Sheet Placeholder")
-             }
+            .listStyle(PlainListStyle())
+            .background(Color(.systemGray6)) // List background
         }
+        .overlay(alignment: .bottomTrailing) { // Add Post Button
+             Button {
+                 showingAddPostSheet = true
+             } label: {
+                 Image(systemName: "pencil.circle.fill") // Changed icon to pencil
+                     .resizable()
+                     .frame(width: 50, height: 50)
+                     .foregroundColor(.blue)
+                     .background(.white)
+                     .clipShape(Circle())
+                     .shadow(radius: 5)
+                     .padding()
+             }
+         }
+         .sheet(isPresented: $showingAddPostSheet) {
+              // AddPostView(posts: $posts) // Pass binding later
+              Text("Add Post Sheet Placeholder")
+         }
     }
 }
 
@@ -192,18 +188,15 @@ struct PostCardView: View {
 
             // Optional Image
             if let imageName = post.imageName {
-                 // Image Placeholder
-                 ZStack {
-                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color(.systemGray5))
-                        .aspectRatio(1.5, contentMode: .fit) // Adjust aspect ratio
-                     Image(systemName: imageName)
-                         .resizable()
-                         .scaledToFit()
-                         .frame(maxHeight: 150)
-                         .foregroundColor(.gray)
-                 }
-                 .padding(.vertical, 5)
+                 // 修改圖片佔位符：移除灰色背景，調整圖標
+                 Image(systemName: imageName) // 直接顯示 SF Symbol
+                     .resizable()
+                     .scaledToFit()
+                     .frame(maxWidth: .infinity)
+                     .frame(height: 180) // 給定一個大致高度
+                     .foregroundColor(Color(.systemGray3)) // 使用稍深的灰色
+                     .padding(.vertical, 5)
+                     .clipped() // 避免圖標超出邊界 (如果圖標比例奇怪)
             }
 
             // Footer: Likes, Comments, Bookmark
