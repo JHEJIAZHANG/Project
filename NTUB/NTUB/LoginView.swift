@@ -1,6 +1,7 @@
 import SwiftUI
 import Foundation
 import GoogleSignIn
+import LineSDK // 取消註解 LineSDK
 // import LineSDK // 註解掉
 
 struct LoginView: View {
@@ -99,14 +100,13 @@ struct LoginView: View {
                 .padding(.horizontal, 30)
                 .disabled(isLoading)
 
-                Button(action: handleFacebookLogin) {
+                Button(action: handleLineLogin) {
                     HStack(spacing: 10) {
-                        Image("facebook_logo")
+                        Image("line_logo")
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 12, height: 22)
-                            .colorInvert()
-                        Text("使用 Facebook 登入")
+                            .frame(width: 24, height: 24)
+                        Text("使用 LINE 登入")
                             .font(.headline)
                             .foregroundColor(.white)
                     }
@@ -114,7 +114,7 @@ struct LoginView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
-                .background(Color(red: 66/255, green: 103/255, blue: 178/255))
+                .background(Color(red: 0/255, green: 185/255, blue: 0/255))
                 .cornerRadius(10)
                 .padding(.horizontal, 30)
                 .padding(.top, 10)
@@ -429,7 +429,25 @@ struct LoginView: View {
         let non_field_errors: [String]? // Django REST framework 常見的非欄位錯誤
     }
 
-    // 處理 Facebook 登入的函數 (目前是空的)
+    // 新增 LINE 登入處理函數 (目前是 placeholder)
+    private func handleLineLogin() {
+        print("LINE 登入按鈕被點擊")
+        isLoading = true
+        // TODO: 實作 LINE SDK 登入邏輯
+        // 1. 初始化 LineSDK (可能需要在 App Delegate 或 Scene Delegate)
+        // 2. 調用 LoginManager.shared.login()
+        // 3. 在 App Delegate 或 Scene Delegate 或 .onOpenURL 中處理回調，獲取授權碼
+        // 4. 將授權碼發送到後端 /api/social-login/ 進行驗證和 Token 交換
+
+        // 暫時模擬失敗，顯示提示
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+             isLoading = false
+             alertMessage = "LINE 登入功能尚未完整實作。"
+             showingAlert = true
+        }
+    }
+
+    // 處理 Facebook 登入的函數 (保留或刪除)
     private func handleFacebookLogin() {
         print("Facebook 登入按鈕被點擊")
         // TODO: 實作 Facebook 登入邏輯

@@ -1,0 +1,40 @@
+# Ignore all files by default
+*
+
+# But do not ignore directories
+!*/
+
+# Specifically allow NTUB directory and its NTUB subdirectory
+!NTUB/
+!NTUB/NTUB/
+
+# Do not ignore the .gitignore file itself!
+!.gitignore
+
+# Ignore common macOS files
+.DS_Store
+
+# Ignore Python virtual environment
+.venv/
+venv/
+*.pyc
+__pycache__/
+
+# Ignore specific Xcode project files/folders NOT in NTUB/NTUB/
+NTUB/NTUB.xcodeproj/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+# Keep the rule below if you might have other .xcodeproj outside NTUB
+# *.xcodeproj/ 
+
+# Ignore backend folder and other root items
+student_platform_backend/
+UI/
+prototype/
+requirement.txt
+README.md
+
+# Ignore other potentially sensitive or large files
+*.log
+*.swp
+*~ 
