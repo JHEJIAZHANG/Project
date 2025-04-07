@@ -98,32 +98,39 @@ struct HomeView: View {
                     .background(Color.blue.opacity(0.1)) // 淡藍色背景
                     .cornerRadius(12)
 
-                    // 3. 今日課程
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("今日課程")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                        
-                        // 使用 ForEach 顯示課程卡片
-                        ForEach(todayCourses) { course in
-                            CourseCardView(course: course)
+                    // 3. 今日課程 (及後續內容)
+                    // 包裹課程、待辦等主要列表內容的 VStack
+                    VStack(alignment: .leading, spacing: 20) { // 可以調整 spacing
+                        // 3. 今日課程
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("今日課程")
+                                .font(.title2)
+                                .fontWeight(.semibold)
+                            
+                            // 使用 ForEach 顯示課程卡片
+                            ForEach(todayCourses) { course in
+                                CourseCardView(course: course)
+                            }
                         }
-                    }
 
-                    // 4. 待辦事項
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("待辦事項")
-                            .font(.title2)
-                            .fontWeight(.semibold)
-                            .padding(.top) // 與上方區塊增加間距
+                        // 4. 待辦事項
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("待辦事項")
+                                .font(.title2)
+                                .fontWeight(.semibold)
+                                .padding(.top) // 與上方區塊增加間距
 
-                        // 使用 ForEach 顯示待辦事項卡片
-                        ForEach(upcomingTodos) { todo in
-                            TodoCardView(todo: todo)
+                            // 使用 ForEach 顯示待辦事項卡片
+                            ForEach(upcomingTodos) { todo in
+                                TodoCardView(todo: todo)
+                            }
                         }
-                    }
 
-                    Spacer() // 將內容推到頂部
+                         Spacer() // 將內容推到頂部
+                    }
+                    .padding(.top, -10) // 新增：給這個 VStack 負的 top padding 將其上移
+
+                    // Spacer() // 移除原本位於此處的 Spacer
                 }
                 .padding() // 為最外層 VStack 加上 padding
             }
