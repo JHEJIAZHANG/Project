@@ -30,7 +30,7 @@ NTUB/NTUB.xcodeproj/
 # Ignore backend folder and other root items
 student_platform_backend/
 UI/
-prototype/
+# prototype/ # Commented out to allow tracking
 requirement.txt
 README.md
 
