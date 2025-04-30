@@ -4,6 +4,7 @@ import SwiftUI
 struct TaskView: View {
     @State private var selectedCategory: TodoItem.TodoCategory? = nil // nil for '全部'
     @State private var showingAddTaskSheet = false
+    @State private var todoToEdit: TodoItem? = nil // <<< 新增狀態變數追蹤編輯項目
 
     // --- Mock Data ---
     @State private var todos: [TodoItem] = [
@@ -75,7 +76,14 @@ struct TaskView: View {
                          if let sectionTodos = groupedTodos[sectionTitle], !sectionTodos.isEmpty {
                             Section(header: Text(sectionTitle).font(.title3).fontWeight(.semibold)) {
                                 ForEach(sectionTodos) { todo in
-                                     TodoRowView(todo: $todos[getIndex(for: todo)!]) // Use binding
+                                     Button {
+                                         if let index = getIndex(for: todo) { 
+                                             todoToEdit = todos[index] 
+                                         }
+                                     } label: {
+                                         TodoRowView(todo: $todos[getIndex(for: todo)!])
+                                     }
+                                     .buttonStyle(PlainButtonStyle()) // 移除按鈕樣式
                                 }
                             }
                         }
@@ -85,17 +93,27 @@ struct TaskView: View {
                     if !completedTodos.isEmpty {
                         Section(header: Text("已完成").font(.title3).fontWeight(.semibold)) {
                              ForEach(completedTodos) { todo in
-                                 TodoRowView(todo: $todos[getIndex(for: todo)!]) // Use binding
+                                 Button {
+                                     if let index = getIndex(for: todo) { 
+                                         todoToEdit = todos[index] 
+                                     }
+                                 } label: {
+                                     TodoRowView(todo: $todos[getIndex(for: todo)!]) 
+                                 }
+                                 .buttonStyle(PlainButtonStyle()) // 移除按鈕樣式
                             }
                         }
                     }
                 }
-                .listStyle(PlainListStyle()) // Use PlainListStyle to remove default insets/background
+                .listStyle(PlainListStyle()) 
+                .sheet(item: $todoToEdit) { todo in
+                    EditTaskView(originalTask: todo, todos: $todos)
+                }
             }
             .navigationTitle("待辦事項")
-            .navigationBarHidden(true) // Hide default nav bar as we have custom top bar
+            .navigationBarHidden(true) 
             .sheet(isPresented: $showingAddTaskSheet) {
-                 AddTaskView(todos: $todos) // Pass binding to AddTaskView
+                 AddTaskView(todos: $todos) 
             }
         }
     }
@@ -170,17 +188,17 @@ struct TodoRowView: View {
     }
 }
 
-// MARK: - Add Task View (Placeholder for now, needs implementation)
+// MARK: - Add Task View
 struct AddTaskView: View {
     @Environment(\.presentationMode) var presentationMode
-    @Binding var todos: [TodoItem] // Receive the binding
+    @Binding var todos: [TodoItem]
     
     // Add State variables for the form fields
     @State private var taskTitle: String = ""
     @State private var selectedCategory: TodoItem.TodoCategory = .study
     @State private var selectedPriority: TodoItem.Priority = .medium
-    @State private var dueDate: Date = Date()
-    @State private var includeDate: Bool = false // Toggle for setting due date
+    @State private var dueDate: Date = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: Calendar.current.date(byAdding: .day, value: 1, to: Date())!) ?? Date() // 預設為明天中午
+    @State private var includeDate: Bool = true // 預設開啟日期選擇
     @State private var selectedReminder: TodoItem.ReminderOption = .none
     @State private var notes: String = ""
 
@@ -249,7 +267,6 @@ struct AddTaskView: View {
         presentationMode.wrappedValue.dismiss()
     }
 }
-
 
 // MARK: - Preview
 #Preview {

@@ -471,49 +471,6 @@ struct RoundedTextFieldStyle: TextFieldStyle {
     }
 }
 
-struct MainTabView: View {
-    var body: some View {
-        TabView {
-            HomeView() // 首頁
-                .tabItem {
-                    Label("首頁", systemImage: "house.fill")
-                }
-
-            // 將社群移到第二個 Tab
-            NavigationView { 
-                 CommunityView() // 社群討論列表
-                 // ChatListView() 
-            }
-            .tabItem {
-                 Label("社群", systemImage: "message.fill")
-            }
-            
-            // 移除課表 Tab
-            /*
-            TimetableView() // 課表
-                .tabItem {
-                    Label("課表", systemImage: "calendar")
-                }
-            */
-            
-            TaskView() // 待辦 (現在是第三個)
-                .tabItem {
-                    Label("待辦", systemImage: "checklist")
-                }
-                
-            MarketplaceView() // 二手市集 (現在是第四個)
-                 .tabItem {
-                     Label("二手市集", systemImage: "storefront")
-                 }
-            
-            SettingsView() // 設定 (現在是第五個)
-                .tabItem {
-                    Label("設定", systemImage: "gear")
-                }
-        }
-    }
-}
-
 #Preview {
     LoginView()
 } 
