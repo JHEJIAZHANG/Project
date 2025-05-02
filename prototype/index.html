@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>NTUB App 原型</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="iphone-frame">
+        <div class="screen" id="screen-content">
+            <!-- Initial Screen: Login -->
+            <div class="view active" id="login-view">
+                <div class="login-container">
+                    <h1>登入 NTUB Life</h1>
+                    <input type="text" id="login-identifier" placeholder="學號或電子郵件">
+                    <input type="password" id="login-password" placeholder="密碼">
+                    <div class="forgot-password"><a href="#">忘記密碼？</a></div>
+                    <button class="login-btn" id="perform-login-btn">登入</button>
+                    <div class="divider"><span>或</span></div>
+                    <button class="social-btn google-btn"><i class="fab fa-google"></i> 使用 Google 登入</button>
+                    <button class="social-btn line-btn"><i class="fab fa-line"></i> 使用 LINE 登入</button>
+                    <div class="register-link">還沒有帳號？ <a href="#registration-view">立即註冊</a></div>
+                    <div class="dev-mode"><a href="#home-view">開發者模式：進入主畫面</a></div>
+                    <p id="login-error-message" class="error-message" style="display: none; color: red; margin-top: 10px;"></p>
+                </div>
+            </div>
+
+            <!-- Registration Screen -->
+            <div class="view" id="registration-view">
+                <div class="header">
+                    <a href="#login-view" class="back-btn"><i class="fas fa-arrow-left"></i> 返回</a>
+                    <h1>註冊</h1>
+                </div>
+                <div class="registration-container">
+                    <div class="form-section">
+                        <h2>帳號設定</h2>
+                        <input type="text" id="register-username" placeholder="使用者名稱 (英數)">
+                        <input type="email" id="register-email" placeholder="學校信箱 (@ntub.edu.tw)">
+                        <input type="password" id="register-password" placeholder="密碼 (至少8碼)">
+                        <input type="password" id="register-confirm-password" placeholder="確認密碼">
+                    </div>
+                    <div class="form-section">
+                        <h2>基本資料 (選填)</h2>
+                        <input type="text" id="register-first-name" placeholder="姓名">
+                        <input type="text" id="register-student-id" placeholder="學號">
+                    </div>
+                    <div class="terms">
+                        <input type="checkbox" id="terms">
+                        <label for="terms">我已閱讀並同意<a>服務條款</a>及<a>隱私權政策</a></label>
+                    </div>
+                    <button class="register-btn disabled" id="perform-register-btn">註冊</button>
+                    <p id="register-error-message" class="error-message" style="display: none; color: red; margin-top: 10px;"></p>
+                </div>
+            </div>
+
+            <!-- Main Tab View Content Area -->
+            <div class="view main-tab-view-content" id="main-tab-content">
+                 <!-- Content for each tab will be loaded here via JS -->
+            </div>
+
+            <!-- Tab Bar -->
+            <nav class="tab-bar" id="tab-bar" style="display: none;">
+                <a href="#home-view" class="tab-item active" data-target="home-view-content"><i class="fas fa-home"></i><span>首頁</span></a>
+                <a href="#timetable-view" class="tab-item" data-target="timetable-view-content"><i class="fas fa-calendar-alt"></i><span>課表</span></a>
+                <a href="#task-view" class="tab-item" data-target="task-view-content"><i class="fas fa-tasks"></i><span>任務</span></a>
+                <a href="#marketplace-view" class="tab-item" data-target="marketplace-view-content"><i class="fas fa-store"></i><span>市集</span></a>
+                <a href="#community-view" class="tab-item" data-target="community-view-content"><i class="fas fa-users"></i><span>社群</span></a>
+                <a href="#settings-view" class="tab-item" data-target="settings-view-content"><i class="fas fa-cog"></i><span>設定</span></a>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Hidden View Templates (Content for Tabs) -->
+    <div id="view-templates" style="display: none;">
+
+        <div class="tab-content" id="home-view-content">
+            <div class="home-container">
+                <header class="welcome-header">
+                    <h1 class="greeting">你好，[使用者名稱]</h1>
+                    <div class="header-icons">
+                        <button class="icon-button"><i class="fas fa-bell"></i></button>
+                        <button class="icon-button"><i class="fas fa-user-circle"></i></button>
+                    </div>
+                </header>
+                <div class="weather-reminder card">
+                    <i class="fas fa-cloud-sun"></i>
+                    <div>
+                        <h3>天氣提醒</h3>
+                        <p>今天天氣晴朗，適合出門活動！</p>
+                    </div>
+                </div>
+                <section class="section">
+                    <h2><i class="fas fa-calendar-day"></i> 今日課程</h2>
+                    <div class="course-card card">
+                        <div class="card-header">
+                            <span class="course-name">資料庫系統</span>
+                            <span class="time">10:00 - 12:00</span>
+                        </div>
+                        <div class="card-detail">
+                            <i class="fas fa-map-marker-alt"></i> E201教室
+                        </div>
+                            <div class="card-detail">
+                            <i class="fas fa-user-tie"></i> 陳老師
+                        </div>
+                    </div>
+                    <div class="course-card card">
+                        <div class="card-header">
+                            <span class="course-name">網頁程式設計</span>
+                            <span class="time">13:30 - 15:30</span>
+                        </div>
+                        <div class="card-detail">
+                            <i class="fas fa-map-marker-alt"></i> E401教室
+                        </div>
+                            <div class="card-detail">
+                            <i class="fas fa-user-tie"></i> 林老師
+                        </div>
+                    </div>
+                    <div class="view-more"><a href="#timetable-view">查看完整課表 <i class="fas fa-arrow-right"></i></a></div>
+                </section>
+                <section class="section">
+                    <h2><i class="fas fa-clipboard-list"></i> 待辦事項</h2>
+                    <div class="todo-card card">
+                        <span class="checkbox high"></span>
+                        <div class="todo-content">
+                            <h3>資料庫系統作業 Ch5</h3>
+                            <p><i class="far fa-calendar-times"></i> 今天 23:59 <span class="tag study">課業</span></p>
+                        </div>
+                        <i class="fas fa-ellipsis-v options-icon"></i>
+                    </div>
+                    <div class="todo-card card">
+                        <span class="checkbox medium"></span>
+                        <div class="todo-content">
+                            <h3>購買計算機概論教科書</h3>
+                            <p><i class="far fa-calendar-alt"></i> 2天後 <span class="tag personal">個人</span></p>
+                        </div>
+                        <i class="fas fa-ellipsis-v options-icon"></i>
+                    </div>
+                    <div class="view-more"><a href="#task-view">查看所有任務 <i class="fas fa-arrow-right"></i></a></div>
+                </section>
+                <section class="section">
+                    <h2><i class="fas fa-bullhorn"></i> 最新公告 / 熱門話題</h2>
+                    <div class="post-preview-card card">
+                        <div class="post-header">
+                            <i class="fas fa-user-circle profile-icon"></i>
+                            <span>王小明</span> <span class="time">· 1 小時前</span>
+                            <span class="tag food">美食推薦</span>
+                        </div>
+                        <p>學校後門新開的飲料店超好喝！推推！</p>
+                        <div class="post-footer-preview">
+                            <span><i class="far fa-heart"></i> 15</span>
+                            <span><i class="far fa-comment"></i> 4</span>
+                        </div>
+                    </div>
+                    <div class="post-preview-card card">
+                        <div class="post-header">
+                            <i class="fas fa-user-secret profile-icon-anon"></i>
+                            <span>匿名</span> <span class="time">· 3 小時前</span>
+                            <span class="tag study">課業討論</span>
+                        </div>
+                        <p>請問有人有去年計概的考古題嗎？急需！</p>
+                        <div class="post-footer-preview">
+                            <span><i class="far fa-heart"></i> 8</span>
+                            <span><i class="far fa-comment"></i> 2</span>
+                        </div>
+                    </div>
+                    <div class="view-more"><a href="#community-view">前往社群查看更多 <i class="fas fa-arrow-right"></i></a></div>
+                </section>
+            </div>
+        </div>
+
+        <div class="tab-content" id="timetable-view-content">
+            <header class="header">
+                <button class="icon-button"><i class="fas fa-chevron-left"></i></button>
+                <h1>我的課表</h1>
+                <button class="icon-button"><i class="fas fa-share-alt"></i></button>
+            </header>
+            <div class="timetable-controls">
+                <span><i class="fas fa-calendar-week"></i> 第 12 週</span>
+                <button>匯入課表</button>
+            </div>
+            <div class="timetable-grid">
+                <div class="time-labels">
+                    <div>08:00</div><div>09:00</div><div>10:00</div><div>11:00</div><div>12:00</div>
+                    <div>13:00</div><div>14:00</div><div>15:00</div><div>16:00</div><div>17:00</div><div>18:00</div>
+                </div>
+                <div class="day-columns">
+                    <div class="day-header">一</div><div class="day-header">二</div><div class="day-header">三</div><div class="day-header">四</div><div class="day-header">五</div>
+                    <div class="timetable-slot course-math" style="grid-row: 3 / span 2;">微積分<br>C101</div>
+                    <div class="timetable-slot course-db" style="grid-row: 5 / span 2;">資料庫<br>E201</div>
+                    <div class="timetable-slot course-web" style="grid-row: 6 / span 2;">網頁設計<br>E401</div>
+                    <div class="timetable-slot course-eng" style="grid-row: 2 / span 2;">英文<br>L303</div>
+                    <div class="timetable-slot course-lina" style="grid-row: 4 / span 2;">線代<br>C302</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="task-view-content">
+            <header class="header">
+                <button class="icon-button"><i class="fas fa-chevron-left"></i></button>
+                <h1>任務列表</h1>
+                <button class="icon-button"><i class="fas fa-filter"></i></button>
+            </header>
+            <div class="task-list">
+                <div class="task-item card">
+                    <span class="checkbox high"></span>
+                    <div class="task-content">
+                        <h3>完成微積分 Ch3 練習</h3>
+                        <p><i class="far fa-calendar-times"></i> 明天 18:00</p>
+                    </div>
+                    <span class="tag study">課業</span>
+                </div>
+                <div class="task-item card">
+                    <span class="checkbox medium"></span>
+                    <div class="task-content">
+                        <h3>吉他社迎新場地確認</h3>
+                        <p><i class="far fa-calendar-alt"></i> 3 天後</p>
+                    </div>
+                    <span class="tag club">社團</span>
+                </div>
+                <div class="task-item card completed">
+                    <span class="checkbox low checked"><i class="fas fa-check"></i></span>
+                    <div class="task-content">
+                        <h3>繳交宿舍費用</h3>
+                        <p><i class="far fa-calendar-check"></i> 已完成</p>
+                    </div>
+                    <span class="tag personal">個人</span>
+                </div>
+            </div>
+            <button class="add-button-placeholder"><i class="fas fa-plus"></i></button>
+        </div>
+
+        <div class="tab-content" id="marketplace-view-content">
+            <header class="header">
+                <button class="icon-button"><i class="fas fa-chevron-left"></i></button>
+                <h1>二手市集</h1>
+                <input type="search" placeholder="搜尋商品..." class="search-bar">
+            </header>
+            <div class="category-pills scrollable-pills">
+                <span class="pill active">全部</span>
+                <span class="pill">教科書</span>
+                <span class="pill">3C產品</span>
+                <span class="pill">生活用品</span>
+                <span class="pill">交通工具</span>
+                <span class="pill">租屋資訊</span>
+                <span class="pill">其他</span>
+            </div>
+            <div class="marketplace-grid">
+                <div class="item-card card">
+                    <div class="placeholder-image"><i class="fas fa-book"></i></div>
+                    <h3>九成新微積分課本 (含習題解答)</h3>
+                    <p class="price">$300</p>
+                    <span class="seller-info"><i class="fas fa-user-circle"></i> 張同學</span>
+                </div>
+                <div class="item-card card">
+                    <div class="placeholder-image"><i class="fas fa-lightbulb"></i></div>
+                    <h3>二手檯燈 (功能正常)</h3>
+                    <p class="price">$150</p>
+                    <span class="seller-info"><i class="fas fa-user-circle"></i> 李同學</span>
+                </div>
+                <div class="item-card card">
+                    <div class="placeholder-image"><i class="fas fa-laptop"></i></div>
+                    <h3>舊款 MacBook Air (M1)</h3>
+                    <p class="price">$15000</p>
+                    <span class="seller-info"><i class="fas fa-user-circle"></i> 王同學</span>
+                </div>
+            </div>
+            <button class="add-button-placeholder"><i class="fas fa-plus"></i></button>
+        </div>
+
+        <div class="tab-content" id="community-view-content">
+            <header class="header">
+                <button class="icon-button"><i class="fas fa-chevron-left"></i></button>
+                <h1>社群討論</h1>
+                <button class="icon-button"><i class="fas fa-pen-to-square"></i></button>
+            </header>
+            <div class="category-pills scrollable-pills">
+                <span class="pill active">全部</span>
+                <span class="pill study">課業</span>
+                <span class="pill life">生活</span>
+                <span class="pill clubs">社團</span>
+                <span class="pill food">美食</span>
+                <span class="pill gossip">閒聊</span>
+            </div>
+            <div class="post-list">
+                <div class="post-card card">
+                    <div class="post-header">
+                        <i class="fas fa-user-secret profile-icon-anon"></i>
+                        <div class="author-info">
+                            <span>匿名</span>
+                            <span class="time">2 小時前・<span class="tag study">課業</span></span>
+                        </div>
+                        <button class="options-button"><i class="fas fa-ellipsis-h"></i></button>
+                    </div>
+                    <div class="post-content">
+                        <p>請問有人修過林老師的網頁設計嗎？想知道評分方式大概是怎麼樣的？會不會很難過？</p>
+                    </div>
+                    <div class="post-footer">
+                        <button class="action-button"><i class="far fa-heart"></i> <span>5</span></button>
+                        <button class="action-button"><i class="far fa-comment"></i> <span>3</span></button>
+                        <button class="action-button"><i class="far fa-share-square"></i></button>
+                        <button class="action-button bookmark-button"><i class="far fa-bookmark"></i></button>
+                    </div>
+                </div>
+                <div class="post-card card">
+                    <div class="post-header">
+                        <i class="fas fa-user-circle profile-icon"></i>
+                        <div class="author-info">
+                            <span>王小明</span>
+                            <span class="time">4 小時前・<span class="tag food">美食</span></span>
+                        </div>
+                        <button class="options-button"><i class="fas fa-ellipsis-h"></i></button>
+                    </div>
+                    <div class="post-content">
+                        <p>推薦學校後門新開的咖啡廳！拿鐵很好喝，環境也很舒適，很適合讀書或跟朋友聊天。</p>
+                        <div class="placeholder-image"><i class="fas fa-image"></i><span> Image Placeholder</span></div>
+                    </div>
+                    <div class="post-footer">
+                        <button class="action-button liked"><i class="fas fa-heart"></i> <span>12</span></button>
+                        <button class="action-button"><i class="far fa-comment"></i> <span>8</span></button>
+                        <button class="action-button"><i class="far fa-share-square"></i></button>
+                        <button class="action-button bookmark-button bookmarked"><i class="fas fa-bookmark"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-content" id="settings-view-content">
+            <header class="header">
+                <button class="icon-button"><i class="fas fa-chevron-left"></i></button>
+                <h1>設定</h1>
+                <span></span>
+            </header>
+            <ul class="settings-list">
+                <li class="section-header">帳號</li>
+                <li><a href="#"><i class="fas fa-user-edit list-icon"></i> 個人資料管理</a></li>
+                <li><a href="#"><i class="fas fa-lock list-icon"></i> 更改密碼</a></li>
+                <li><a href="#"><i class="fab fa-google list-icon"></i> 綁定的社交帳號</a></li>
+
+                <li class="section-header">應用程式設定</li>
+                <li>
+                    <span><i class="fas fa-bell list-icon"></i> 通知設定</span>
+                    <label class="switch"><input type="checkbox" checked><span class="slider"></span></label>
+                </li>
+                <li>
+                    <span><i class="fas fa-palette list-icon"></i> 外觀主題</span>
+                    <select id="theme-select">
+                        <option value="system">跟隨系統</option>
+                        <option value="light">淺色</option>
+                        <option value="dark">深色</option>
+                    </select>
+                </li>
+                <li><a href="#"><i class="fas fa-language list-icon"></i> 語言</a></li>
+                <li><a href="#"><i class="fas fa-trash-alt list-icon"></i> 清除快取</a></li>
+
+                <li class="section-header">關於</li>
+                <li><a href="#"><i class="fas fa-info-circle list-icon"></i> 關於 NTUB Life</a></li>
+                <li><a href="#"><i class="fas fa-question-circle list-icon"></i> 常見問題 (FAQ)</a></li>
+                <li><a href="#"><i class="fas fa-file-contract list-icon"></i> 服務條款</a></li>
+                <li><a href="#"><i class="fas fa-user-shield list-icon"></i> 隱私權政策</a></li>
+
+                <li class="section-header"></li>
+                <li class="logout"><button id="logout-btn"><i class="fas fa-sign-out-alt"></i> 登出</button></li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        const screenContent = document.getElementById('screen-content');
+        const mainTabContent = document.getElementById('main-tab-content');
+        const tabBar = document.getElementById('tab-bar');
+        const viewTemplates = document.getElementById('view-templates');
+        const allViews = screenContent.querySelectorAll('.view:not(.main-tab-view-content)');
+        const allTabItems = tabBar.querySelectorAll('.tab-item');
+        const themeSelect = document.getElementById('theme-select');
+        const screenDiv = document.querySelector('.screen');
+
+        function showView(targetId) {
+            const isTabView = targetId.endsWith('-view-content');
+            const isInitialView = targetId === 'login-view' || targetId === 'registration-view';
+
+            allViews.forEach(v => v.classList.remove('active'));
+            mainTabContent.classList.remove('active');
+            tabBar.style.display = 'none';
+
+            if (isInitialView) {
+                const targetView = document.getElementById(targetId);
+                if (targetView) {
+                    targetView.classList.add('active');
+                }
+            } else if (isTabView) {
+                const template = viewTemplates.querySelector('#' + targetId);
+                if (template) {
+                    mainTabContent.innerHTML = template.innerHTML;
+                    mainTabContent.classList.add('active');
+                    tabBar.style.display = 'flex';
+
+                    const targetTabHref = '#' + targetId.replace('-content', '');
+                    allTabItems.forEach(item => {
+                        item.classList.toggle('active', item.getAttribute('href') === targetTabHref);
+                    });
+
+                    attachDynamicListeners();
+
+                } else {
+                    console.error("Template not found:", targetId);
+                    showView('login-view');
+                }
+            } else {
+                console.error("Unknown target view:", targetId);
+                showView('login-view');
+            }
+        }
+
+        document.addEventListener('click', function(event) {
+            let anchorElement = event.target.closest('a');
+            let buttonElement = event.target.closest('button');
+
+            if (anchorElement && anchorElement.getAttribute('href')?.startsWith('#')) {
+                event.preventDefault();
+                const targetId = anchorElement.getAttribute('href').substring(1);
+
+                const tabItem = anchorElement.closest('.tab-item');
+                if (tabItem && tabItem.dataset.target) {
+                    showView(tabItem.dataset.target);
+                }
+                else if (targetId === 'registration-view' || targetId === 'login-view'){
+                    showView(targetId);
+                }
+                else if (targetId === 'home-view') {
+                    showView('home-view-content');
+                } else {
+                    console.log("Unhandled anchor link:", targetId);
+                }
+            }
+            else if (buttonElement && buttonElement.id === 'logout-btn') {
+                console.log("Logout action triggered");
+                showView('login-view');
+            }
+            else if (buttonElement && buttonElement.id === 'perform-login-btn') {
+                console.log("Login button clicked");
+                showView('home-view-content');
+            }
+            else if (buttonElement && buttonElement.id === 'perform-register-btn') {
+                if (!buttonElement.classList.contains('disabled')) {
+                    console.log("Register button clicked");
+                    showView('login-view');
+                } else {
+                    console.log("Register button disabled");
+                }
+            }
+        });
+
+        function attachDynamicListeners() {
+            const currentThemeSelect = mainTabContent.querySelector('#theme-select');
+            if (currentThemeSelect) {
+                currentThemeSelect.value = localStorage.getItem('theme') || 'system';
+                currentThemeSelect.addEventListener('change', handleThemeChange);
+            }
+
+            mainTabContent.querySelectorAll('.action-button').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const icon = button.querySelector('i');
+                    if (icon) {
+                        if (icon.classList.contains('fa-heart')) {
+                            icon.classList.toggle('far');
+                            icon.classList.toggle('fas');
+                            button.classList.toggle('liked');
+                        } else if (icon.classList.contains('fa-bookmark')) {
+                            icon.classList.toggle('far');
+                            icon.classList.toggle('fas');
+                            button.classList.toggle('bookmarked');
+                        }
+                        console.log("Action button clicked:", button);
+                    }
+                });
+            });
+        }
+
+        function applyTheme(theme) {
+            screenDiv.classList.remove('light-mode', 'dark-mode');
+            if (theme === 'dark') {
+                screenDiv.classList.add('dark-mode');
+            } else if (theme === 'light') {
+                screenDiv.classList.add('light-mode');
+            } else {
+                const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (prefersDark) {
+                    screenDiv.classList.add('dark-mode');
+                } else {
+                    screenDiv.classList.add('light-mode');
+                }
+            }
+            localStorage.setItem('theme', theme);
+            console.log("Applied theme:", theme);
+        }
+
+        function handleThemeChange(event) {
+            applyTheme(event.target.value);
+        }
+
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+            const currentSetting = localStorage.getItem('theme') || 'system';
+            if (currentSetting === 'system') {
+                applyTheme('system');
+            }
+        });
+
+        applyTheme(localStorage.getItem('theme') || 'system');
+
+        const termsCheckbox = document.getElementById('terms');
+        const registerButton = document.getElementById('perform-register-btn');
+
+        function checkRegistrationButtonState() {
+            if (termsCheckbox && registerButton) {
+                if (termsCheckbox.checked) {
+                    registerButton.classList.remove('disabled');
+                    registerButton.disabled = false;
+                } else {
+                    registerButton.classList.add('disabled');
+                    registerButton.disabled = true;
+                }
+            }
+        }
+
+        if (termsCheckbox) {
+            termsCheckbox.addEventListener('change', checkRegistrationButtonState);
+        }
+        checkRegistrationButtonState();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            showView('login-view');
+        });
+
+    </script>
+</body>
+</html> 

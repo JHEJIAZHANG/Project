@@ -1,40 +1,39 @@
-# Ignore all files by default
-*
-
-# But do not ignore directories
-!*/
-
-# Specifically allow NTUB directory and its NTUB subdirectory
-!NTUB/
-!NTUB/NTUB/
-
-# Do not ignore the .gitignore file itself!
-!.gitignore
-
-# Ignore common macOS files
+# macOS
 .DS_Store
 
-# Ignore Python virtual environment
+# Python Virtual Environment
 .venv/
 venv/
 *.pyc
 __pycache__/
 
-# Ignore specific Xcode project files/folders NOT in NTUB/NTUB/
-NTUB/NTUB.xcodeproj/
-*.xcodeproj/project.xcworkspace/xcuserdata/
+# Xcode project files/folders to ignore
+# Avoid ignoring the main project.pbxproj inside NTUB/NTUB.xcodeproj
+*.xcodeproj/project.xcworkspace/
 *.xcodeproj/xcuserdata/
-# Keep the rule below if you might have other .xcodeproj outside NTUB
-# *.xcodeproj/ 
+xcuserdata/
 
-# Ignore backend folder and other root items
-student_platform_backend/
-UI/
-# prototype/ # Commented out to allow tracking
-requirement.txt
-README.md
+# Build products
+build/
+DerivedData/
 
-# Ignore other potentially sensitive or large files
+# Swift Package Manager
+/.build/
+/Packages/
+*.resolved
+
+# Logs and temporary files
 *.log
 *.swp
-*~ 
+*~
+
+# Backend folder (if in the same repo)
+student_platform_backend/
+
+# Other root items
+# prototype/ # Keep commented out if tracking needed
+# requirement.txt # If not needed in this repo
+
+# IDE specific files
+.idea/
+.vscode/
