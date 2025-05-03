@@ -91,7 +91,7 @@ struct SettingsView: View {
                     NavigationLink("關於 App", destination: AboutView())
                     NavigationLink("常見問題 (FAQ)", destination: FAQView())
                     NavigationLink("意見回饋 / 回報問題", destination: FeedbackView())
-                    NavigationLink("服務條款", destination: TermsView())
+                    NavigationLink("服務條款", destination: TermsView()) // Added TermsView link
                     NavigationLink("隱私政策", destination: PrivacyPolicyView())
                 }
 
