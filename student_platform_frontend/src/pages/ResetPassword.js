@@ -8,7 +8,7 @@ const ResetPassword = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     // 這裡可以加入密碼重設邏輯
-    console.log('嘗試重設密碼');
+    console.log('嘗試重設密碼：');
   };
 
   return (
@@ -55,3 +55,4 @@ const ResetPassword = () => {
 };
 
 export default ResetPassword;
+// tjiryyyyyyy
