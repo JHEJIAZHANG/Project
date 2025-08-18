@@ -1,0 +1,137 @@
+{
+    "type": "bubble",
+    "size": "giga",
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "contents": [
+        {
+          "type": "text",
+          "text": "早安, 可安",
+          "weight": "bold",
+          "color": "#1DB446",
+          "size": "sm"
+        },
+        {
+          "type": "text",
+          "text": "今日摘要",
+          "weight": "bold",
+          "size": "xxl",
+          "margin": "md"
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "contents": [
+            {
+              "type": "text",
+              "text": "2025年7月29日 星期二",
+              "size": "xs",
+              "color": "#aaaaaa",
+              "flex": 0
+            },
+            {
+              "type": "text",
+              "text": "共",
+              "size": "sm",
+              "color": "#aaaaaa",
+              "align": "end"
+            },
+            {
+              "type": "text",
+              "text": "3",
+              "size": "sm",
+              "color": "#aaaaaa",
+              "align": "end",
+              "flex": 0
+            },
+            {
+              "type": "text",
+              "text": "項行程",
+              "size": "sm",
+              "color": "#aaaaaa",
+              "align": "end",
+              "flex": 0
+            }
+          ]
+        },
+        {
+          "type": "separator",
+          "margin": "xxl"
+        },
+        {
+          "type": "box",
+          "layout": "vertical",
+          "margin": "xxl",
+          "spacing": "sm",
+          "contents": [
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "打羽球",
+                  "size": "md",
+                  "color": "#555555",
+                  "flex": 0
+                },
+                {
+                  "type": "text",
+                  "text": "9:00-11:00",
+                  "size": "md",
+                  "color": "#111111",
+                  "align": "end"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "和XX吃午餐",
+                  "size": "md",
+                  "color": "#555555",
+                  "flex": 0
+                },
+                {
+                  "type": "text",
+                  "text": "12:00-13:30",
+                  "size": "md",
+                  "color": "#111111",
+                  "align": "end"
+                }
+              ]
+            },
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "單元三閱讀心得",
+                  "size": "md",
+                  "color": "#555555",
+                  "flex": 0
+                },
+                {
+                  "type": "text",
+                  "text": "23:58-23:59",
+                  "size": "md",
+                  "color": "#111111",
+                  "align": "end"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "styles": {
+      "footer": {
+        "separator": true
+      }
+    }
+  }
