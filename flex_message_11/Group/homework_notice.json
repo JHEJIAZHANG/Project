@@ -1,0 +1,192 @@
+{
+  "type": "bubble",
+  "header": {
+    "type": "box",
+    "layout": "horizontal",
+    "contents": [
+      {
+        "type": "text",
+        "text": "新作業通知",
+        "weight": "bold",
+        "color": "#ffffff",
+        "size": "md"
+      },
+      {
+        "type": "text",
+        "text": "英文課",
+        "color": "#ffffff",
+        "weight": "bold",
+        "size": "md",
+        "align": "end"
+      }
+    ],
+    "backgroundColor": "#0367D3"
+  },
+  "body": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "contents": [
+          {
+            "type": "text",
+            "text": "NEW",
+            "size": "xs",
+            "align": "center",
+            "color": "#ffffff",
+            "gravity": "center"
+          }
+        ],
+        "position": "absolute",
+        "flex": 0,
+        "width": "48px",
+        "height": "25px",
+        "backgroundColor": "#EC3D44",
+        "cornerRadius": "100px",
+        "paddingAll": "2px",
+        "paddingStart": "4px",
+        "paddingEnd": "4px",
+        "offsetTop": "18px",
+        "offsetStart": "18px"
+      },
+      {
+        "type": "text",
+        "text": "📝",
+        "margin": "none",
+        "size": "3xl",
+        "align": "center"
+      },
+      {
+        "type": "text",
+        "text": "單元三閱讀心得",
+        "weight": "bold",
+        "size": "xl",
+        "margin": "md",
+        "align": "center"
+      },
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "contents": [
+          {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+              {
+                "type": "separator",
+                "margin": "lg"
+              }
+            ]
+          },
+          {
+            "type": "text",
+            "text": "截止日期",
+            "size": "sm",
+            "align": "center",
+            "weight": "bold"
+          },
+          {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+              {
+                "type": "separator",
+                "margin": "lg"
+              }
+            ]
+          }
+        ],
+        "margin": "xxl"
+      },
+      {
+        "type": "text",
+        "text": "9月1日 清晨7:59",
+        "color": "#ff5551",
+        "size": "sm",
+        "weight": "bold",
+        "align": "center",
+        "margin": "md"
+      },
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "contents": [
+          {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+              {
+                "type": "separator",
+                "margin": "lg"
+              }
+            ]
+          },
+          {
+            "type": "text",
+            "text": "作業說明",
+            "size": "sm",
+            "align": "center",
+            "weight": "bold"
+          },
+          {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+              {
+                "type": "separator",
+                "margin": "lg"
+              }
+            ]
+          }
+        ],
+        "margin": "xxl"
+      },
+      {
+        "type": "box",
+        "layout": "vertical",
+        "margin": "md",
+        "spacing": "sm",
+        "contents": [
+          {
+            "type": "text",
+            "text": "閱讀指定文章後撰寫 300 字以上心得，可含個人觀點與反思。",
+            "size": "sm",
+            "color": "#555555",
+            "wrap": true
+          }
+        ]
+      },
+      {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+          {
+            "type": "text",
+            "text": "前往Google Classroom",
+            "action": {
+              "type": "uri",
+              "label": "開啟作業",
+              "uri": "https://classroom.google.com/c/NzM4MjQ5NzQ5MDQ3/a/Nzg2NzkyMzMwMjYx/details"
+            },
+            "align": "center",
+            "gravity": "center",
+            "color": "#ffffff",
+            "weight": "bold"
+          }
+        ],
+        "backgroundColor": "#0367D3",
+        "cornerRadius": "md",
+        "margin": "xxl",
+        "paddingTop": "xl",
+        "paddingBottom": "xl"
+      }
+    ]
+  },
+  "styles": {
+    "footer": {
+      "separator": true
+    }
+  }
+}
