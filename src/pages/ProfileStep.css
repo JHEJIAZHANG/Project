@@ -1,0 +1,149 @@
+.profile-container {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 30px 20px;
+  text-align: center;
+}
+
+.profile-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: #1d1d1f;
+  margin-bottom: 30px;
+}
+
+.role-display {
+  background-color: #f2f2f7;
+  padding: 16px 20px;
+  border-radius: 12px;
+  margin-bottom: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.role-label {
+  font-size: 16px;
+  color: #6d6d70;
+}
+
+.role-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1d1d1f;
+}
+
+.input-group {
+  margin-bottom: 40px;
+  text-align: left;
+}
+
+.input-label {
+  display: block;
+  font-size: 16px;
+  font-weight: 500;
+  color: #1d1d1f;
+  margin-bottom: 8px;
+}
+
+.name-input {
+  width: 100%;
+  padding: 16px 20px;
+  font-size: 17px;
+  border: 2px solid #e5e5e7;
+  border-radius: 12px;
+  background-color: #ffffff;
+  color: #1d1d1f;
+  transition: all 0.3s ease;
+}
+
+.name-input:focus {
+  outline: none;
+  border-color: #007aff;
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
+}
+
+.name-input::placeholder {
+  color: #a1a1a6;
+}
+
+.button-group {
+  display: flex;
+  gap: 12px;
+}
+
+.back-button {
+  flex: 0 0 auto;
+  padding: 16px 20px;
+  background-color: #f2f2f7;
+  color: #007aff;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.3s ease;
+}
+
+.back-button:hover {
+  background-color: #e5e5ea;
+  transform: translateY(-1px);
+}
+
+.auth-button {
+  flex: 1;
+  padding: 16px 20px;
+  background-color: #007aff;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+}
+
+.auth-button:hover:not(:disabled) {
+  background-color: #0056d6;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 122, 255, 0.4);
+}
+
+.auth-button:disabled {
+  background-color: #a1a1a6;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+@media (max-width: 480px) {
+  .profile-container {
+    padding: 20px 15px;
+  }
+  
+  .profile-title {
+    font-size: 24px;
+  }
+  
+  .button-group {
+    flex-direction: column;
+  }
+  
+  .back-button {
+    order: 2;
+    justify-content: center;
+  }
+  
+  .auth-button {
+    order: 1;
+  }
+}
