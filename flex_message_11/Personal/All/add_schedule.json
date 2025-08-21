@@ -1,0 +1,114 @@
+{
+  "type": "bubble",
+  "body": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      {
+        "type": "text",
+        "text": "新行程",
+        "color": "#0367D3",
+        "weight": "bold",
+        "size": "sm"
+      },
+      {
+        "type": "text",
+        "text": "線上會議",
+        "weight": "bold",
+        "size": "xl",
+        "color": "#222222",
+        "wrap": true,
+        "margin": "sm"
+      },
+      {
+        "type": "text",
+        "text": "2025/09/28 04:00PM - 05:00PM",
+        "size": "sm",
+        "margin": "md",
+        "color": "#999999",
+        "wrap": true
+      },
+      {
+        "type": "text",
+        "text": "備註內容...",
+        "margin": "xl",
+        "color": "#222222",
+        "size": "sm",
+        "wrap": true
+      },
+      {
+        "type": "separator",
+        "margin": "xl"
+      },
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "contents": [
+          {
+            "type": "text",
+            "text": "地點",
+            "color": "#989898",
+            "size": "sm",
+            "flex": 2
+          },
+          {
+            "type": "text",
+            "text": "國立臺北商業大學",
+            "flex": 8,
+            "size": "sm",
+            "color": "#222222",
+            "wrap": true
+          }
+        ],
+        "margin": "xl"
+      },
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "contents": [
+          {
+            "type": "text",
+            "text": "參與者",
+            "color": "#989898",
+            "size": "sm",
+            "flex": 2
+          },
+          {
+            "type": "text",
+            "text": "attendees@gmail.com",
+            "flex": 8,
+            "size": "sm",
+            "color": "#0E71EB",
+            "wrap": true
+          }
+        ],
+        "margin": "md"
+      },
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "contents": [
+          {
+            "type": "text",
+            "text": "NEW",
+            "size": "xs",
+            "color": "#ffffff",
+            "align": "center",
+            "gravity": "center"
+          }
+        ],
+        "position": "absolute",
+        "flex": 0,
+        "width": "48px",
+        "height": "25px",
+        "backgroundColor": "#EC3D44",
+        "cornerRadius": "100px",
+        "offsetTop": "18px",
+        "offsetEnd": "18px",
+        "paddingAll": "2px",
+        "paddingStart": "4px",
+        "paddingEnd": "4px"
+      }
+    ]
+  }
+}

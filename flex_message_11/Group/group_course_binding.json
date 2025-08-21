@@ -1,0 +1,78 @@
+{
+    "type": "bubble",
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "contents": [
+        {
+          "type": "text",
+          "text": "群組綁定成功",
+          "size": "md",
+          "align": "center",
+          "weight": "bold",
+          "color": "#1DB446"
+        },
+        {
+          "type": "image",
+          "url": "https://img.icons8.com/?size=100&id=63262&format=png&color=000000",
+          "size": "xs",
+          "margin": "md"
+        },
+        {
+          "type": "text",
+          "text": " 1132行動應用開發",
+          "weight": "bold",
+          "align": "center",
+          "size": "xl",
+          "wrap": true,
+          "margin": "lg"
+        },
+        {
+          "type": "text",
+          "text": "課程代碼：49tkwkpw",
+          "size": "sm",
+          "weight": "bold",
+          "align": "center",
+          "margin": "md"
+        },
+        {
+          "type": "box",
+          "layout": "vertical",
+          "contents": [
+            {
+              "type": "text",
+              "text": "加入課程",
+              "color": "#FFFFFF",
+              "weight": "bold",
+              "align": "center",
+              "gravity": "center",
+              "size": "lg"
+            }
+          ],
+          "margin": "xxl",
+          "backgroundColor": "#1DB446",
+          "cornerRadius": "md",
+          "paddingTop": "xl",
+          "paddingBottom": "xl",
+          "action": {
+            "type": "uri",
+            "label": "action",
+            "uri": "https://classroom.google.com/h"
+          }
+        }
+      ]
+    },
+    "footer": {
+      "type": "box",
+      "layout": "vertical",
+      "contents": [
+        {
+          "type": "text",
+          "text": "綁定者 ABC",
+          "size": "sm",
+          "align": "center",
+          "color": "#999999"
+        }
+      ]
+    }
+  }

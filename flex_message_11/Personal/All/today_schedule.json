@@ -1,0 +1,269 @@
+{
+    "type": "bubble",
+    "size": "mega",
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "contents": [
+        {
+          "type": "text",
+          "text": "今日行程",
+          "weight": "bold",
+          "size": "xl"
+        },
+        {
+          "type": "text",
+          "text": "2025年8月21日 星期四",
+          "weight": "bold",
+          "color": "#1DB446",
+          "size": "sm",
+          "margin": "sm"
+        },
+        {
+          "type": "separator",
+          "margin": "xxl"
+        },
+        {
+          "type": "box",
+          "layout": "vertical",
+          "spacing": "sm",
+          "contents": [
+            {
+              "type": "box",
+              "layout": "vertical",
+              "contents": [
+                {
+                  "type": "box",
+                  "layout": "horizontal",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "9:00-11:00",
+                      "size": "md",
+                      "color": "#111111",
+                      "flex": 0,
+                      "weight": "bold"
+                    },
+                    {
+                      "type": "text",
+                      "text": "打羽球",
+                      "size": "md",
+                      "color": "#222222",
+                      "wrap": true,
+                      "margin": "sm",
+                      "weight": "bold"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "和A和B和C",
+                  "size": "xs",
+                  "margin": "md",
+                  "color": "#222222",
+                  "wrap": true
+                },
+                {
+                  "type": "box",
+                  "layout": "horizontal",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "地點",
+                      "size": "sm",
+                      "color": "#989898",
+                      "flex": 2
+                    },
+                    {
+                      "type": "text",
+                      "text": "運動中心",
+                      "flex": 8,
+                      "size": "sm",
+                      "color": "#222222",
+                      "wrap": true
+                    }
+                  ],
+                  "margin": "md"
+                },
+                {
+                  "type": "box",
+                  "layout": "horizontal",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "參與者",
+                      "size": "sm",
+                      "color": "#989898",
+                      "flex": 2
+                    },
+                    {
+                      "type": "text",
+                      "text": "abc@gmail.com \ndef@gmail.com",
+                      "flex": 8,
+                      "size": "sm",
+                      "color": "#0E71EB",
+                      "wrap": true
+                    }
+                  ],
+                  "margin": "md"
+                }
+              ],
+              "margin": "xl"
+            },
+            {
+              "type": "separator",
+              "margin": "xxl"
+            },
+            {
+              "type": "box",
+              "layout": "vertical",
+              "contents": [
+                {
+                  "type": "box",
+                  "layout": "horizontal",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "12:00-13:30",
+                      "size": "md",
+                      "color": "#111111",
+                      "flex": 0,
+                      "weight": "bold"
+                    },
+                    {
+                      "type": "text",
+                      "text": "和XX吃午餐",
+                      "size": "md",
+                      "color": "#222222",
+                      "wrap": true,
+                      "margin": "sm",
+                      "weight": "bold"
+                    }
+                  ]
+                },
+                {
+                  "type": "box",
+                  "layout": "horizontal",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "地點",
+                      "size": "sm",
+                      "color": "#989898",
+                      "flex": 2
+                    },
+                    {
+                      "type": "text",
+                      "text": "無",
+                      "flex": 8,
+                      "size": "sm",
+                      "color": "#222222",
+                      "wrap": true
+                    }
+                  ],
+                  "margin": "md"
+                },
+                {
+                  "type": "box",
+                  "layout": "horizontal",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "參與者",
+                      "size": "sm",
+                      "color": "#989898",
+                      "flex": 2
+                    },
+                    {
+                      "type": "text",
+                      "text": "abc@gmail.com",
+                      "flex": 8,
+                      "size": "sm",
+                      "color": "#0E71EB",
+                      "wrap": true
+                    }
+                  ],
+                  "margin": "md"
+                }
+              ],
+              "margin": "xl"
+            },
+            {
+              "type": "separator",
+              "margin": "xxl"
+            },
+            {
+              "type": "box",
+              "layout": "vertical",
+              "contents": [
+                {
+                  "type": "box",
+                  "layout": "horizontal",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "23:58-23:59",
+                      "size": "md",
+                      "color": "#111111",
+                      "flex": 0,
+                      "weight": "bold"
+                    },
+                    {
+                      "type": "text",
+                      "text": "單元三閱讀心得",
+                      "size": "md",
+                      "color": "#222222",
+                      "wrap": true,
+                      "margin": "sm",
+                      "weight": "bold"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "text": "閱讀指定文章後撰寫 300 字以上心得，可含個人觀點與反思。",
+                  "size": "xs",
+                  "margin": "md",
+                  "color": "#222222",
+                  "wrap": true
+                },
+                {
+                  "type": "box",
+                  "layout": "horizontal",
+                  "contents": [
+                    {
+                      "type": "text",
+                      "text": "參與者",
+                      "size": "sm",
+                      "color": "#989898",
+                      "flex": 2
+                    },
+                    {
+                      "type": "text",
+                      "text": "abc@gmail.com",
+                      "flex": 8,
+                      "size": "sm",
+                      "color": "#0E71EB",
+                      "wrap": true
+                    }
+                  ],
+                  "margin": "md"
+                }
+              ],
+              "margin": "xl"
+            }
+          ],
+          "action": {
+            "type": "message",
+            "label": "action",
+            "text": "今日行程"
+          }
+        }
+      ]
+    },
+    "styles": {
+      "footer": {
+        "separator": true
+      }
+    }
+  }
