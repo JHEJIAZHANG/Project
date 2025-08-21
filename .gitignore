@@ -1,0 +1,33 @@
+# secrets
+.env
+.env.*
+!.env.example
+
+# logs / db / cache
+logs/
+*.log
+*.sqlite*
+__pycache__/
+*.pyc
+
+# node / build（若有）
+node_modules/
+dist/
+build/
+.env
+logs/
+*.log
+*.sqlite*
+__pycache__/
+*.pyc
+.env
+logs/
+*.log
+*.sqlite*
+__pycache__/
+*.pyc
+.env
+logs/
+*.log
+__pycache__/
+*.sqlite3

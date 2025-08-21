@@ -1,0 +1,12 @@
+Django
+djangorestframework==3.15.1
+mysqlclient==2.2.4
+python-dotenv==1.0.1
+requests==2.32.2
+google-api-python-client
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+pytz
+line-bot-sdk
+django-cors-headers
