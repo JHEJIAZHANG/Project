@@ -13,7 +13,11 @@ from .views import (create_classroom,
                     get_calendar_events,
                     manage_calendar_attendees,
                     get_submissions_status,
-                    create_note)
+                    create_note,
+                    get_notes,
+                    get_note_detail,
+                    update_note,
+                    delete_note)
 
 urlpatterns = [
     # Classroom APIs
@@ -35,5 +39,11 @@ urlpatterns = [
 
     # Progress & Notes
     path("api/classroom/submissions/status/", get_submissions_status, name="get_submissions_status"),
-    path("api/notes/", create_note, name="create_note"),
+    
+    # Notes APIs - 完整CRUD功能
+    path("api/notes/", create_note, name="create_note"),           # POST - 創建筆記
+    path("api/notes/", update_note, name="update_note"),           # PATCH/PUT - 更新筆記  
+    path("api/notes/", delete_note, name="delete_note"),           # DELETE - 刪除筆記
+    path("api/notes/list/", get_notes, name="get_notes"),          # GET - 查詢筆記列表
+    path("api/notes/detail/", get_note_detail, name="get_note_detail"),  # GET - 取得單一筆記
 ]

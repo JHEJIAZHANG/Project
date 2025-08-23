@@ -34,204 +34,138 @@ def send_course_created_message(line_user_id: str, course_name: str, gc_course_i
     發送課程創建成功的Flex Message
     """
     
-    # 建立按鈕
-    buttons = []
-    if alternate_link:
-        buttons.append({
-            "type": "button",
-            "style": "primary",
-            "action": {
-                "type": "uri",
-                "label": "在 Google Classroom 中開啟",
-                "uri": alternate_link
-            }
-        })
-    
-    # 如果沒有連結，可以放一個返回主選單的按鈕
-    buttons.append({
-        "type": "button",
-        "style": "secondary",
-        "margin": "sm",
-        "action": {
-            "type": "message",
-            "label": "返回主選單",
-            "text": "主選單"
-        }
-    })
+    # 設定課程連結，優先使用 alternate_link，否則使用預設的 classroom 連結
+    course_link = alternate_link if alternate_link else f"https://classroom.google.com/c/{gc_course_id}"
 
     flex_message = {
         "type": "bubble",
+        "header": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": "課程創建成功!",
+                    "weight": "bold",
+                    "color": "#ffffff",
+                    "size": "md",
+                    "align": "center"
+                },
+                {
+                    "type": "text",
+                    "text": "🎉",
+                    "margin": "lg",
+                    "size": "3xl",
+                    "align": "center"
+                },
+                {
+                    "type": "text",
+                    "text": course_name,
+                    "weight": "bold",
+                    "size": "xl",
+                    "margin": "lg",
+                    "align": "center",
+                    "color": "#ffffff"
+                }
+            ],
+            "backgroundColor": "#0367D3"
+        },
         "body": {
             "type": "box",
             "layout": "vertical",
-            "paddingAll": "0px",
-            "backgroundColor": "#FFFFFF",
             "contents": [
-                # 頂部漸層背景區域
+                {
+                    "type": "text",
+                    "size": "sm",
+                    "align": "center",
+                    "weight": "bold",
+                    "text": "課程代碼"
+                },
+                {
+                    "type": "text",
+                    "text": enrollment_code,
+                    "size": "md",
+                    "color": "#0367D3",
+                    "margin": "md",
+                    "weight": "bold",
+                    "align": "center",
+                    "gravity": "center"
+                },
                 {
                     "type": "box",
                     "layout": "vertical",
-                    "paddingAll": "32px",
-                    "paddingBottom": "24px",
-                    "backgroundColor": "#2196F3",
                     "contents": [
                         {
-                            "type": "box",
-                            "layout": "vertical",
-                            "spacing": "md",
-                            "alignItems": "center",
-                            "contents": [
-                                {
-                                    "type": "text",
-                                    "text": "🎓",
-                                    "size": "3xl",
-                                    "align": "center"
-                                },
-                                {
-                                    "type": "text",
-                                    "text": "課程創建成功！",
-                                    "size": "xl",
-                                    "weight": "bold",
-                                    "color": "#FFFFFF",
-                                    "align": "center",
-                                    "margin": "sm"
-                                },
-                                {
-                                    "type": "text",
-                                    "text": f"課程：{course_name}",
-                                    "size": "md",
-                                    "color": "#E3F2FD",
-                                    "align": "center",
-                                    "wrap": True
-                                }
-                            ]
+                            "type": "text",
+                            "align": "center",
+                            "weight": "bold",
+                            "text": "綁定課程群組",
+                            "color": "#ffffff",
+                            "gravity": "center"
                         }
-                    ]
+                    ],
+                    "paddingBottom": "xl",
+                    "margin": "xxl",
+                    "backgroundColor": "#0367D3",
+                    "cornerRadius": "md",
+                    "paddingTop": "xl",
+                    "action": {
+                        "type": "message",
+                        "label": "action",
+                        "text": f"綁定{course_name}"
+                    }
                 },
-                # 課程資訊卡片
                 {
-                    "type": "box",
-                    "layout": "vertical",
-                    "paddingAll": "24px",
-                    "contents": [
-                        {
-                            "type": "box",
-                            "layout": "vertical",
-                            "spacing": "lg",
-                            "contents": [
-                                # 課程ID
-                                {
-                                    "type": "box",
-                                    "layout": "horizontal",
-                                    "spacing": "md",
-                                    "paddingAll": "16px",
-                                    "backgroundColor": "#F8F9FA",
-                                    "cornerRadius": "12px",
-                                    "contents": [
-                                        {
-                                            "type": "box",
-                                            "layout": "vertical",
-                                            "flex": 0,
-                                            "alignItems": "center",
-                                            "justifyContent": "center",
-                                            "contents": [
-                                                {
-                                                    "type": "text",
-                                                    "text": "🆔",
-                                                    "size": "xl"
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            "type": "box",
-                                            "layout": "vertical",
-                                            "flex": 1,
-                                            "spacing": "xs",
-                                            "contents": [
-                                                {
-                                                    "type": "text",
-                                                    "text": "課程ID",
-                                                    "size": "xs",
-                                                    "color": "#6C757D",
-                                                    "weight": "bold"
-                                                },
-                                                {
-                                                    "type": "text",
-                                                    "text": gc_course_id,
-                                                    "size": "sm",
-                                                    "color": "#2196F3",
-                                                    "weight": "bold"
-                                                }
-                                            ]
-                                        }
-                                    ]
-                                },
-                                # 註冊碼
-                                {
-                                    "type": "box",
-                                    "layout": "horizontal",
-                                    "spacing": "md",
-                                    "paddingAll": "16px",
-                                    "backgroundColor": "#F8F9FA",
-                                    "cornerRadius": "12px",
-                                    "contents": [
-                                        {
-                                            "type": "box",
-                                            "layout": "vertical",
-                                            "flex": 0,
-                                            "alignItems": "center",
-                                            "justifyContent": "center",
-                                            "contents": [
-                                                {
-                                                    "type": "text",
-                                                    "text": "🔑",
-                                                    "size": "xl"
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            "type": "box",
-                                            "layout": "vertical",
-                                            "flex": 1,
-                                            "spacing": "xs",
-                                            "contents": [
-                                                {
-                                                    "type": "text",
-                                                    "text": "註冊碼",
-                                                    "size": "xs",
-                                                    "color": "#6C757D",
-                                                    "weight": "bold"
-                                                },
-                                                {
-                                                    "type": "text",
-                                                    "text": enrollment_code,
-                                                    "size": "sm",
-                                                    "color": "#2196F3",
-                                                    "weight": "bold"
-                                                }
-                                            ]
-                                        }
-                                    ]
-                                }
-                            ]
-                        }
-                    ]
-                },
-                # 分隔線
-                {
-                    "type": "separator",
-                    "color": "#E9ECEF",
-                    "margin": "none"
-                },
-                # 操作按鈕
-                {
-                    "type": "box",
-                    "layout": "vertical",
-                    "paddingAll": "24px",
-                    "spacing": "md",
-                    "contents": buttons
+                    "type": "text",
+                    "text": "點擊取得綁定序號",
+                    "size": "xs",
+                    "align": "center",
+                    "margin": "md",
+                    "color": "#aaaaaa"
                 }
             ]
+        },
+        "footer": {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+                {
+                    "type": "image",
+                    "url": "https://img.icons8.com/?size=100&id=31057&format=png&color=000000",
+                    "flex": 2,
+                    "gravity": "center"
+                },
+                {
+                    "type": "text",
+                    "text": "Google Classroom",
+                    "color": "#999999",
+                    "weight": "bold",
+                    "gravity": "center",
+                    "size": "xs",
+                    "flex": 19,
+                    "margin": "sm"
+                },
+                {
+                    "type": "image",
+                    "url": "https://vos.line-scdn.net/service-notifier/footer_go_btn.png",
+                    "flex": 1,
+                    "gravity": "center",
+                    "size": "xxs"
+                }
+            ],
+            "flex": 1,
+            "spacing": "md",
+            "margin": "md",
+            "action": {
+                "type": "uri",
+                "label": "action",
+                "uri": course_link
+            }
+        },
+        "styles": {
+            "footer": {
+                "separator": True
+            }
         }
     }
     
@@ -1064,230 +998,80 @@ def send_course_binding_success_message(group_id: str, course_id: str, bound_by_
         
         flex_message = {
             "type": "bubble",
-            "header": {
-                "type": "box",
-                "layout": "horizontal",
-                "contents": [
-                    {
-                        "type": "text",
-                        "text": "群組綁定成功",
-                        "weight": "bold",
-                        "color": "#ffffff",
-                        "size": "md"
-                    },
-                    {
-                        "type": "text",
-                        "text": "🎓",
-                        "color": "#ffffff",
-                        "size": "lg",
-                        "align": "end"
-                    }
-                ],
-                "backgroundColor": "#4CAF50"
-            },
             "body": {
                 "type": "box",
                 "layout": "vertical",
                 "contents": [
                     {
-                        "type": "box",
-                        "layout": "horizontal",
-                        "contents": [
-                            {
-                                "type": "text",
-                                "text": "NEW",
-                                "size": "xs",
-                                "align": "center",
-                                "color": "#ffffff",
-                                "gravity": "center"
-                            }
-                        ],
-                        "position": "absolute",
-                        "flex": 0,
-                        "width": "48px",
-                        "height": "25px",
-                        "backgroundColor": "#FF5722",
-                        "cornerRadius": "100px",
-                        "paddingAll": "2px",
-                        "paddingStart": "4px",
-                        "paddingEnd": "4px",
-                        "offsetTop": "18px",
-                        "offsetStart": "18px"
+                        "type": "text",
+                        "text": "群組綁定成功",
+                        "size": "md",
+                        "align": "center",
+                        "weight": "bold",
+                        "color": "#1DB446"
                     },
                     {
-                        "type": "text",
-                        "text": "🎉",
-                        "margin": "none",
-                        "size": "3xl",
-                        "align": "center"
+                        "type": "image",
+                        "url": "https://img.icons8.com/?size=100&id=63262&format=png&color=000000",
+                        "size": "xs",
+                        "margin": "md"
                     },
                     {
                         "type": "text",
                         "text": course_name,
                         "weight": "bold",
-                        "size": "xl",
-                        "margin": "md",
                         "align": "center",
-                        "wrap": True
+                        "size": "xl",
+                        "wrap": True,
+                        "margin": "lg"
+                    },
+                    {
+                        "type": "text",
+                        "text": f"課程代碼：{enrollment_code}",
+                        "size": "sm",
+                        "weight": "bold",
+                        "align": "center",
+                        "margin": "md"
+                    },
+                    {
+                        "type": "box",
+                        "layout": "vertical",
+                        "contents": [
+                            {
+                                "type": "text",
+                                "text": "加入課程",
+                                "color": "#FFFFFF",
+                                "weight": "bold",
+                                "align": "center",
+                                "gravity": "center",
+                                "size": "lg"
+                            }
+                        ],
+                        "margin": "xxl",
+                        "backgroundColor": "#1DB446",
+                        "cornerRadius": "md",
+                        "paddingTop": "xl",
+                        "paddingBottom": "xl",
+                        "action": {
+                            "type": "uri",
+                            "label": "action",
+                            "uri": join_link
+                        }
                     }
                 ]
-            }
-        }
-        
-        # 如果有班級資訊，顯示出來
-        if section_info:
-            flex_message["body"]["contents"].append({
-                "type": "text",
-                "text": section_info,
-                "size": "sm",
-                "color": "#666666",
-                "align": "center",
-                "margin": "sm",
-                "wrap": True
-            })
-        
-        # 添加課程資訊分隔線和課程ID
-        flex_message["body"]["contents"].extend([
-            {
-                "type": "box",
-                "layout": "horizontal",
-                "contents": [
-                    {
-                        "type": "box",
-                        "layout": "vertical",
-                        "contents": [
-                            {
-                                "type": "separator",
-                                "margin": "lg"
-                            }
-                        ]
-                    },
-                    {
-                        "type": "text",
-                        "text": "課程資訊",
-                        "size": "sm",
-                        "align": "center",
-                        "weight": "bold"
-                    },
-                    {
-                        "type": "box",
-                        "layout": "vertical",
-                        "contents": [
-                            {
-                                "type": "separator",
-                                "margin": "lg"
-                            }
-                        ]
-                    }
-                ],
-                "margin": "xxl"
             },
-            {
-                "type": "text",
-                "text": f"課程名稱：{course_name}",
-                "color": "#4CAF50",
-                "size": "sm",
-                "weight": "bold",
-                "align": "center",
-                "margin": "md"
-            }
-        ])
-        
-        # 添加入班資訊分隔線和註冊碼
-        flex_message["body"]["contents"].extend([
-            {
-                "type": "box",
-                "layout": "horizontal",
-                "contents": [
-                    {
-                        "type": "box",
-                        "layout": "vertical",
-                        "contents": [
-                            {
-                                "type": "separator",
-                                "margin": "lg"
-                            }
-                        ]
-                    },
-                    {
-                        "type": "text",
-                        "text": "入班資訊",
-                        "size": "sm",
-                        "align": "center",
-                        "weight": "bold"
-                    },
-                    {
-                        "type": "box",
-                        "layout": "vertical",
-                        "contents": [
-                            {
-                                "type": "separator",
-                                "margin": "lg"
-                            }
-                        ]
-                    }
-                ],
-                "margin": "xxl"
-            },
-            {
-                "type": "text",
-                "text": f"註冊碼：{enrollment_code}",
-                "color": "#FF9800",
-                "size": "sm",
-                "weight": "bold",
-                "align": "center",
-                "margin": "md"
-            },
-            {
-                "type": "text",
-                "text": "學生可使用此註冊碼加入課程",
-                "color": "#666666",
-                "size": "xs",
-                "align": "center",
-                "margin": "xs"
-            }
-        ])
-        
-        # 添加前往按鈕
-        flex_message["body"]["contents"].extend([
-            {
+            "footer": {
                 "type": "box",
                 "layout": "vertical",
                 "contents": [
                     {
                         "type": "text",
-                        "text": "前往Google Classroom",
-                        "action": {
-                            "type": "uri",
-                            "label": "加入課程",
-                            "uri": join_link
-                        },
+                        "text": f"綁定者 {bound_by_name}",
+                        "size": "sm",
                         "align": "center",
-                        "gravity": "center",
-                        "color": "#ffffff",
-                        "weight": "bold"
+                        "color": "#999999"
                     }
-                ],
-                "backgroundColor": "#4CAF50",
-                "cornerRadius": "md",
-                "margin": "xxl",
-                "paddingTop": "xl",
-                "paddingBottom": "xl"
-            },
-            {
-                "type": "text",
-                "text": f"綁定者：{bound_by_name}",
-                "color": "#999999",
-                "size": "xs",
-                "align": "center",
-                "margin": "md"
-            }
-        ])
-        
-        # 加入 styles
-        flex_message["styles"] = {
-            "footer": {
-                "separator": True
+                ]
             }
         }
         
@@ -1658,4 +1442,484 @@ def send_multiple_homework_created_message(line_user_id: str, homework_title: st
         return True
     except Exception as e:
         print(f"發送多個作業創建消息失敗: {e}")
+        return False
+
+def send_note_created_message(line_user_id: str, note_id: int, text: str = "", image_url: str = "", 
+                              course_name: str = "", note_type: str = "", tags: str = "", 
+                              priority: str = "", classified_by: str = "none", created_at: str = ""):
+    """
+    發送筆記創建成功的Flex Message
+    """
+    
+    # 處理文字內容，限制長度避免訊息過長
+    display_text = text
+    if len(display_text) > 100:
+        display_text = display_text[:100] + "..."
+    if not display_text:
+        display_text = "無文字內容"
+    
+    # 處理課程資訊
+    if not course_name:
+        course_name = "未分類課程"
+    
+    # 處理分類標籤
+    if not note_type:
+        note_type = "一般筆記"
+    
+    # 處理標籤
+    tag_list = []
+    if tags:
+        tag_list = [tag.strip() for tag in tags.split(",") if tag.strip()]
+    
+    # 處理優先級
+    priority_emoji = {
+        "高": "🔴",
+        "中": "🟡", 
+        "低": "🟢",
+        "緊急": "🚨"
+    }
+    priority_display = priority_emoji.get(priority, "⚪") + " " + (priority if priority else "普通")
+    
+    # 分類方式顯示
+    classified_display = {
+        "time": "⏰ 依時間自動分類",
+        "name": "📚 依課程名稱分類", 
+        "none": "📝 手動分類"
+    }
+    
+    flex_message = {
+        "type": "bubble",
+        "header": {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": "筆記創建成功",
+                    "weight": "bold",
+                    "color": "#ffffff",
+                    "size": "md"
+                },
+                {
+                    "type": "text",
+                    "text": "📝",
+                    "color": "#ffffff",
+                    "size": "lg",
+                    "align": "end"
+                }
+            ],
+            "backgroundColor": "#9C27B0"
+        },
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": "NEW",
+                            "size": "xs",
+                            "align": "center",
+                            "color": "#ffffff",
+                            "gravity": "center"
+                        }
+                    ],
+                    "position": "absolute",
+                    "flex": 0,
+                    "width": "48px",
+                    "height": "25px",
+                    "backgroundColor": "#4CAF50",
+                    "cornerRadius": "100px",
+                    "paddingAll": "2px",
+                    "paddingStart": "4px",
+                    "paddingEnd": "4px",
+                    "offsetTop": "18px",
+                    "offsetStart": "18px"
+                },
+                {
+                    "type": "text",
+                    "text": "✨",
+                    "margin": "none",
+                    "size": "3xl",
+                    "align": "center"
+                },
+                {
+                    "type": "text",
+                    "text": note_type,
+                    "weight": "bold",
+                    "size": "xl",
+                    "margin": "md",
+                    "align": "center",
+                    "color": "#9C27B0"
+                },
+                # 分隔線 - 筆記內容
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        {
+                            "type": "box",
+                            "layout": "vertical",
+                            "contents": [
+                                {
+                                    "type": "separator",
+                                    "margin": "lg"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "text",
+                            "text": "筆記內容",
+                            "size": "sm",
+                            "align": "center",
+                            "weight": "bold"
+                        },
+                        {
+                            "type": "box",
+                            "layout": "vertical",
+                            "contents": [
+                                {
+                                    "type": "separator",
+                                    "margin": "lg"
+                                }
+                            ]
+                        }
+                    ],
+                    "margin": "xxl"
+                },
+                {
+                    "type": "box",
+                    "layout": "vertical",
+                    "margin": "md",
+                    "spacing": "sm",
+                    "paddingAll": "16px",
+                    "backgroundColor": "#F8F9FA",
+                    "cornerRadius": "12px",
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": display_text,
+                            "size": "sm",
+                            "color": "#333333",
+                            "wrap": True
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+    
+    # 如果有圖片，添加圖片區塊
+    if image_url:
+        flex_message["body"]["contents"].extend([
+            {
+                "type": "box",
+                "layout": "horizontal",
+                "contents": [
+                    {
+                        "type": "box",
+                        "layout": "vertical",
+                        "contents": [
+                            {
+                                "type": "separator",
+                                "margin": "lg"
+                            }
+                        ]
+                    },
+                    {
+                        "type": "text",
+                        "text": "圖片內容",
+                        "size": "sm",
+                        "align": "center",
+                        "weight": "bold"
+                    },
+                    {
+                        "type": "box",
+                        "layout": "vertical",
+                        "contents": [
+                            {
+                                "type": "separator",
+                                "margin": "lg"
+                            }
+                        ]
+                    }
+                ],
+                "margin": "xxl"
+            },
+            {
+                "type": "image",
+                "url": image_url,
+                "size": "full",
+                "aspectRatio": "20:13",
+                "aspectMode": "cover",
+                "margin": "md",
+                "action": {
+                    "type": "uri",
+                    "uri": image_url
+                }
+            }
+        ])
+    
+    # 添加詳細資訊區塊
+    info_contents = []
+    
+    # 課程資訊
+    info_contents.append({
+        "type": "box",
+        "layout": "horizontal",
+        "spacing": "md",
+        "paddingAll": "12px",
+        "backgroundColor": "#E3F2FD",
+        "cornerRadius": "8px",
+        "margin": "sm",
+        "contents": [
+            {
+                "type": "text",
+                "text": "📚",
+                "size": "md",
+                "flex": 0
+            },
+            {
+                "type": "box",
+                "layout": "vertical",
+                "flex": 1,
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": "課程",
+                        "size": "xs",
+                        "color": "#666666"
+                    },
+                    {
+                        "type": "text",
+                        "text": course_name,
+                        "size": "sm",
+                        "weight": "bold",
+                        "color": "#1976D2"
+                    }
+                ]
+            }
+        ]
+    })
+    
+    # 優先級資訊
+    info_contents.append({
+        "type": "box",
+        "layout": "horizontal",
+        "spacing": "md", 
+        "paddingAll": "12px",
+        "backgroundColor": "#FFF3E0",
+        "cornerRadius": "8px",
+        "margin": "sm",
+        "contents": [
+            {
+                "type": "text",
+                "text": "🎯",
+                "size": "md",
+                "flex": 0
+            },
+            {
+                "type": "box",
+                "layout": "vertical",
+                "flex": 1,
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": "優先級",
+                        "size": "xs",
+                        "color": "#666666"
+                    },
+                    {
+                        "type": "text",
+                        "text": priority_display,
+                        "size": "sm",
+                        "weight": "bold",
+                        "color": "#F57C00"
+                    }
+                ]
+            }
+        ]
+    })
+    
+    # 分類方式
+    info_contents.append({
+        "type": "box",
+        "layout": "horizontal",
+        "spacing": "md",
+        "paddingAll": "12px", 
+        "backgroundColor": "#E8F5E8",
+        "cornerRadius": "8px",
+        "margin": "sm",
+        "contents": [
+            {
+                "type": "text",
+                "text": "🏷️",
+                "size": "md",
+                "flex": 0
+            },
+            {
+                "type": "box",
+                "layout": "vertical",
+                "flex": 1,
+                "contents": [
+                    {
+                        "type": "text",
+                        "text": "分類方式",
+                        "size": "xs",
+                        "color": "#666666"
+                    },
+                    {
+                        "type": "text",
+                        "text": classified_display.get(classified_by, "📝 手動分類"),
+                        "size": "sm",
+                        "weight": "bold",
+                        "color": "#388E3C"
+                    }
+                ]
+            }
+        ]
+    })
+    
+    # 如果有標籤，顯示標籤
+    if tag_list:
+        tags_display = " ".join([f"#{tag}" for tag in tag_list[:3]])  # 最多顯示3個標籤
+        if len(tag_list) > 3:
+            tags_display += f" +{len(tag_list)-3}"
+            
+        info_contents.append({
+            "type": "box",
+            "layout": "horizontal",
+            "spacing": "md",
+            "paddingAll": "12px",
+            "backgroundColor": "#FCE4EC",
+            "cornerRadius": "8px", 
+            "margin": "sm",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": "🏷️",
+                    "size": "md",
+                    "flex": 0
+                },
+                {
+                    "type": "box",
+                    "layout": "vertical",
+                    "flex": 1,
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": "標籤",
+                            "size": "xs",
+                            "color": "#666666"
+                        },
+                        {
+                            "type": "text",
+                            "text": tags_display,
+                            "size": "sm",
+                            "weight": "bold",
+                            "color": "#C2185B",
+                            "wrap": True
+                        }
+                    ]
+                }
+            ]
+        })
+    
+    # 添加詳細資訊區塊到訊息
+    flex_message["body"]["contents"].extend([
+        {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+                {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": [
+                        {
+                            "type": "separator",
+                            "margin": "lg"
+                        }
+                    ]
+                },
+                {
+                    "type": "text",
+                    "text": "筆記資訊",
+                    "size": "sm",
+                    "align": "center",
+                    "weight": "bold"
+                },
+                {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": [
+                        {
+                            "type": "separator",
+                            "margin": "lg"
+                        }
+                    ]
+                }
+            ],
+            "margin": "xxl"
+        },
+        {
+            "type": "box",
+            "layout": "vertical",
+            "contents": info_contents
+        },
+        # 操作按鈕
+        {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "button",
+                    "style": "primary",
+                    "color": "#9C27B0",
+                    "action": {
+                        "type": "message",
+                        "label": "查看所有筆記",
+                        "text": "查看我的筆記"
+                    }
+                },
+                {
+                    "type": "button",
+                    "style": "link",
+                    "action": {
+                        "type": "message", 
+                        "label": "返回主選單",
+                        "text": "主選單"
+                    }
+                }
+            ],
+            "margin": "xxl",
+            "spacing": "sm"
+        },
+        {
+            "type": "text",
+            "text": f"筆記ID: #{note_id}",
+            "color": "#999999",
+            "size": "xs",
+            "align": "center",
+            "margin": "md"
+        }
+    ])
+    
+    # 添加樣式
+    flex_message["styles"] = {
+        "footer": {
+            "separator": True
+        }
+    }
+    
+    try:
+        line_bot_api.push_message(
+            line_user_id,
+            FlexSendMessage(alt_text="筆記創建成功", contents=flex_message)
+        )
+        return True
+    except Exception as e:
+        print(f"發送筆記創建消息失敗: {e}")
         return False

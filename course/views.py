@@ -6,7 +6,7 @@ from googleapiclient.discovery import build
 from dateutil import parser as date_parser
 from user.models import LineProfile
 from user.utils import get_valid_google_credentials
-from line_bot.utils import send_course_created_message, send_homework_created_message, send_multiple_homework_created_message
+from line_bot.utils import send_course_created_message, send_homework_created_message, send_multiple_homework_created_message, send_note_created_message
 from line_bot.models import GroupBinding
 from .models import Course, Homework
 from .serializers import (
@@ -20,7 +20,12 @@ from .serializers import (
     DeleteCalendarEventSerializer,
     GetCalendarEventsSerializer,
     ManageCalendarAttendeesSerializer,
-    SubmissionsStatusSerializer, CreateNoteSerializer
+    SubmissionsStatusSerializer, 
+    CreateNoteSerializer,
+    GetNotesSerializer,
+    UpdateNoteSerializer,
+    DeleteNoteSerializer,
+    GetNoteDetailSerializer
 )
 from .models import CourseSchedule, StudentNote
 
@@ -1354,6 +1359,9 @@ def create_note(request):
     image_url = ser.validated_data.get("image_url", "")
     captured_at = ser.validated_data.get("captured_at")
     course_id = ser.validated_data.get("course_id") or None
+    note_type = ser.validated_data.get("note_type", "")
+    tags = ser.validated_data.get("tags", "")
+    priority = ser.validated_data.get("priority", "")
 
     course = _find_course_by_time_or_name(author, captured_at, course_id, text)
     classified_by = "none"
@@ -1369,12 +1377,335 @@ def create_note(request):
         captured_at=captured_at,
         course=course,
         classified_by=classified_by if course else "none",
+        note_type=note_type,
+        tags=tags,
+        priority=priority,
     )
+
+    # 發送筆記創建成功的Flex Message
+    try:
+        send_note_created_message(
+            line_user_id=author.line_user_id,
+            note_id=note.id,
+            text=note.text,
+            image_url=note.image_url,
+            course_name=course.name if course else "",
+            note_type=note.note_type,
+            tags=note.tags,
+            priority=note.priority,
+            classified_by=note.classified_by,
+            created_at=note.created_at.isoformat()
+        )
+    except Exception as e:
+        print(f"發送筆記創建預覽消息失敗: {e}")
+        # 不影響API回應，繼續執行
 
     return Response({
         "id": note.id,
         "course_id": course.gc_course_id if course else None,
         "classified_by": note.classified_by,
+        "note_type": note.note_type,
+        "tags": note.tags,
+        "priority": note.priority,
         "created_at": note.created_at,
     }, status=201)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def get_notes(request):
+    """
+    查詢筆記列表
+    GET /api/notes/list/?line_user_id=...&course_id=...&start_date=...&end_date=...&limit=20&offset=0&search=...&classified_by=...
+    支持多種查詢條件和分頁
+    """
+    ser = GetNotesSerializer(data=request.GET)
+    ser.is_valid(raise_exception=True)
+    
+    try:
+        author = LineProfile.objects.get(pk=ser.validated_data["line_user_id"])
+    except LineProfile.DoesNotExist:
+        return Response({"error": "用戶不存在"}, status=404)
+    
+    # 構建查詢條件
+    filters = {"author": author}
+    
+    # 課程過濾
+    if ser.validated_data.get("course_id"):
+        try:
+            course = Course.objects.get(gc_course_id=ser.validated_data["course_id"])
+            filters["course"] = course
+        except Course.DoesNotExist:
+            pass  # 如果課程不存在，就不過濾課程
+    
+    # 時間範圍過濾
+    if ser.validated_data.get("start_date"):
+        filters["created_at__gte"] = ser.validated_data["start_date"]
+    if ser.validated_data.get("end_date"):
+        filters["created_at__lte"] = ser.validated_data["end_date"]
+    
+    # 分類方式過濾
+    if ser.validated_data.get("classified_by"):
+        filters["classified_by"] = ser.validated_data["classified_by"]
+    
+    # 筆記類型過濾
+    if ser.validated_data.get("note_type"):
+        filters["note_type__icontains"] = ser.validated_data["note_type"]
+    
+    # 優先級過濾
+    if ser.validated_data.get("priority"):
+        filters["priority__icontains"] = ser.validated_data["priority"]
+    
+    # 基本查詢
+    notes = StudentNote.objects.filter(**filters).select_related("course")
+    
+    # 文本搜索（包含文字內容和標籤）
+    if ser.validated_data.get("search"):
+        from django.db.models import Q
+        search_text = ser.validated_data["search"]
+        notes = notes.filter(
+            Q(text__icontains=search_text) | 
+            Q(tags__icontains=search_text) |
+            Q(note_type__icontains=search_text)
+        )
+    
+    # 標籤過濾
+    if ser.validated_data.get("tags"):
+        tags = ser.validated_data["tags"]
+        notes = notes.filter(tags__icontains=tags)
+    
+    # 總數
+    total_count = notes.count()
+    
+    # 分頁
+    offset = ser.validated_data.get("offset", 0)
+    limit = ser.validated_data.get("limit", 20)
+    notes = notes.order_by("-created_at")[offset:offset + limit]
+    
+    # 格式化數據
+    formatted_notes = []
+    for note in notes:
+        formatted_note = {
+            "id": note.id,
+            "text": note.text,
+            "image_url": note.image_url,
+            "captured_at": note.captured_at,
+            "course_id": note.course.gc_course_id if note.course else None,
+            "course_name": note.course.name if note.course else None,
+            "classified_by": note.classified_by,
+            "note_type": note.note_type,
+            "tags": note.tags,
+            "priority": note.priority,
+            "created_at": note.created_at,
+            "updated_at": note.updated_at,
+        }
+        formatted_notes.append(formatted_note)
+    
+    return Response({
+        "total_count": total_count,
+        "count": len(formatted_notes),
+        "offset": offset,
+        "limit": limit,
+        "notes": formatted_notes,
+    }, status=200)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def get_note_detail(request):
+    """
+    取得單一筆記詳細資訊
+    GET /api/notes/detail/?line_user_id=...&note_id=...
+    """
+    ser = GetNoteDetailSerializer(data=request.GET)
+    ser.is_valid(raise_exception=True)
+    
+    try:
+        author = LineProfile.objects.get(pk=ser.validated_data["line_user_id"])
+    except LineProfile.DoesNotExist:
+        return Response({"error": "用戶不存在"}, status=404)
+    
+    try:
+        note = StudentNote.objects.select_related("course").get(
+            id=ser.validated_data["note_id"],
+            author=author
+        )
+    except StudentNote.DoesNotExist:
+        return Response({"error": "筆記不存在或無權限訪問"}, status=404)
+    
+    return Response({
+        "id": note.id,
+        "text": note.text,
+        "image_url": note.image_url,
+        "captured_at": note.captured_at,
+        "course_id": note.course.gc_course_id if note.course else None,
+        "course_name": note.course.name if note.course else None,
+        "classified_by": note.classified_by,
+        "note_type": note.note_type,
+        "tags": note.tags,
+        "priority": note.priority,
+        "created_at": note.created_at,
+        "updated_at": note.updated_at,
+    }, status=200)
+
+
+@api_view(["PATCH", "PUT"])
+@permission_classes([AllowAny])
+def update_note(request):
+    """
+    更新筆記
+    PATCH/PUT /api/notes/
+    {
+        "line_user_id": "...",
+        "note_id": 123,
+        "text": "...",         # optional
+        "image_url": "...",   # optional  
+        "captured_at": "...", # optional
+        "course_id": "..."    # optional
+    }
+    """
+    ser = UpdateNoteSerializer(data=request.data)
+    ser.is_valid(raise_exception=True)
+    
+    try:
+        author = LineProfile.objects.get(pk=ser.validated_data["line_user_id"])
+    except LineProfile.DoesNotExist:
+        return Response({"error": "用戶不存在"}, status=404)
+    
+    try:
+        note = StudentNote.objects.get(
+            id=ser.validated_data["note_id"],
+            author=author
+        )
+    except StudentNote.DoesNotExist:
+        return Response({"error": "筆記不存在或無權限訪問"}, status=404)
+    
+    # 更新字段
+    updated_fields = []
+    
+    if "text" in ser.validated_data:
+        note.text = ser.validated_data["text"]
+        updated_fields.append("text")
+    
+    if "image_url" in ser.validated_data:
+        note.image_url = ser.validated_data["image_url"]
+        updated_fields.append("image_url")
+    
+    if "captured_at" in ser.validated_data:
+        note.captured_at = ser.validated_data["captured_at"]
+        updated_fields.append("captured_at")
+    
+    if "note_type" in ser.validated_data:
+        note.note_type = ser.validated_data["note_type"]
+        updated_fields.append("note_type")
+    
+    if "tags" in ser.validated_data:
+        note.tags = ser.validated_data["tags"]
+        updated_fields.append("tags")
+    
+    if "priority" in ser.validated_data:
+        note.priority = ser.validated_data["priority"]
+        updated_fields.append("priority")
+    
+    if "course_id" in ser.validated_data:
+        course_id = ser.validated_data["course_id"]
+        if course_id:
+            try:
+                course = Course.objects.get(gc_course_id=course_id)
+                note.course = course
+                note.classified_by = "name"
+                updated_fields.extend(["course", "classified_by"])
+            except Course.DoesNotExist:
+                return Response({"error": "指定的課程不存在"}, status=400)
+        else:
+            # 如果course_id為空字串或None，則移除課程關聯
+            note.course = None
+            note.classified_by = "none"
+            updated_fields.extend(["course", "classified_by"])
+    
+    # 檢查是否還有有效內容
+    if not note.text and not note.image_url:
+        return Response({"error": "筆記內容不能為空，text 和 image_url 至少需要一個"}, status=400)
+    
+    note.save()
+    
+    return Response({
+        "message": "筆記更新成功",
+        "id": note.id,
+        "updated_fields": updated_fields,
+        "text": note.text,
+        "image_url": note.image_url,
+        "captured_at": note.captured_at,
+        "course_id": note.course.gc_course_id if note.course else None,
+        "course_name": note.course.name if note.course else None,
+        "classified_by": note.classified_by,
+        "note_type": note.note_type,
+        "tags": note.tags,
+        "priority": note.priority,
+        "updated_at": note.updated_at,
+    }, status=200)
+
+
+@api_view(["DELETE"])
+@permission_classes([AllowAny])
+def delete_note(request):
+    """
+    刪除筆記
+    DELETE /api/notes/
+    {
+        "line_user_id": "...",
+        "note_id": 123
+    }
+    也支持URL參數：DELETE /api/notes/?line_user_id=...&note_id=...
+    """
+    # 支持多種數據來源
+    data = {}
+    
+    # 1. 嘗試從 body 取得數據
+    if request.data:
+        data.update(request.data)
+    
+    # 2. 如果 body 沒有數據，嘗試從 URL 參數取得
+    if not data:
+        line_user_id = request.GET.get('line_user_id')
+        note_id = request.GET.get('note_id')
+        if line_user_id and note_id:
+            data = {
+                'line_user_id': line_user_id,
+                'note_id': int(note_id)
+            }
+    
+    ser = DeleteNoteSerializer(data=data)
+    ser.is_valid(raise_exception=True)
+    
+    try:
+        author = LineProfile.objects.get(pk=ser.validated_data["line_user_id"])
+    except LineProfile.DoesNotExist:
+        return Response({"error": "用戶不存在"}, status=404)
+    
+    try:
+        note = StudentNote.objects.get(
+            id=ser.validated_data["note_id"],
+            author=author
+        )
+    except StudentNote.DoesNotExist:
+        return Response({"error": "筆記不存在或無權限訪問"}, status=404)
+    
+    # 保存刪除前的資訊用於回應
+    note_info = {
+        "id": note.id,
+        "text": note.text,
+        "image_url": note.image_url,
+        "course_name": note.course.name if note.course else None,
+        "created_at": note.created_at,
+    }
+    
+    # 刪除筆記
+    note.delete()
+    
+    return Response({
+        "message": "筆記刪除成功",
+        "deleted_note": note_info,
+    }, status=200)
+
 

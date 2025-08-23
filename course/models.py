@@ -77,6 +77,9 @@ class StudentNote(models.Model):
     captured_at = models.DateTimeField(null=True, blank=True)  # 筆記對應的時間（可用於自動歸類）
     course = models.ForeignKey(Course, null=True, blank=True, on_delete=models.SET_NULL)
     classified_by = models.CharField(max_length=16, default="none")  # none | time | name
+    note_type = models.CharField(max_length=50, blank=True, default="")  # 自由分類如：課堂筆記、作業筆記等
+    tags = models.CharField(max_length=200, blank=True, default="")  # 標籤，用逗號分隔
+    priority = models.CharField(max_length=20, blank=True, default="")  # 優先級：低、普通、高等
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
