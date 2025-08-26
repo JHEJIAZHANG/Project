@@ -1,3 +1,4 @@
+# line_bot/utils.py
 import os, hashlib
 from linebot import LineBotApi
 from linebot.models import FlexSendMessage, TextSendMessage, QuickReply, QuickReplyButton, MessageAction
@@ -1442,6 +1443,152 @@ def send_multiple_homework_created_message(line_user_id: str, homework_title: st
         return True
     except Exception as e:
         print(f"發送多個作業創建消息失敗: {e}")
+        return False
+
+def send_calendar_created_message(line_user_id: str, event_title: str, start_time: str, end_time: str, 
+                                  location: str = "", description: str = "", attendees: str = ""):
+    """
+    發送創建行事曆成功的Flex Message
+    """
+    
+    # 處理描述內容，限制長度避免訊息過長
+    display_description = description
+    if len(display_description) > 50:
+        display_description = display_description[:50] + "..."
+    if not display_description:
+        display_description = "無備註內容"
+    
+    # 處理地點
+    if not location:
+        location = "未設定地點"
+    
+    # 處理參與者
+    if not attendees:
+        attendees = "無參與者"
+    
+    flex_message = {
+        "type": "bubble",
+        "body": {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": "新行程",
+                    "color": "#0367D3",
+                    "weight": "bold",
+                    "size": "sm"
+                },
+                {
+                    "type": "text",
+                    "text": event_title,
+                    "weight": "bold",
+                    "size": "xl",
+                    "color": "#222222",
+                    "wrap": True,
+                    "margin": "sm"
+                },
+                {
+                    "type": "text",
+                    "text": f"{start_time} - {end_time}",
+                    "size": "sm",
+                    "margin": "md",
+                    "color": "#999999",
+                    "wrap": True
+                },
+                {
+                    "type": "text",
+                    "text": display_description,
+                    "margin": "xl",
+                    "color": "#222222",
+                    "size": "sm",
+                    "wrap": True
+                },
+                {
+                    "type": "separator",
+                    "margin": "xl"
+                },
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": "地點",
+                            "color": "#989898",
+                            "size": "sm",
+                            "flex": 2
+                        },
+                        {
+                            "type": "text",
+                            "text": location,
+                            "flex": 8,
+                            "size": "sm",
+                            "color": "#222222",
+                            "wrap": True
+                        }
+                    ],
+                    "margin": "xl"
+                },
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": "參與者",
+                            "color": "#989898",
+                            "size": "sm",
+                            "flex": 2
+                        },
+                        {
+                            "type": "text",
+                            "text": attendees,
+                            "flex": 8,
+                            "size": "sm",
+                            "color": "#0E71EB",
+                            "wrap": True
+                        }
+                    ],
+                    "margin": "md"
+                },
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        {
+                            "type": "text",
+                            "text": "NEW",
+                            "size": "xs",
+                            "color": "#ffffff",
+                            "align": "center",
+                            "gravity": "center"
+                        }
+                    ],
+                    "position": "absolute",
+                    "flex": 0,
+                    "width": "48px",
+                    "height": "25px",
+                    "backgroundColor": "#EC3D44",
+                    "cornerRadius": "100px",
+                    "offsetTop": "18px",
+                    "offsetEnd": "18px",
+                    "paddingAll": "2px",
+                    "paddingStart": "4px",
+                    "paddingEnd": "4px"
+                }
+            ]
+        }
+    }
+    
+    try:
+        line_bot_api.push_message(
+            line_user_id,
+            FlexSendMessage(alt_text="行事曆創建成功", contents=flex_message)
+        )
+        return True
+    except Exception as e:
+        print(f"發送行事曆創建消息失敗: {e}")
         return False
 
 def send_note_created_message(line_user_id: str, note_id: int, text: str = "", image_url: str = "", 

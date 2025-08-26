@@ -1,12 +1,14 @@
+# course/views.py
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from googleapiclient.discovery import build
 from dateutil import parser as date_parser
+from datetime import datetime
 from user.models import LineProfile
 from user.utils import get_valid_google_credentials
-from line_bot.utils import send_course_created_message, send_homework_created_message, send_multiple_homework_created_message, send_note_created_message
+from line_bot.utils import send_course_created_message, send_homework_created_message, send_multiple_homework_created_message, send_note_created_message, send_calendar_created_message
 from line_bot.models import GroupBinding
 from .models import Course, Homework
 from .serializers import (
@@ -959,6 +961,27 @@ def create_calendar_event(request):
         calendar_id = ser.validated_data.get('calendar_id', 'primary')
         event = service.events().insert(calendarId=calendar_id, body=event_data).execute()
         
+        # 格式化時間顯示
+        start_dt = datetime.fromisoformat(event['start']['dateTime'].replace('Z', '+00:00'))
+        end_dt = datetime.fromisoformat(event['end']['dateTime'].replace('Z', '+00:00'))
+        
+        start_time_str = start_dt.strftime('%Y/%m/%d %I:%M%p')
+        end_time_str = end_dt.strftime('%I:%M%p')
+        
+        # 發送行事曆創建成功的 Flex Message
+        try:
+            send_calendar_created_message(
+                line_user_id=ser.validated_data['line_user_id'],
+                event_title=event['summary'],
+                start_time=start_time_str,
+                end_time=end_time_str,
+                location=event.get('location', ''),
+                description=event.get('description', ''),
+                attendees=', '.join([attendee.get('email', '') for attendee in event.get('attendees', [])])
+            )
+        except Exception as e:
+            print(f"發送行事曆 Flex Message 失敗: {e}")
+        
         return Response({
             "message": "Google Calendar 事件建立成功",
             "event_id": event['id'],
@@ -1476,11 +1499,17 @@ def get_notes(request):
     
     # 總數
     total_count = notes.count()
+
+    # 是否回傳全部（跳過分頁）
+    all_flag = str(request.GET.get("all", "")).lower() in ("1", "true", "yes")
     
     # 分頁
     offset = ser.validated_data.get("offset", 0)
     limit = ser.validated_data.get("limit", 20)
-    notes = notes.order_by("-created_at")[offset:offset + limit]
+    if all_flag:
+        notes = notes.order_by("-created_at")
+    else:
+        notes = notes.order_by("-created_at")[offset:offset + limit]
     
     # 格式化數據
     formatted_notes = []
@@ -1504,8 +1533,8 @@ def get_notes(request):
     return Response({
         "total_count": total_count,
         "count": len(formatted_notes),
-        "offset": offset,
-        "limit": limit,
+        "offset": 0 if all_flag else offset,
+        "limit": total_count if all_flag else limit,
         "notes": formatted_notes,
     }, status=200)
 
