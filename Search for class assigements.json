@@ -1,0 +1,60 @@
+{
+  "name": "Search for class assigements",
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "jsonExample",
+        "jsonExample": "{\n  \"line_user_id\": \"{{$json.line_user_id}}\",\n  \"course_id\": \"{{$json.course_id}}\"\n}"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "d407ae8f-e365-42f2-ac7c-89c698efeaad",
+      "name": "When Executed by Another Workflow"
+    },
+    {
+      "parameters": {
+        "url": "=https://cecec907eb5a.ngrok-free.app/api/get-homeworks/",
+        "sendQuery": true,
+        "specifyQuery": "json",
+        "jsonQuery": "={\n  \"line_user_id\": \"{{$json.line_user_id}}\",\n  \"course_id\": \"{{$json.course_id}}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        192,
+        0
+      ],
+      "id": "737a0db6-558e-4c8a-8275-1d2f18a0e260",
+      "name": "homeworks"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When Executed by Another Workflow": {
+      "main": [
+        [
+          {
+            "node": "homeworks",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "05b14bc4-3954-40f5-9efc-a1f553573396",
+  "meta": {
+    "instanceId": "a1b6b0ed44c324ac2e3b63590fb4966c65fc7f4f95abf74438c66e3683ad302c"
+  },
+  "id": "F9IutoUxsv2LbeRd",
+  "tags": []
+}
