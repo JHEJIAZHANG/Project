@@ -1,7 +1,6 @@
 # user/utils.py
 import json, time, requests, jwt, requests_cache, os
 from jwt import algorithms, InvalidTokenError
-from jwt.algorithms import RSAAlgorithm
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from datetime import timedelta

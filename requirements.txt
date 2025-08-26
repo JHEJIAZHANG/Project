@@ -10,3 +10,7 @@ google-auth-httplib2
 pytz
 line-bot-sdk
 django-cors-headers
+python-dateutil
+
+PyJWT
+requests-cache
