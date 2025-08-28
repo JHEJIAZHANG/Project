@@ -1313,9 +1313,26 @@ def get_submissions_status(request):
         for s in items:
             state = s.get("state", "CREATED")
             counts[state] = counts.get(state, 0) + 1
+            user_id = s.get("userId")
+
+            # 嘗試查詢學生姓名與 Email
+            student_full_name = "要不到"
+            student_email = "要不到"
+            try:
+                if user_id:
+                    profile = service.userProfiles().get(userId=user_id).execute()
+                    name_obj = profile.get("name", {}) or {}
+                    student_full_name = name_obj.get("fullName") or name_obj.get("givenName") or "要不到"
+                    student_email = profile.get("emailAddress") or "要不到"
+            except Exception as e:
+                # 查詢不到學生資訊時，輸出原因並以「要不到」回傳
+                print(f"get_submissions_status: 取得學生資料失敗 userId={user_id}: {e}")
+
             details.append({
                 "id": s.get("id"),
-                "userId": s.get("userId"),
+                "userId": user_id,
+                "studentName": student_full_name,
+                "studentEmail": student_email,
                 "state": state,
                 "updateTime": s.get("updateTime"),
                 "late": s.get("late"),
@@ -1736,5 +1753,174 @@ def delete_note(request):
         "message": "筆記刪除成功",
         "deleted_note": note_info,
     }, status=200)
+
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def get_student_profile(request):
+    """
+    使用 Google Classroom API 查詢學生姓名與資料
+    GET /api/student/profile/?line_user_id=...&student_id=...
+    
+    參數:
+    - line_user_id: 老師的 LINE 用戶 ID
+    - student_id: 學生的 Google Classroom userId
+    
+    返回:
+    - 學生的姓名、電子郵件等個人資料
+    """
+    # 獲取查詢參數
+    line_user_id = request.GET.get('line_user_id')
+    student_id = request.GET.get('student_id')
+    
+    if not line_user_id or not student_id:
+        return Response({
+            "error": "缺少必要參數",
+            "message": "請提供 line_user_id 和 student_id 參數"
+        }, status=400)
+    
+    # 取得老師的用戶和憑證
+    result = get_user_and_credentials(line_user_id)
+    if isinstance(result, Response):
+        return result
+    prof, creds = result
+    
+    try:
+        # 建立 Google Classroom service
+        service = build_google_service("classroom", "v1", creds)
+        
+        # 呼叫 userProfiles.get() API 獲取學生資料
+        student_profile = service.userProfiles().get(userId=student_id).execute()
+        
+        # 提取學生資料
+        student_data = {
+            "userId": student_profile.get("id"),
+            "name": {
+                "givenName": student_profile.get("name", {}).get("givenName", ""),
+                "familyName": student_profile.get("name", {}).get("familyName", ""),
+                "fullName": student_profile.get("name", {}).get("fullName", "")
+            },
+            "emailAddress": student_profile.get("emailAddress", ""),
+            "photoUrl": student_profile.get("photoUrl", ""),
+            "permissions": student_profile.get("permissions", [])
+        }
+        
+        return Response({
+            "success": True,
+            "student": student_data
+        })
+        
+    except Exception as e:
+        error_message = str(e)
+        if "403" in error_message or "Forbidden" in error_message:
+            return Response({
+                "error": "權限不足",
+                "message": "無法獲取學生資料，請確認您的應用程式已包含 classroom.profile.emails 權限範圍",
+                "details": "需要 scope: https://www.googleapis.com/auth/classroom.profile.emails"
+            }, status=403)
+        elif "404" in error_message or "Not Found" in error_message:
+            return Response({
+                "error": "學生不存在",
+                "message": "找不到指定的學生 ID",
+                "student_id": student_id
+            }, status=404)
+        else:
+            return Response({
+                "error": "獲取學生資料失敗",
+                "message": "Google Classroom API 呼叫失敗",
+                "details": error_message
+            }, status=500)
+
+@api_view(["GET"])
+@permission_classes([AllowAny])
+def get_course_students(request):
+    """
+    獲取課程中的所有學生資料
+    GET /api/course/students/?line_user_id=...&course_id=...
+    
+    參數:
+    - line_user_id: 老師的 LINE 用戶 ID
+    - course_id: Google Classroom 課程 ID
+    
+    返回:
+    - 課程中所有學生的資料列表
+    """
+    # 獲取查詢參數
+    line_user_id = request.GET.get('line_user_id')
+    course_id = request.GET.get('course_id')
+    
+    if not line_user_id or not course_id:
+        return Response({
+            "error": "缺少必要參數",
+            "message": "請提供 line_user_id 和 course_id 參數"
+        }, status=400)
+    
+    # 取得老師的用戶和憑證
+    result = get_user_and_credentials(line_user_id)
+    if isinstance(result, Response):
+        return result
+    prof, creds = result
+    
+    try:
+        # 建立 Google Classroom service
+        service = build_google_service("classroom", "v1", creds)
+        
+        # 首先驗證課程是否存在
+        course_result = validate_course_exists(service, course_id)
+        if isinstance(course_result, Response):
+            return course_result
+        
+        # 獲取課程中的學生列表
+        students_response = service.courses().students().list(courseId=course_id).execute()
+        students = students_response.get("students", [])
+        
+        # 獲取每個學生的詳細資料
+        students_data = []
+        for student in students:
+            try:
+                # 獲取學生個人資料
+                student_profile = service.userProfiles().get(userId=student["userId"]).execute()
+                
+                student_data = {
+                    "userId": student["userId"],
+                    "profileId": student.get("profileId", ""),
+                    "name": {
+                        "givenName": student_profile.get("name", {}).get("givenName", ""),
+                        "familyName": student_profile.get("name", {}).get("familyName", ""),
+                        "fullName": student_profile.get("name", {}).get("fullName", "")
+                    },
+                    "emailAddress": student_profile.get("emailAddress", ""),
+                    "photoUrl": student_profile.get("photoUrl", ""),
+                    "enrollmentTime": student.get("enrollmentTime", ""),
+                    "courseRole": student.get("courseRole", "")
+                }
+                students_data.append(student_data)
+                
+            except Exception as e:
+                # 如果無法獲取某個學生的資料，記錄錯誤但繼續處理其他學生
+                print(f"無法獲取學生 {student.get('userId', 'unknown')} 的資料: {e}")
+                continue
+        
+        return Response({
+            "success": True,
+            "course_id": course_id,
+            "total_students": len(students_data),
+            "students": students_data
+        })
+        
+    except Exception as e:
+        error_message = str(e)
+        if "403" in error_message or "Forbidden" in error_message:
+            return Response({
+                "error": "權限不足",
+                "message": "無法獲取課程學生資料，請確認您的應用程式已包含必要的權限範圍",
+                "details": "需要 scopes: classroom.courses.readonly, classroom.rosters.readonly, classroom.profile.emails"
+            }, status=403)
+        else:
+            return Response({
+                "error": "獲取課程學生資料失敗",
+                "message": "Google Classroom API 呼叫失敗",
+                "details": error_message
+            }, status=500)
 
 

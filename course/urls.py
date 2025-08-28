@@ -18,7 +18,9 @@ from .views import (create_classroom,
                     get_notes,
                     get_note_detail,
                     update_note,
-                    delete_note)
+                    delete_note,
+                    get_student_profile,
+                    get_course_students)
 
 urlpatterns = [
     # Classroom APIs
@@ -47,4 +49,8 @@ urlpatterns = [
     path("api/notes/delete/", delete_note, name="delete_note"),    # DELETE - 刪除筆記
     path("api/notes/list/", get_notes, name="get_notes"),          # GET - 查詢筆記列表
     path("api/notes/detail/", get_note_detail, name="get_note_detail"),  # GET - 取得單一筆記
+    
+    # Student Profile APIs - 查詢學生資料
+    path("api/student/profile/", get_student_profile, name="get_student_profile"),
+    path("api/course/students/", get_course_students, name="get_course_students"),
 ]

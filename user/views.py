@@ -34,6 +34,9 @@ def _build_google_oauth_url(state: str) -> str:
                 "https://www.googleapis.com/auth/classroom.coursework.students",
                 "https://www.googleapis.com/auth/classroom.coursework.me.readonly",
                 "https://www.googleapis.com/auth/calendar.events",
+                # 需要補充的 Classroom 權限，才能查到學生姓名與 email
+                "https://www.googleapis.com/auth/classroom.profile.emails",
+                "https://www.googleapis.com/auth/classroom.rosters.readonly",
             ]
         ),
     }

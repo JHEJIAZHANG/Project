@@ -24,6 +24,13 @@ from line_bot.utils import (
     hash_code,
 )
 from .flex_templates import (get_flex_template, create_custom_carousel, get_start_register_flex, get_register_done_flex)
+
+
+
+
+
+
+
 # FLEX_PATH = Path(__file__).resolve().parent / "flex_templates.json"
 
 # with open(FLEX_PATH, encoding="utf8") as f:
@@ -986,7 +993,7 @@ def render_flex(request):
                 # ═══ 模式 1: 基本模板渲染 + 自動發送 ═══
         if mode == 'template':
             # 處理需要參數的模板
-            if template_name in ['course_deletion_confirmation', 'course_deletion_confirmation_paginated']:
+            if template_name in ['course_view', 'get_course_view', 'course_deletion_confirmation', 'course_deletion_confirmation_paginated']:
                 courses = payload.get('courses', [])
                 if not courses:
                     return JsonResponse({
@@ -1015,6 +1022,7 @@ def render_flex(request):
                         "calendar_menu", "notes_menu", "account_menu",
                         "course_creation_guide", "homework_creation_guide", 
                         "system_usage_guide",
+                        "course_view", "get_course_view",
                         "course_deletion_confirmation", "course_deletion_confirmation_paginated"
                     ]
                 }, status=404)
