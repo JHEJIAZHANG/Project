@@ -12,7 +12,7 @@ Flex Message 模板庫
 """
 
 import os
-from .utils_encoding import encode_course_id_for_google_classroom
+from .utils_encoding import encode_course_id_for_google_classroom, create_google_classroom_course_url, create_google_classroom_assignment_url
 
 # ═══════════════════════════════════════════════════════════════
 # 註冊相關 Flex Message 模板
@@ -2135,8 +2135,8 @@ def get_course_view_flex(courses: list):
                     "flex": 1,
                     "margin": "md",
                     "action": {
-                        "type": "uri",
-                        "uri": f"https://classroom.google.com/c/{encode_course_id_for_google_classroom(course['id'])}"
+                        "type": "uri", 
+                        "uri": create_google_classroom_course_url(course['id'])
                     }
                 },
                 {
@@ -3022,7 +3022,7 @@ def create_custom_carousel(steps_data, title="操作步驟", alt_text="步驟指
 # 作業統計 Flex Message 模板
 # ═══════════════════════════════════════════════════════════════
 
-def get_teacher_homework_statistics_flex(course_name, homework_title, statistics, unsubmitted_students=None):
+def get_teacher_homework_statistics_flex(course_name, homework_title, statistics, unsubmitted_students=None, course_id=None, coursework_id=None):
     """
     教師作業統計 Flex Message
     包含統計圖表、缺交學生名單、通知按鈕
@@ -3032,6 +3032,8 @@ def get_teacher_homework_statistics_flex(course_name, homework_title, statistics
         homework_title (str): 作業標題
         statistics (dict): 統計數據
         unsubmitted_students (list): 缺交學生列表 (可選)
+        course_id (str): Google Classroom 課程 ID (可選)
+        coursework_id (str): Google Classroom 作業 ID (可選)
     """
     total_students = statistics.get('total_students', 0)
     submitted = statistics.get('submitted', 0)
@@ -3246,24 +3248,42 @@ def get_teacher_homework_statistics_flex(course_name, homework_title, statistics
                 "margin": "xs"
             })
     
-    # 添加通知按鈕
-    contents.extend([
+    # 添加操作按鈕
+    button_contents = [
         {
             "type": "separator",
             "margin": "md"
-        },
-        {
+        }
+    ]
+    
+    # 如果有課程和作業ID，添加查看作業按鈕
+    if course_id and coursework_id:
+        button_contents.append({
             "type": "button",
             "action": {
-                "type": "message",
-                "label": "🔔 自動通知缺交學生",
-                "text": f"自動通知缺交學生 - {homework_title}"
+                "type": "uri",
+                "label": "📝 查看作業詳情",
+                "uri": create_google_classroom_assignment_url(course_id, coursework_id)
             },
-            "style": "primary" if unsubmitted > 0 else "secondary",
-            "color": "#FF6B35" if unsubmitted > 0 else "#CCCCCC",
+            "style": "secondary",
+            "color": "#2196F3",
             "margin": "md"
-        }
-    ])
+        })
+    
+    # 添加通知按鈕
+    button_contents.append({
+        "type": "button",
+        "action": {
+            "type": "postback",
+            "label": "🔔 自動通知缺交學生",
+            "data": f"action=notify_unsubmitted&course_id={course_id or ''}&coursework_id={coursework_id or ''}&homework={homework_title}"
+        },
+        "style": "primary" if unsubmitted > 0 else "secondary",
+        "color": "#FF6B35" if unsubmitted > 0 else "#CCCCCC",
+        "margin": "md"
+    })
+    
+    contents.extend(button_contents)
     
     return {
         "type": "flex",

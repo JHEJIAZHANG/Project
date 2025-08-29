@@ -102,6 +102,71 @@ def callback(request):
                 # 這裡可以根據 course_id 做進一步處理
                 # 例如發送課程詳細資訊或提供課程相關的選項
                 pass
+            
+            # 🔔 處理自動通知缺交學生
+            elif postback_data.startswith("action=notify_unsubmitted"):
+                try:
+                    # 解析 postback 數據
+                    import urllib.parse
+                    params = urllib.parse.parse_qs(postback_data)
+                    
+                    course_id = params.get('course_id', [''])[0]
+                    coursework_id = params.get('coursework_id', [''])[0]
+                    homework_title = params.get('homework', [''])[0]
+                    
+                    if not course_id or not coursework_id:
+                        line_bot_api.reply_message(
+                            ev.reply_token,
+                            TextSendMessage(text="❌ 無法取得課程或作業資訊，請重新查詢作業狀態")
+                        )
+                        continue
+                    
+                    # 調用從資料庫讀取的自動通知功能
+                    from line_bot.utils import notify_unsubmitted_students_from_cache
+                    
+                    result = notify_unsubmitted_students_from_cache(
+                        teacher_line_user_id=line_user_id,
+                        course_id=course_id,
+                        coursework_id=coursework_id
+                    )
+                    
+                    # 檢查結果並回應
+                    if "error" in result:
+                        line_bot_api.reply_message(
+                            ev.reply_token,
+                            TextSendMessage(text=f"❌ {result['error']}\n{result.get('message', '')}")
+                        )
+                    else:
+                        # 成功執行通知
+                        total = result.get('total_students', 0)
+                        line_notified = result.get('line_notified', 0)
+                        email_notified = result.get('email_notified', 0)
+                        failed = result.get('failed', 0)
+                        
+                        success_count = line_notified + email_notified
+                        
+                        response_text = f"✅ 自動通知已完成\n\n"
+                        response_text += f"📊 通知結果：\n"
+                        response_text += f"• 成功通知：{success_count}/{total} 位學生\n"
+                        response_text += f"• LINE 通知：{line_notified} 位\n"
+                        response_text += f"• Email 通知：{email_notified} 位\n"
+                        
+                        if failed > 0:
+                            response_text += f"• 通知失敗：{failed} 位\n"
+                        
+                        response_text += f"\n💡 詳細通知結果已私訊給您"
+                        
+                        line_bot_api.reply_message(
+                            ev.reply_token,
+                            TextSendMessage(text=response_text)
+                        )
+                    
+                except Exception as e:
+                    print(f"自動通知處理失敗: {e}")
+                    line_bot_api.reply_message(
+                        ev.reply_token,
+                        TextSendMessage(text=f"❌ 自動通知功能發生錯誤，請稍後再試")
+                    )
 
         # ============ 3. 所有訊息事件 ==============
         elif isinstance(ev, MessageEvent):
@@ -1195,3 +1260,81 @@ def render_flex(request):
         return JsonResponse({"error": "無效的 JSON 格式"}, status=400)
     except Exception as e:
         return JsonResponse({"error": f"處理請求時發生錯誤: {str(e)}"}, status=500)
+
+
+# ════════════════════════════════════════════════════════════════════════════════════════════════════
+# 自動通知缺交學生 API
+# ════════════════════════════════════════════════════════════════════════════════════════════════════
+
+@csrf_exempt
+def api_notify_unsubmitted_students(request):
+    """
+    自動通知缺交學生 API
+    從資料庫暫存讀取缺交學生資料並發送通知
+    
+    POST /line_bot/api/notify_unsubmitted_students/
+    {
+        "line_user_id": "教師的LINE用戶ID",
+        "course_id": "Google Classroom課程ID", 
+        "coursework_id": "Google Classroom作業ID"
+    }
+    """
+    if request.method != "POST":
+        return JsonResponse({"error": "method_not_allowed"}, status=405)
+    
+    try:
+        data = json.loads(request.body.decode("utf-8")) if request.body else {}
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "invalid_json"}, status=400)
+    
+    line_user_id = (data.get("line_user_id") or "").strip()
+    course_id = (data.get("course_id") or "").strip()
+    coursework_id = (data.get("coursework_id") or "").strip()
+    
+    if not line_user_id or not course_id or not coursework_id:
+        return JsonResponse({
+            "error": "missing_required_fields",
+            "message": "需要提供 line_user_id, course_id, coursework_id",
+            "required": ["line_user_id", "course_id", "coursework_id"]
+        }, status=400)
+    
+    try:
+        # 調用通知功能
+        from line_bot.utils import notify_unsubmitted_students_from_cache
+        
+        result = notify_unsubmitted_students_from_cache(
+            teacher_line_user_id=line_user_id,
+            course_id=course_id,
+            coursework_id=coursework_id
+        )
+        
+        # 檢查是否有錯誤
+        if "error" in result:
+            return JsonResponse({
+                "success": False,
+                "error": result["error"],
+                "message": result.get("message", ""),
+                "details": result.get("details", "")
+            }, status=400)
+        
+        # 成功執行通知
+        return JsonResponse({
+            "success": True,
+            "message": "自動通知已執行完成",
+            "results": {
+                "total_students": result["total_students"],
+                "line_notified": result["line_notified"],
+                "email_notified": result["email_notified"],
+                "failed": result["failed"]
+            },
+            "summary": f"成功通知 {result['line_notified'] + result['email_notified']}/{result['total_students']} 位缺交學生"
+        })
+        
+    except Exception as e:
+        print(f"自動通知API失敗: {e}")
+        return JsonResponse({
+            "success": False,
+            "error": "notification_failed",
+            "message": "自動通知功能發生錯誤",
+            "details": str(e)
+        }, status=500)

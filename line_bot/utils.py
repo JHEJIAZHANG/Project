@@ -35,8 +35,9 @@ def send_course_created_message(line_user_id: str, course_name: str, gc_course_i
     發送課程創建成功的Flex Message
     """
     
-    # 設定課程連結，優先使用 alternate_link，否則使用預設的 classroom 連結
-    course_link = alternate_link if alternate_link else f"https://classroom.google.com/c/{gc_course_id}"
+    # 設定課程連結，優先使用 alternate_link，否則使用編碼後的 classroom 連結
+    from .utils_encoding import create_google_classroom_course_url
+    course_link = alternate_link if alternate_link else create_google_classroom_course_url(gc_course_id)
 
     flex_message = {
         "type": "bubble",
@@ -186,8 +187,9 @@ def send_homework_created_message(line_user_id: str, homework_title: str, course
     發送作業創建成功的Flex Message
     """
     
-    # 設定連結，優先使用 alternate_link，否則使用課程連結
-    assignment_link = alternate_link if alternate_link else f"https://classroom.google.com/c/{gc_course_id}"
+    # 設定連結，優先使用 alternate_link，否則使用編碼後的課程連結
+    from .utils_encoding import create_google_classroom_course_url
+    assignment_link = alternate_link if alternate_link else create_google_classroom_course_url(gc_course_id)
     
     # 處理作業描述，如果為空則顯示預設訊息
     if not homework_description or homework_description.strip() == "":
@@ -994,8 +996,9 @@ def send_course_binding_success_message(group_id: str, course_id: str, bound_by_
             except LineProfile.DoesNotExist:
                 bound_by_name = "未知用戶"
         
-        # 生成加入課程的連結 - 強制使用邀請碼，確保可被直接邀請入班
-        join_link = f"https://classroom.google.com/c/{course_id}?cjc={enrollment_code}"
+        # 生成加入課程的連結 - 使用Base64編碼的課程ID和邀請碼
+        from .utils_encoding import create_google_classroom_course_url
+        join_link = f"{create_google_classroom_course_url(course_id)}?cjc={enrollment_code}"
         
         flex_message = {
             "type": "bubble",
@@ -2076,9 +2079,131 @@ def send_note_created_message(line_user_id: str, note_id: int, text: str = "", i
 # 缺交學生通知功能
 # ═══════════════════════════════════════════════════════════════
 
+def notify_unsubmitted_students_from_cache(teacher_line_user_id: str, course_id: str, coursework_id: str):
+    """
+    從資料庫暫存讀取缺交學生資料並自動通知
+    系統會自動判斷學生是否有LINE帳號，選擇合適的通知方式
+    
+    Args:
+        teacher_line_user_id (str): 教師的LINE用戶ID
+        course_id (str): Google Classroom課程ID
+        coursework_id (str): Google Classroom作業ID
+        
+    Returns:
+        dict: 通知結果統計
+    """
+    try:
+        # 取得資料庫暫存的缺交學生資料
+        from line_bot.models import HomeworkStatisticsCache
+        from django.utils import timezone
+        
+        cached_data = HomeworkStatisticsCache.get_valid_cache(
+            line_user_id=teacher_line_user_id,
+            course_id=course_id,
+            coursework_id=coursework_id
+        )
+        
+        if not cached_data or not cached_data.is_valid():
+            return {
+                "error": "沒有找到有效的作業統計暫存資料",
+                "message": "請先查詢作業狀態以取得最新資料"
+            }
+        
+        unsubmitted_students = cached_data.unsubmitted_students
+        homework_title = cached_data.homework_title
+        
+        # 取得教師資料和Google憑證
+        from user.models import LineProfile
+        from user.utils import get_valid_google_credentials
+        
+        teacher_profile = LineProfile.objects.get(line_user_id=teacher_line_user_id)
+        creds = get_valid_google_credentials(teacher_profile)
+        
+        # 建立Google服務
+        from googleapiclient.discovery import build
+        service = build("classroom", "v1", credentials=creds, cache_discovery=False)
+        
+        # 統計結果
+        results = {
+            "total_students": len(unsubmitted_students),
+            "line_notified": 0,
+            "email_notified": 0,
+            "failed": 0,
+            "notification_details": []
+        }
+        
+        for student in unsubmitted_students:
+            student_email = student.get('emailAddress', '')
+            student_name = student.get('name', '未知學生')
+            student_id = student.get('userId', '')
+            
+            # 檢查學生是否有LINE帳號（透過email查詢）
+            line_profile = LineProfile.objects.filter(email=student_email).first()
+            
+            notification_detail = {
+                "student_name": student_name,
+                "student_email": student_email,
+                "method": "",
+                "success": False,
+                "error": ""
+            }
+            
+            if line_profile and line_profile.line_user_id:
+                # 學生有LINE帳號 - 發送LINE通知
+                try:
+                    send_homework_reminder_line(
+                        line_profile.line_user_id,
+                        homework_title,
+                        course_id,
+                        teacher_profile.name or "老師"
+                    )
+                    results["line_notified"] += 1
+                    notification_detail["method"] = "LINE"
+                    notification_detail["success"] = True
+                    
+                except Exception as e:
+                    results["failed"] += 1
+                    notification_detail["method"] = "LINE"
+                    notification_detail["error"] = str(e)
+                    print(f"LINE通知失敗 ({student_name}): {e}")
+            else:
+                # 學生沒有LINE帳號 - 發送email通知（透過Google Classroom）
+                try:
+                    send_homework_reminder_email(
+                        service,
+                        course_id,
+                        coursework_id,
+                        student_id,
+                        homework_title,
+                        teacher_profile.name or "老師"
+                    )
+                    results["email_notified"] += 1
+                    notification_detail["method"] = "Email"
+                    notification_detail["success"] = True
+                    
+                except Exception as e:
+                    results["failed"] += 1
+                    notification_detail["method"] = "Email"
+                    notification_detail["error"] = str(e)
+                    print(f"Email通知失敗 ({student_name}): {e}")
+            
+            results["notification_details"].append(notification_detail)
+        
+        # 發送通知結果給教師
+        send_notification_result_to_teacher(teacher_line_user_id, homework_title, results)
+        
+        return results
+        
+    except Exception as e:
+        print(f"從暫存通知缺交學生失敗: {e}")
+        return {
+            "error": "通知功能發生錯誤",
+            "details": str(e)
+        }
+
 def notify_unsubmitted_students(teacher_line_user_id: str, course_id: str, homework_title: str, unsubmitted_students: list):
     """
-    自動通知缺交學生
+    自動通知缺交學生（舊版本，保留向後兼容）
     系統會自動判斷學生是否有LINE帳號，選擇合適的通知方式
     
     Args:
@@ -2151,6 +2276,7 @@ def notify_unsubmitted_students(teacher_line_user_id: str, course_id: str, homew
                     send_homework_reminder_email(
                         service,
                         course_id,
+                        coursework_id,
                         student_id,
                         homework_title,
                         teacher_profile.name or "老師"
@@ -2182,7 +2308,7 @@ def notify_unsubmitted_students(teacher_line_user_id: str, course_id: str, homew
             "error": str(e)
         }
 
-def send_homework_reminder_line(student_line_user_id: str, homework_title: str, course_id: str, teacher_name: str):
+def send_homework_reminder_line(student_line_user_id: str, homework_title: str, course_id: str, teacher_name: str, coursework_id: str = None):
     """
     發送作業提醒LINE訊息給學生
     
@@ -2192,6 +2318,7 @@ def send_homework_reminder_line(student_line_user_id: str, homework_title: str, 
         course_id (str): 課程ID
         teacher_name (str): 教師姓名
     """
+    from .utils_encoding import create_google_classroom_assignment_url, create_google_classroom_course_url
     
     flex_message = {
         "type": "bubble",
@@ -2267,7 +2394,7 @@ def send_homework_reminder_line(student_line_user_id: str, homework_title: str, 
                     "action": {
                         "type": "uri",
                         "label": "前往Google Classroom",
-                        "uri": f"https://classroom.google.com/c/{course_id}"
+                        "uri": create_google_classroom_assignment_url(course_id, coursework_id) if coursework_id else create_google_classroom_course_url(course_id)
                     }
                 },
                 {
@@ -2294,79 +2421,173 @@ def send_homework_reminder_line(student_line_user_id: str, homework_title: str, 
         print(f"發送LINE作業提醒失敗: {e}")
         raise e
 
-def send_homework_reminder_email(service, course_id: str, student_id: str, homework_title: str, teacher_name: str):
+def send_homework_reminder_email(service, course_id: str, coursework_id: str, student_id: str, homework_title: str, teacher_name: str):
     """
-    透過Google Classroom發送作業提醒email給學生
+    透過Gmail SMTP發送作業提醒email給學生
     
     Args:
         service: Google Classroom服務物件
         course_id (str): 課程ID
+        coursework_id (str): 作業ID
         student_id (str): 學生的Google用戶ID
         homework_title (str): 作業標題
         teacher_name (str): 教師姓名
     """
     
-    # 建立私人評論（會發送email通知）
     try:
-        # 取得課程的作業列表，找到對應的作業
-        courseworks = service.courses().courseWork().list(courseId=course_id).execute()
-        target_coursework_id = None
+        # 獲取學生的email地址
+        student_profile = service.userProfiles().get(userId=student_id).execute()
+        student_email = student_profile.get("emailAddress")
+        student_name = student_profile.get("name", {}).get("fullName", "同學")
         
-        for work in courseworks.get('courseWork', []):
-            if work.get('title') == homework_title:
-                target_coursework_id = work.get('id')
-                break
+        if not student_email:
+            raise Exception("無法獲取學生的email地址")
         
-        if not target_coursework_id:
-            raise Exception(f"找不到作業: {homework_title}")
+        # Gmail SMTP 設定
+        smtp_server = "smtp.gmail.com"
+        smtp_port = 587
+        smtp_username = os.getenv("GMAIL_USERNAME")  # 需要在.env中設定
+        smtp_password = os.getenv("GMAIL_APP_PASSWORD")  # Gmail應用程式密碼
         
-        # 取得學生的提交記錄
-        submissions = service.courses().courseWork().studentSubmissions().list(
-            courseId=course_id,
-            courseWorkId=target_coursework_id,
-            userId=student_id
-        ).execute()
+        if not smtp_username or not smtp_password:
+            raise Exception("Gmail SMTP 設定不完整，請設定 GMAIL_USERNAME 和 GMAIL_APP_PASSWORD")
         
-        if not submissions.get('studentSubmissions'):
-            raise Exception("找不到學生的提交記錄")
+        # 建立email內容
+        from email.mime.text import MIMEText
+        from email.mime.multipart import MIMEMultipart
+        import smtplib
+        from .utils_encoding import encode_course_id_for_google_classroom, create_google_classroom_course_url, create_google_classroom_assignment_url
         
-        submission_id = submissions['studentSubmissions'][0]['id']
+        # 生成正確的 Google Classroom 連結
+        classroom_link = create_google_classroom_assignment_url(course_id, coursework_id)
         
-        # 建立私人評論（會觸發email通知）
-        comment_text = f"""作業提醒
+        # 建立郵件物件
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = f"📝 作業提醒：{homework_title}"
+        msg['From'] = f"{teacher_name} <{smtp_username}>"
+        msg['To'] = student_email
+        
+        # 純文字版本
+        text_content = f"""親愛的{student_name}，
 
-親愛的同學，
+您好！這是來自 {teacher_name} 的作業提醒。
 
-您還有以下作業尚未繳交：
-📝 {homework_title}
+📚 課程作業通知
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-請盡快完成並提交作業，避免影響學習進度和成績評估。
+📝 作業名稱：{homework_title}
+⚠️  狀態：尚未繳交
+🎯 請盡快完成並提交作業
 
-如有任何問題，請隨時與我聯繫。
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+💡 溫馨提醒：
+• 請登入 Google Classroom 查看詳細作業內容
+• 如有任何問題，請透過 Classroom 與老師聯繫
+• 請在截止日期前完成提交，避免影響成績
+
+祝學習愉快！
 
 {teacher_name}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+此為系統自動發送的提醒郵件，請勿直接回覆此郵件。
+如需協助，請透過 Google Classroom 聯繫老師。
 """
         
-        comment_body = {
-            'text': comment_text
-        }
+        # HTML版本
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{ font-family: 'Microsoft JhengHei', Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px 10px 0 0; text-align: center; }}
+                .content {{ background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }}
+                .homework-box {{ background: white; padding: 20px; border-radius: 8px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }}
+                .homework-title {{ font-size: 18px; font-weight: bold; color: #2c3e50; margin-bottom: 10px; }}
+                .status-warning {{ background: #fff3cd; border: 1px solid #ffeaa7; color: #856404; padding: 15px; border-radius: 5px; margin: 15px 0; }}
+                .tips {{ background: #e8f5e9; border-left: 4px solid #4caf50; padding: 15px; margin: 20px 0; }}
+                .footer {{ text-align: center; font-size: 12px; color: #666; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; }}
+                .btn {{ display: inline-block; background: #007bff; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; margin: 10px 0; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>📝 作業提醒通知</h1>
+                    <p>來自 {teacher_name} 的訊息</p>
+                </div>
+                
+                <div class="content">
+                    <p>親愛的 <strong>{student_name}</strong>，您好！</p>
+                    
+                    <div class="homework-box">
+                        <div class="homework-title">📚 {homework_title}</div>
+                        <div class="status-warning">
+                            <strong>⚠️ 提醒：</strong> 此作業尚未繳交，請盡快完成提交。
+                        </div>
+                    </div>
+                    
+                    <div class="tips">
+                        <h4>💡 操作指引：</h4>
+                        <ul>
+                            <li>請登入 <strong>Google Classroom</strong> 查看詳細作業內容</li>
+                            <li>確認作業要求和截止日期</li>
+                            <li>完成作業後記得點擊「繳交」按鈕</li>
+                            <li>如有疑問，可透過 Classroom 私訊功能聯繫老師</li>
+                        </ul>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <a href="{classroom_link}" class="btn">前往 Google Classroom</a>
+                    </div>
+                </div>
+                
+                <div class="footer">
+                    <p>祝您學習愉快！<br><strong>{teacher_name}</strong></p>
+                    <hr style="margin: 15px 0;">
+                    <p>此為系統自動發送的提醒郵件，請勿直接回覆。<br>如需協助，請透過 Google Classroom 聯繫老師。</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
         
-        service.courses().courseWork().studentSubmissions().modifyAttachments(
-            courseId=course_id,
-            courseWorkId=target_coursework_id,
-            id=submission_id,
-            body={
-                'addAttachments': []
-            }
-        ).execute()
+        # 加入純文字和HTML版本
+        part1 = MIMEText(text_content, 'plain', 'utf-8')
+        part2 = MIMEText(html_content, 'html', 'utf-8')
         
-        # 因為Google Classroom API限制，我們透過評論功能來發送通知
-        # 這會自動發送email給學生
-        print(f"已透過Google Classroom發送作業提醒給學生 {student_id}")
-        return True
+        msg.attach(part1)
+        msg.attach(part2)
+        
+        # 發送郵件
+        try:
+            # 建立SMTP連線
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.starttls()  # 啟用TLS加密
+            server.login(smtp_username, smtp_password)
+            
+            # 發送郵件
+            text = msg.as_string()
+            server.sendmail(smtp_username, student_email, text)
+            server.quit()
+            
+            print(f"✅ 已透過Gmail SMTP發送作業提醒給 {student_name} ({student_email})")
+            return True
+            
+        except smtplib.SMTPAuthenticationError as e:
+            print(f"❌ Gmail SMTP 認證失敗: {e}")
+            print("請檢查 GMAIL_USERNAME 和 GMAIL_APP_PASSWORD 設定")
+            raise e
+            
+        except smtplib.SMTPException as e:
+            print(f"❌ SMTP 發送失敗: {e}")
+            raise e
         
     except Exception as e:
-        print(f"發送email作業提醒失敗: {e}")
+        print(f"❌ 發送email作業提醒失敗: {e}")
         raise e
 
 def send_notification_result_to_teacher(teacher_line_user_id: str, homework_title: str, results: dict):

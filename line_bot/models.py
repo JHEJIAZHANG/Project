@@ -89,3 +89,74 @@ class GroupBinding(models.Model):
 
     def __str__(self) -> str:
         return f"{self.group_id} -> {self.course_id}"
+
+
+class HomeworkStatisticsCache(models.Model):
+    """
+    作業統計暫存資料
+    - 保護個資：避免將學生資料傳給AI
+    - 提高效率：避免重複查詢Google Classroom API
+    """
+    
+    line_user_id = models.CharField(max_length=50, help_text="教師的LINE用戶ID")
+    course_id = models.CharField(max_length=100, help_text="Google Classroom課程ID")
+    coursework_id = models.CharField(max_length=100, help_text="Google Classroom作業ID")
+    course_name = models.CharField(max_length=200, default="", help_text="課程名稱")
+    homework_title = models.CharField(max_length=200, default="", help_text="作業標題")
+    
+    # 統計數據
+    total_students = models.IntegerField(default=0)
+    submitted_count = models.IntegerField(default=0)
+    unsubmitted_count = models.IntegerField(default=0)
+    completion_rate = models.FloatField(default=0.0)
+    
+    # 缺交學生資料（JSON格式，保護個資）
+    unsubmitted_students = models.JSONField(
+        default=list,
+        help_text="缺交學生列表，包含name, userId, emailAddress"
+    )
+    
+    # 狀態統計
+    status_counts = models.JSONField(default=dict, help_text="各種狀態的數量統計")
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(help_text="資料過期時間（預設1小時）")
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["line_user_id", "created_at"]),
+            models.Index(fields=["course_id", "coursework_id"]),
+            models.Index(fields=["expires_at"]),
+        ]
+        ordering = ["-created_at"]
+    
+    def is_valid(self) -> bool:
+        """檢查資料是否仍然有效"""
+        return self.expires_at > timezone.now()
+    
+    @classmethod
+    def cleanup_expired(cls):
+        """清理所有過期的暫存資料"""
+        expired_count = cls.objects.filter(expires_at__lte=timezone.now()).count()
+        if expired_count > 0:
+            deleted_count, _ = cls.objects.filter(expires_at__lte=timezone.now()).delete()
+            print(f"自動清理了 {deleted_count} 筆過期的作業統計暫存資料")
+            return deleted_count
+        return 0
+    
+    @classmethod
+    def get_valid_cache(cls, line_user_id: str, course_id: str, coursework_id: str):
+        """取得有效的暫存資料，同時自動清理過期資料"""
+        # 自動清理過期資料（每次查詢時觸發）
+        cls.cleanup_expired()
+        
+        # 返回有效的暫存資料
+        return cls.objects.filter(
+            line_user_id=line_user_id,
+            course_id=course_id,
+            coursework_id=coursework_id,
+            expires_at__gt=timezone.now()
+        ).first()
+    
+    def __str__(self) -> str:
+        return f"{self.line_user_id} - {self.course_name} - {self.homework_title}"
