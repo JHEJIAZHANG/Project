@@ -1284,15 +1284,21 @@ def manage_calendar_attendees(request):
 @permission_classes([AllowAny])
 def get_submissions_status(request):
     """
-    課堂作業繳交統計
-    GET /api/classroom/submissions/status?line_user_id=...&course_id=...&coursework_id=...
-    回傳：total、TURNED_IN、RETURNED、CREATED（未繳）、明細
+    課堂作業繳交統計 - 隱私保護版本
+    
+    支援兩種角色：
+    1. 教師：完整統計數據（不包含學生個資）
+    2. 學生：僅顯示自己的繳交狀態
+    
+    GET/POST /api/classroom/submissions/status
+    參數: line_user_id, course_id, coursework_id
     """
     params = request.GET if request.method == "GET" else request.data
     ser = SubmissionsStatusSerializer(data=params)
     ser.is_valid(raise_exception=True)
 
-    result = get_user_and_credentials(ser.validated_data["line_user_id"])
+    line_user_id = ser.validated_data["line_user_id"]
+    result = get_user_and_credentials(line_user_id)
     if isinstance(result, Response):
         return result
     prof, creds = result
@@ -1302,50 +1308,248 @@ def get_submissions_status(request):
     coursework_id = ser.validated_data["coursework_id"]
 
     try:
+        # 首先獲取課程資訊來驗證角色
+        course = service.courses().get(id=course_id).execute()
+        course_name = course.get("name", "未知課程")
+        
+        # 獲取作業資訊
+        coursework = service.courses().courseWork().get(
+            courseId=course_id, 
+            id=coursework_id
+        ).execute()
+        homework_title = coursework.get("title", "未知作業")
+        
+        # 方法1：準確的角色辨識 - 使用Google API驗證教師身份
+        is_teacher = False
+        try:
+            # 檢查當前用戶是否為課程的教師
+            teachers_response = service.courses().teachers().list(courseId=course_id).execute()
+            teacher_emails = [teacher.get("profile", {}).get("emailAddress") for teacher in teachers_response.get("teachers", [])]
+            is_teacher = prof.email in teacher_emails
+        except Exception as e:
+            print(f"驗證教師身份失敗: {e}")
+            # 備用方案：檢查是否為課程擁有者
+            is_teacher = course.get("ownerId") == prof.email
+
+        # 獲取作業提交狀態
         resp = service.courses().courseWork().studentSubmissions().list(
             courseId=course_id,
             courseWorkId=coursework_id,
             pageSize=200
         ).execute()
         items = resp.get("studentSubmissions", [])
-        counts = {"TURNED_IN": 0, "RETURNED": 0, "CREATED": 0}
-        details = []
-        for s in items:
-            state = s.get("state", "CREATED")
-            counts[state] = counts.get(state, 0) + 1
-            user_id = s.get("userId")
-
-            # 嘗試查詢學生姓名與 Email
-            student_full_name = "要不到"
-            student_email = "要不到"
+        
+        if is_teacher:
+            # 教師角色：直接發送 Flex Message
+            counts = {"TURNED_IN": 0, "RETURNED": 0, "CREATED": 0}
+            total_students = len(items)
+            
+            # 統計各種狀態的數量並收集缺交學生資料
+            unsubmitted_students = []
+            for submission in items:
+                state = submission.get("state", "CREATED")
+                counts[state] = counts.get(state, 0) + 1
+                
+                # 如果是缺交狀態，獲取學生資料
+                if state in ["CREATED", "NEW"]:
+                    try:
+                        student_id = submission.get("userId")
+                        if student_id:
+                            # 獲取學生個人資料
+                            student_profile = service.userProfiles().get(userId=student_id).execute()
+                            student_name = student_profile.get("name", {}).get("fullName", "未知學生")
+                            unsubmitted_students.append({
+                                "name": student_name,
+                                "userId": student_id,
+                                "emailAddress": student_profile.get("emailAddress", "")
+                            })
+                    except Exception as e:
+                        print(f"獲取學生資料失敗: {e}")
+                        continue
+            
+            # 計算繳交率
+            submitted_count = counts.get("TURNED_IN", 0) + counts.get("RETURNED", 0)
+            unsubmitted_count = counts.get("CREATED", 0) + counts.get("NEW", 0)
+            completion_rate = round((submitted_count / total_students * 100), 1) if total_students > 0 else 0
+            
+            # 準備統計數據
+            statistics = {
+                "total_students": total_students,
+                "submitted": submitted_count,
+                "unsubmitted": unsubmitted_count,
+                "completion_rate": completion_rate,
+                "status_counts": counts
+            }
+            
+            # 直接發送教師統計 Flex Message
             try:
-                if user_id:
-                    profile = service.userProfiles().get(userId=user_id).execute()
-                    name_obj = profile.get("name", {}) or {}
-                    student_full_name = name_obj.get("fullName") or name_obj.get("givenName") or "要不到"
-                    student_email = profile.get("emailAddress") or "要不到"
+                from line_bot.flex_templates import get_teacher_homework_statistics_flex
+                from linebot import LineBotApi
+                from linebot.models import FlexSendMessage
+                import os
+                
+                # 建立 LINE Bot API
+                CHANNEL_TOKEN = os.getenv("CHANNEL_TOKEN")
+                line_bot_api = LineBotApi(CHANNEL_TOKEN)
+                
+                # 生成 Flex Message（包含缺交學生名單）
+                flex_message = get_teacher_homework_statistics_flex(
+                    course_name=course_name,
+                    homework_title=homework_title,
+                    statistics=statistics,
+                    unsubmitted_students=unsubmitted_students
+                )
+                
+                # 發送 Flex Message
+                line_bot_api.push_message(
+                    line_user_id,
+                    FlexSendMessage(
+                        alt_text=flex_message['altText'],
+                        contents=flex_message['contents']
+                    )
+                )
+                
+                # 簡化回傳內容
+                return Response({
+                    "role": "teacher",
+                    "message": "✅ 已發送作業統計圖表到您的LINE"
+                })
+                
             except Exception as e:
-                # 查詢不到學生資訊時，輸出原因並以「要不到」回傳
-                print(f"get_submissions_status: 取得學生資料失敗 userId={user_id}: {e}")
+                print(f"發送教師統計 Flex Message 失敗: {e}")
+                
+                # 如果發送失敗，回傳簡化的錯誤訊息
+                return Response({
+                    "role": "teacher",
+                    "message": "❌ 發送統計圖表失敗，請稍後再試"
+                })
+            
+        else:
+            # 學生角色：只顯示自己的狀態
+            # 先獲取當前用戶的 Google userId
+            current_user_id = None
+            try:
+                # 方法1：用 "me" 獲取當前用戶資料
+                current_profile = service.userProfiles().get(userId="me").execute()
+                current_user_id = current_profile.get("id")
+            except Exception as e:
+                print(f"無法獲取當前用戶ID: {e}")
+                # 方法2：嘗試用email匹配
+                for submission in items:
+                    try:
+                        # 獲取這個submission對應的用戶資料
+                        submission_user = service.userProfiles().get(userId=submission.get("userId")).execute()
+                        if submission_user.get("emailAddress") == prof.email:
+                            current_user_id = submission.get("userId")
+                            break
+                    except Exception:
+                        continue
+            
+            user_submission = None
+            if current_user_id:
+                for submission in items:
+                    if submission.get("userId") == current_user_id:
+                        user_submission = submission
+                        break
+            
+            if user_submission:
+                state = user_submission.get("state", "CREATED")
+                is_late = user_submission.get("late", False)
+                update_time = user_submission.get("updateTime", "")
+                
+                status_text = {
+                    "TURNED_IN": "✅ 已繳交",
+                    "RETURNED": "📋 已批改",
+                    "CREATED": "❌ 未繳交"
+                }.get(state, "❓ 狀態不明")
+                
+                late_text = " (遲交)" if is_late else ""
+                
+                response_text = f"""📝 您的作業狀態
 
-            details.append({
-                "id": s.get("id"),
-                "userId": user_id,
-                "studentName": student_full_name,
-                "studentEmail": student_email,
-                "state": state,
-                "updateTime": s.get("updateTime"),
-                "late": s.get("late"),
-            })
-        return Response({
-            "course_id": course_id,
-            "coursework_id": coursework_id,
-            "total": len(items),
-            "counts": counts,
-            "submissions": details,
-        })
+課程：{course_name}
+作業：{homework_title}
+
+📊 您的狀態：{status_text}{late_text}
+
+更新時間：{update_time}
+
+💡 提示：如需繳交或查看詳細內容，請前往Google Classroom。"""
+
+                # 查詢學生還有哪些作業未交
+                try:
+                    all_courseworks = service.courses().courseWork().list(courseId=course_id).execute()
+                    unsubmitted_homeworks = []
+                    
+                    for work in all_courseworks.get("courseWork", []):
+                        work_id = work.get("id")
+                        work_title = work.get("title", "未知作業")
+                        
+                        # 查詢該作業的提交狀態（使用正確的userId）
+                        if current_user_id:
+                            work_submissions = service.courses().courseWork().studentSubmissions().list(
+                                courseId=course_id,
+                                courseWorkId=work_id,
+                                userId=current_user_id
+                            ).execute()
+                            
+                            user_work_submission = None
+                            for sub in work_submissions.get("studentSubmissions", []):
+                                if sub.get("userId") == current_user_id:
+                                    user_work_submission = sub
+                                    break
+                            
+                            if user_work_submission and user_work_submission.get("state") == "CREATED":
+                                unsubmitted_homeworks.append(work_title)
+                    
+                    if unsubmitted_homeworks:
+                        response_text += f"\n\n📚 您還有以下作業未繳交：\n"
+                        for i, hw_title in enumerate(unsubmitted_homeworks[:5], 1):  # 最多顯示5個
+                            response_text += f"• {hw_title}\n"
+                        if len(unsubmitted_homeworks) > 5:
+                            response_text += f"... 還有 {len(unsubmitted_homeworks) - 5} 個作業"
+                
+                except Exception as e:
+                    print(f"查詢學生其他作業失敗: {e}")
+                
+                return Response({
+                    "role": "student",
+                    "message": response_text,
+                    "your_status": {
+                        "course_name": course_name,
+                        "homework_title": homework_title,
+                        "status": state,
+                        "status_text": status_text,
+                        "is_late": is_late,
+                        "update_time": update_time
+                    }
+                })
+            else:
+                response_text = f"""📝 作業狀態查詢
+
+課程：{course_name}
+作業：{homework_title}
+
+❓ 找不到您的作業記錄，可能原因：
+• 您尚未加入此課程
+• 作業尚未分派給您
+• 系統資料同步延遲
+
+💡 建議前往Google Classroom確認作業狀態。"""
+
+                return Response({
+                    "role": "student",
+                    "message": response_text,
+                    "error": "submission_not_found"
+                })
+                
     except Exception as e:
-        return Response({"error": "取得繳交狀態失敗", "details": str(e)}, status=400)
+        error_msg = str(e)
+        return Response({
+            "error": "查詢作業狀態失敗",
+            "message": "無法獲取作業提交資料，請稍後再試或確認課程和作業ID是否正確。",
+            "details": error_msg
+        }, status=400)
 
 
 def _find_course_by_time_or_name(author: LineProfile, captured_at, course_id: str | None, text: str | None):

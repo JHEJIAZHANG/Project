@@ -3,6 +3,42 @@ from django.db import models
 from django.utils import timezone
 
 
+class ConversationMessage(models.Model):
+    """
+    用戶與Bot的對話訊息記錄
+    - line_user_id: 用戶LINE ID
+    - message_type: 訊息類型 (user/bot)
+    - content: 訊息內容
+    - intent: n8n識別的意圖（如果有的話）
+    - raw_data: 原始訊息資料（JSON格式）
+    - created_at: 建立時間
+    """
+    
+    MESSAGE_TYPES = [
+        ('user', '用戶訊息'),
+        ('bot', 'Bot回應'),
+        ('system', '系統訊息'),
+    ]
+    
+    line_user_id = models.CharField(max_length=50)
+    message_type = models.CharField(max_length=10, choices=MESSAGE_TYPES)
+    content = models.TextField()
+    intent = models.CharField(max_length=50, blank=True, null=True)
+    raw_data = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=['line_user_id', 'created_at']),
+            models.Index(fields=['message_type']),
+            models.Index(fields=['intent']),
+        ]
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        return f"{self.line_user_id} - {self.message_type} - {self.created_at}"
+
+
 class OneTimeBindCode(models.Model):
     """
     一次性綁定碼（僅存雜湊）

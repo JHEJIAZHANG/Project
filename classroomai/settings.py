@@ -139,18 +139,35 @@ LOGGING = {
             'level': 'DEBUG',
             'class': 'logging.FileHandler',
             'filename': os.path.join(BASE_DIR, 'logs/django.log'),
+            'encoding': 'utf-8',
         },
         'error_file': {
             'level': 'ERROR',
             'class': 'logging.FileHandler',
             'filename': os.path.join(BASE_DIR, 'logs/django_errors.log'),
+            'encoding': 'utf-8',
+        },
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+    },
+    'formatters': {
+        'simple': {
+            'format': '%(asctime)s %(levelname)s %(message)s',
         },
     },
     'loggers': {
         'django': {
-            'handlers': ['file', 'error_file'],
+            'handlers': ['file', 'error_file', 'console'],
+            'level': 'INFO',  # 降低console的log級別，避免SQL debug輸出
+            'propagate': False,
+        },
+        'django.db.backends': {
+            'handlers': ['file'],  # 資料庫相關log只輸出到檔案
             'level': 'DEBUG',
-            'propagate': True,
+            'propagate': False,
         },
     },
 }

@@ -14,7 +14,7 @@ from linebot.models import (
     LocationMessage, StickerMessage, PostbackEvent
 )
 from user.models import LineProfile  # 確保這是你的 LineProfile 模型
-from .models import OneTimeBindCode, GroupBinding
+from .models import OneTimeBindCode, GroupBinding, ConversationMessage
 from line_bot.utils import (
     send_courses_list,
     send_create_course_guide,
@@ -62,6 +62,17 @@ parser       = WebhookParser(CHANNEL_SECRET)
 def callback(request):
     signature = request.headers.get("X-Line-Signature")
     body      = request.body.decode("utf-8")
+    
+    # 註解掉系統webhook記錄，避免過多系統訊息
+    # try:
+    #     ConversationMessage.objects.create(
+    #         line_user_id="system_webhook",
+    #         message_type="system",
+    #         content=f"Webhook received",
+    #         raw_data={"signature": signature, "body_length": len(body)}
+    #     )
+    # except Exception as e:
+    #     print(f"儲存webhook記錄失敗: {e}")
 
     try:
         events = parser.parse(body, signature)
@@ -307,6 +318,21 @@ def callback(request):
                     message_type = "unknown"
                     message_content = "收到未知類型訊息"
 
+                # 儲存用戶訊息到資料庫
+                try:
+                    ConversationMessage.objects.create(
+                        line_user_id=line_user_id,
+                        message_type="user",
+                        content=message_content,
+                        raw_data={
+                            "message_type": message_type,
+                            "message_id": getattr(ev.message, "id", None),
+                            "role": role
+                        }
+                    )
+                except Exception as e:
+                    print(f"儲存用戶訊息失敗: {e}")
+                
                 # 送到 n8n
                 payload = {
                     "lineUserId": line_user_id,
@@ -877,6 +903,21 @@ def api_n8n_response(request):
         # 如果清理後的文字太長，進行截斷處理
         if len(cleaned_text) > 4500:  # Line 訊息長度限制大約 5000 字元
             cleaned_text = cleaned_text[:4500] + "...\n\n[訊息過長，已截斷顯示]"
+        
+        # 儲存Bot回應到資料庫
+        try:
+            ConversationMessage.objects.create(
+                line_user_id=line_user_id,
+                message_type="bot",
+                content=cleaned_text,
+                raw_data={
+                    "original_length": len(str(raw_text)),
+                    "cleaned_length": len(cleaned_text),
+                    "source": "n8n"
+                }
+            )
+        except Exception as e:
+            print(f"儲存Bot回應失敗: {e}")
         
         # 發送給用戶
         line_bot_api.push_message(
