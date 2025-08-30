@@ -1591,9 +1591,9 @@ def get_submissions_status(request):
 💡 提示：如需繳交或查看詳細內容，請前往Google Classroom。"""
 
                 # 查詢學生還有哪些作業未交
+                unsubmitted_homeworks = []
                 try:
                     all_courseworks = service.courses().courseWork().list(courseId=course_id).execute()
-                    unsubmitted_homeworks = []
                     
                     for work in all_courseworks.get("courseWork", []):
                         work_id = work.get("id")
@@ -1625,18 +1625,17 @@ def get_submissions_status(request):
                 
                 except Exception as e:
                     print(f"查詢學生其他作業失敗: {e}")
+                    unsubmitted_homeworks = []  # 確保在異常情況下也有定義
                 
                 return Response({
                     "role": "student",
-                    "message": response_text,
-                    "your_status": {
-                        "course_name": course_name,
-                        "homework_title": homework_title,
-                        "status": state,
-                        "status_text": status_text,
-                        "is_late": is_late,
-                        "update_time": update_time
-                    }
+                    "message": "✅ 查詢成功",
+                    "course_name": course_name,
+                    "homework_title": homework_title,
+                    "status": state,
+                    "status_text": status_text,
+                    "is_late": is_late,
+                    "update_time": update_time or "無更新時間"
                 })
             else:
                 response_text = f"""📝 作業狀態查詢
@@ -1652,8 +1651,14 @@ def get_submissions_status(request):
 💡 建議前往Google Classroom確認作業狀態。"""
 
                 return Response({
-                    "role": "student",
-                    "message": response_text,
+                    "role": "student", 
+                    "message": "❓ 找不到您的作業記錄",
+                    "course_name": course_name,
+                    "homework_title": homework_title,
+                    "status": "NOT_FOUND",
+                    "status_text": "❓ 狀態不明",
+                    "is_late": False,
+                    "update_time": "無記錄",
                     "error": "submission_not_found"
                 })
                 

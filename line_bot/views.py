@@ -1117,6 +1117,27 @@ def render_flex(request):
                     flex_message = get_flex_template(template_name, courses=courses, page_size=page_size)
                 else:
                     flex_message = get_flex_template(template_name, courses=courses)
+            elif template_name == 'student_homework_status':
+                # 處理學生作業狀態模板
+                homeworks = payload.get('homeworks', [])
+                if not homeworks:
+                    return JsonResponse({
+                        "error": f"模板 {template_name} 需要 homeworks 參數",
+                        "example": {
+                            "homeworks": [
+                                {
+                                    "course_name": "課程名稱",
+                                    "homework_title": "作業標題",
+                                    "status": "TURNED_IN",
+                                    "status_text": "✅ 已繳交",
+                                    "is_late": False,
+                                    "update_time": "2025-05-07"
+                                }
+                            ]
+                        }
+                    }, status=400)
+                
+                flex_message = get_flex_template(template_name, homeworks=homeworks)
             else:
                 flex_message = get_flex_template(template_name)
             
@@ -1207,6 +1228,15 @@ def render_flex(request):
                     flex_message = get_flex_template(template_name, courses=courses, page_size=page_size)
                 else:
                     flex_message = get_flex_template(template_name, courses=courses)
+            elif template_name == 'student_homework_status':
+                # 處理學生作業狀態模板
+                homeworks = payload.get('homeworks', [])
+                if not homeworks:
+                    return JsonResponse({
+                        "error": f"模板 {template_name} 需要 homeworks 參數"
+                    }, status=400)
+                
+                flex_message = get_flex_template(template_name, homeworks=homeworks)
             else:
                 flex_message = get_flex_template(template_name)
             

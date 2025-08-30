@@ -12,6 +12,7 @@ Flex Message 模板庫
 """
 
 import os
+import json
 from .utils_encoding import encode_course_id_for_google_classroom, create_google_classroom_course_url, create_google_classroom_assignment_url
 
 # ═══════════════════════════════════════════════════════════════
@@ -73,7 +74,7 @@ def get_start_register_flex():
                             }
                         ],
                         "paddingAll": "16px",
-                        "spacing": "sm"
+                        "backgroundColor": "#FFF4E6"
                     }
                 },
                 # Step 2 - 功能介紹
@@ -120,7 +121,7 @@ def get_start_register_flex():
                             }
                         ],
                         "paddingAll": "16px",
-                        "spacing": "sm"
+                        "backgroundColor": "#FFF4E6"
                     }
                 },
                 # Step 3 - 開始使用
@@ -2819,12 +2820,49 @@ def get_flex_template(template_name, **kwargs):
             kwargs.get('unsubmitted_students', None)
         )
     elif template_name == "student_homework_status":
-        return get_student_homework_status_flex(
-            kwargs.get('course_name', ''),
-            kwargs.get('homework_title', ''),
-            kwargs.get('status_info', {}),
-            kwargs.get('unsubmitted_homeworks', None)
-        )
+        # 處理 payload 參數（可能是字串或物件）
+        payload_data = kwargs.get('payload', {})
+        
+        # 如果 payload_data 是字串，嘗試解析為 JSON
+        if isinstance(payload_data, str):
+            try:
+                payload_data = json.loads(payload_data)
+            except json.JSONDecodeError:
+                payload_data = {}
+        
+        # 從 payload 或 kwargs 中獲取 homeworks
+        homeworks = payload_data.get('homeworks', kwargs.get('homeworks', []))
+        
+        # 如果沒有 homeworks，返回錯誤提示
+        if not homeworks:
+            return {
+                "type": "flex",
+                "altText": "參數錯誤",
+                "contents": {
+                    "type": "bubble",
+                    "body": {
+                        "type": "box",
+                        "layout": "vertical",
+                        "contents": [
+                            {
+                                "type": "text",
+                                "text": "❌ 參數錯誤",
+                                "weight": "bold",
+                                "color": "#FF4444"
+                            },
+                            {
+                                "type": "text",
+                                "text": "缺少作業列表資料",
+                                "size": "sm",
+                                "color": "#666666",
+                                "wrap": True
+                            }
+                        ]
+                    }
+                }
+            }
+        
+        return get_student_homework_status_flex(homeworks)
     
     # 靜態模板（不需要參數）
     templates = {
@@ -3300,178 +3338,355 @@ def get_teacher_homework_statistics_flex(course_name, homework_title, statistics
         }
     }
 
-def get_student_homework_status_flex(course_name, homework_title, status_info, unsubmitted_homeworks=None):
+def get_student_homework_status_flex(homeworks: list):
     """
-    學生作業狀態 Flex Message
-    顯示個人狀態和未交作業清單
+    學生作業狀態 Flex Message - 重新設計的現代化界面
+    適用於查看學生所有作業的提交狀況
     
     Args:
-        course_name (str): 課程名稱
-        homework_title (str): 作業標題
-        status_info (dict): 狀態資訊
-        unsubmitted_homeworks (list): 未交作業列表 (可選)
+        homeworks (list): 作業列表，每個作業應包含以下欄位：
+            - course_name: 課程名稱
+            - homework_title: 作業標題
+            - status: 作業狀態 ("TURNED_IN", "RETURNED", "CREATED", "NOT_FOUND")
+            - status_text: 狀態顯示文字
+            - is_late: 是否遲交
+            - update_time: 更新時間
     """
-    status = status_info.get('status', 'CREATED')
-    is_late = status_info.get('is_late', False)
-    update_time = status_info.get('update_time', '')
+    # 建立作業項目
+    homework_items = []
     
-    # 狀態圖示和文字
-    status_config = {
-        "TURNED_IN": {"icon": "✅", "text": "已繳交", "color": "#1DB446", "bg": "#F0F9F0"},
-        "RETURNED": {"icon": "📋", "text": "已批改", "color": "#2196F3", "bg": "#F0F7FF"}, 
-        "CREATED": {"icon": "❌", "text": "未繳交", "color": "#FF4444", "bg": "#FFF0F0"}
-    }
-    
-    config = status_config.get(status, status_config["CREATED"])
-    late_text = " (遲交)" if is_late else ""
-    
-    contents = [
-        # 標題區塊
-        {
+    for i, homework in enumerate(homeworks):
+        # 根據狀態選擇顏色和圖示
+        status = homework.get("status", "CREATED")
+        if status == "TURNED_IN":
+            color = "#10B981"  # 綠色 - 已繳交
+            icon = "✅"
+            bg_color = "#ECFDF5"
+        elif status == "RETURNED":
+            color = "#3B82F6"  # 藍色 - 已批改
+            icon = "📋"
+            bg_color = "#EFF6FF"
+        elif status == "CREATED":
+            color = "#EF4444"  # 紅色 - 未繳交
+            icon = "❌"
+            bg_color = "#FEF2F2"
+        else:
+            color = "#6B7280"  # 灰色 - 其他狀態
+            icon = "❓"
+            bg_color = "#F9FAFB"
+        
+        # 根據狀態選擇狀態文字
+        status_texts = {
+            "TURNED_IN": "已繳交",
+            "RETURNED": "已批改",
+            "CREATED": "未繳交", 
+            "NOT_FOUND": "找不到記錄"
+        }
+        status_text = homework.get("status_text") or status_texts.get(status, "未知狀態")
+        
+        # 處理遲交標記
+        is_late = homework.get("is_late", False)
+        if is_late and status == "TURNED_IN":
+            status_text += " (遲交)"
+        
+        # 處理時間格式
+        update_time = homework.get("update_time", "")
+        if update_time:
+            try:
+                # 如果是 ISO 格式時間，轉換為可讀格式
+                if 'T' in update_time and 'Z' in update_time:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(update_time.replace('Z', '+00:00'))
+                    update_time = dt.strftime('%Y/%m/%d')
+                elif 'T' in update_time and '+' in update_time:
+                    from datetime import datetime
+                    dt = datetime.fromisoformat(update_time)
+                    update_time = dt.strftime('%Y/%m/%d')
+            except Exception:
+                # 如果轉換失敗，保持原始格式
+                pass
+        
+        homework_item = {
             "type": "box",
             "layout": "vertical",
             "contents": [
-                {
-                    "type": "text",
-                    "text": "📝 作業狀態",
-                    "size": "xl",
-                    "weight": "bold",
-                    "color": "#2196F3"
-                },
-                {
-                    "type": "text",
-                    "text": course_name,
-                    "size": "md",
-                    "color": "#666666",
-                    "margin": "xs"
-                },
-                {
-                    "type": "text",
-                    "text": homework_title,
-                    "size": "sm",
-                    "color": "#999999",
-                    "wrap": True,
-                    "margin": "xs"
-                }
-            ],
-            "margin": "none",
-            "spacing": "sm"
-        },
-        {
-            "type": "separator",
-            "margin": "md"
-        },
-        # 狀態卡片
-        {
-            "type": "box",
-            "layout": "horizontal",
-            "contents": [
-                {
-                    "type": "text",
-                    "text": config["icon"],
-                    "size": "xxl",
-                    "flex": 0,
-                    "margin": "none"
-                },
+                # 課程名稱和作業標題
                 {
                     "type": "box",
                     "layout": "vertical",
                     "contents": [
                         {
                             "type": "text",
-                            "text": f"{config['text']}{late_text}",
-                            "size": "lg",
+                            "text": homework.get("course_name", "未知課程"),
                             "weight": "bold",
-                            "color": config["color"],
+                            "size": "md",
+                            "color": "#1F2937",
                             "wrap": True
                         },
                         {
                             "type": "text",
-                            "text": f"更新時間：{update_time}",
-                            "size": "xs",
-                            "color": "#999999",
-                            "wrap": True,
-                            "margin": "sm"
+                            "text": homework.get("homework_title", "未知作業"),
+                            "size": "sm",
+                            "color": "#4B5563",
+                            "margin": "xs",
+                            "wrap": True
                         }
                     ],
-                    "margin": "md"
+                    "margin": "none"
+                },
+                # 狀態和時間
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        {
+                            "type": "box",
+                            "layout": "horizontal",
+                            "contents": [
+                                {
+                                    "type": "text",
+                                    "text": icon,
+                                    "size": "sm",
+                                    "flex": 0
+                                },
+                                {
+                                    "type": "text",
+                                    "text": status_text,
+                                    "size": "sm",
+                                    "color": color,
+                                    "weight": "bold",
+                                    "flex": 1,
+                                    "margin": "xs"
+                                }
+                            ],
+                            "flex": 1
+                        },
+                        {
+                            "type": "text",
+                            "text": update_time or "-",
+                            "size": "xs",
+                            "color": "#9CA3AF",
+                            "flex": 0
+                        }
+                    ],
+                    "margin": "sm",
+                    "alignItems": "center"
                 }
             ],
-            "backgroundColor": config["bg"],
-            "cornerRadius": "12px",
             "paddingAll": "16px",
-            "margin": "md"
+            "backgroundColor": bg_color,
+            "margin": "md" if i == 0 else "sm"
+        }
+        homework_items.append(homework_item)
+    
+    # 統計各種狀態的數量
+    status_counts = {"TURNED_IN": 0, "RETURNED": 0, "CREATED": 0, "NOT_FOUND": 0}
+    for homework in homeworks:
+        status = homework.get("status", "NOT_FOUND")
+        status_counts[status] = status_counts.get(status, 0) + 1
+    
+    total_homeworks = len(homeworks)
+    completed_count = status_counts["TURNED_IN"] + status_counts["RETURNED"]
+    completion_rate = round((completed_count / total_homeworks * 100), 1) if total_homeworks > 0 else 0
+    
+    # 構建完整的 Flex Message
+    contents = [
+        # 標題和統計區塊
+        {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": "📚 作業狀態查詢",
+                    "weight": "bold",
+                    "size": "xl",
+                    "color": "#FFFFFF"
+                },
+                {
+                    "type": "text",
+                    "text": f"共 {total_homeworks} 個作業",
+                    "size": "sm",
+                    "color": "#F3F4F6",
+                    "margin": "xs"
+                }
+            ],
+            "backgroundColor": "#4F46E5",
+            "paddingAll": "20px"
+        },
+        # 統計卡片
+        {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "box",
+                    "layout": "horizontal",
+                    "contents": [
+                        # 完成率
+                        {
+                            "type": "box",
+                            "layout": "vertical",
+                            "contents": [
+                                {
+                                    "type": "text",
+                                    "text": f"{completion_rate}%",
+                                    "size": "xxl",
+                                    "weight": "bold",
+                                    "color": "#10B981",
+                                    "align": "center"
+                                },
+                                {
+                                    "type": "text",
+                                    "text": "完成率",
+                                    "size": "xs",
+                                    "color": "#6B7280",
+                                    "align": "center"
+                                }
+                            ],
+                            "flex": 1
+                        },
+                        # 分隔線
+                        {
+                            "type": "separator",
+                            "color": "#E5E7EB",
+                            "margin": "md"
+                        },
+                        # 已繳交
+                        {
+                            "type": "box",
+                            "layout": "vertical",
+                            "contents": [
+                                {
+                                    "type": "text",
+                                    "text": str(completed_count),
+                                    "size": "lg",
+                                    "weight": "bold",
+                                    "color": "#3B82F6",
+                                    "align": "center"
+                                },
+                                {
+                                    "type": "text",
+                                    "text": "已繳交",
+                                    "size": "xs",
+                                    "color": "#6B7280",
+                                    "align": "center"
+                                }
+                            ],
+                            "flex": 1
+                        },
+                        # 分隔線
+                        {
+                            "type": "separator",
+                            "color": "#E5E7EB",
+                            "margin": "md"
+                        },
+                        # 未繳交
+                        {
+                            "type": "box",
+                            "layout": "vertical",
+                            "contents": [
+                                {
+                                    "type": "text",
+                                    "text": str(status_counts["CREATED"]),
+                                    "size": "lg",
+                                    "weight": "bold",
+                                    "color": "#EF4444",
+                                    "align": "center"
+                                },
+                                {
+                                    "type": "text",
+                                    "text": "未繳交",
+                                    "size": "xs",
+                                    "color": "#6B7280",
+                                    "align": "center"
+                                }
+                            ],
+                            "flex": 1
+                        }
+                    ],
+                    "paddingAll": "12px",
+                    "backgroundColor": "#F9FAFB",
+                    "margin": "lg"
+                }
+            ],
+            "paddingAll": "16px",
+            "backgroundColor": "#FFFFFF"
+        },
+        # 作業列表標題
+        {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": "📋 作業列表",
+                    "weight": "bold",
+                    "size": "lg",
+                    "color": "#1F2937"
+                },
+                {
+                    "type": "text",
+                    "text": f"{len(homeworks)} 項",
+                    "size": "sm",
+                    "color": "#6B7280"
+                }
+            ],
+            "paddingAll": "16px",
+            "backgroundColor": "#FFFFFF"
+        },
+        # 作業列表
+        {
+            "type": "box",
+            "layout": "vertical",
+            "contents": homework_items,
+            "paddingAll": "16px",
+            "backgroundColor": "#FFFFFF"
+        },
+        # 底部按鈕
+        {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "button",
+                    "action": {
+                        "type": "message",
+                        "label": "🔄 重新查詢",
+                        "text": "查看作業狀態"
+                    },
+                    "style": "primary",
+                    "color": "#4F46E5",
+                    "height": "md"
+                },
+                {
+                    "type": "button",
+                    "action": {
+                        "type": "message",
+                        "label": "🏠 返回主選單",
+                        "text": "功能選單"
+                    },
+                    "style": "secondary",
+                    "margin": "sm",
+                    "height": "md"
+                }
+            ],
+            "paddingAll": "16px",
+            "backgroundColor": "#F9FAFB"
         }
     ]
     
-    # 如果有未交作業，添加清單
-    if unsubmitted_homeworks and len(unsubmitted_homeworks) > 0:
-        contents.extend([
-            {
-                "type": "separator",
-                "margin": "md"
-            },
-            {
-                "type": "text",
-                "text": f"📚 您還有 {len(unsubmitted_homeworks)} 個作業未繳交",
-                "size": "md",
-                "weight": "bold",
-                "color": "#FF6B35",
-                "margin": "md"
-            }
-        ])
-        
-        # 顯示前5個未交作業
-        for i, homework in enumerate(unsubmitted_homeworks[:5]):
-            contents.append({
-                "type": "text",
-                "text": f"• {homework}",
-                "size": "sm",
-                "color": "#666666",
-                "wrap": True,
-                "margin": "xs"
-            })
-        
-        # 如果超過5個，顯示省略提示
-        if len(unsubmitted_homeworks) > 5:
-            contents.append({
-                "type": "text",
-                "text": f"... 還有 {len(unsubmitted_homeworks) - 5} 個作業",
-                "size": "sm",
-                "color": "#999999",
-                "margin": "xs"
-            })
-    
-    # 添加操作按鈕
-    contents.extend([
-        {
-            "type": "separator",
-            "margin": "md"
-        },
-        {
-            "type": "button",
-            "action": {
-                "type": "message",
-                "label": "📋 查看所有未交作業",
-                "text": "查看我的未交作業清單"
-            },
-            "style": "primary",
-            "color": "#2196F3",
-            "margin": "md"
-        }
-    ])
-    
     return {
-        "type": "flex", 
-        "altText": f"作業狀態 - {homework_title}",
+        "type": "flex",
+        "altText": f"作業狀態查詢 - 共 {len(homeworks)} 個作業",
         "contents": {
             "type": "bubble",
             "body": {
                 "type": "box",
                 "layout": "vertical",
                 "contents": contents,
-                "paddingAll": "20px",
-                "spacing": "md"
+                "spacing": "none",
+                "paddingAll": "0px"
             }
         }
     }
