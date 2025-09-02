@@ -228,7 +228,7 @@ FLUSH PRIVILEGES;
 - `POST /api/homeworks/` - 創建作業 (支援多課程)
 - `PATCH /api/homeworks/update/` - 更新作業資訊
 - `DELETE /api/delete_homework/` - 刪除作業
-- `GET /api/get-homeworks/` - 取得課程作業列表
+- `GET /api/get-homeworks/` - 取得課程作業列表 (支援多課程ID，用逗號分隔)
 - `GET/POST /api/classroom/submissions/status/` - 作業繳交統計
 
 ### 學生筆記相關

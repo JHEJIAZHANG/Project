@@ -179,6 +179,9 @@ OAUTH_TOKEN_SECRET = 'bQtB4Sl8Wy2H-voi8-5d6dGK73tHCQZI2_nG1naiPzI='
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
 
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")

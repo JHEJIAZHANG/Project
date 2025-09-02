@@ -961,28 +961,48 @@ def send_ask_question_guide(line_user_id: str):
         print(f"發送課堂提問指引失敗: {e}")
         return False
 
-def send_course_binding_success_message(group_id: str, course_id: str, bound_by_line_user_id: str = ""):
+def send_course_binding_success_message(group_id: str, course_id: str, bound_by_line_user_id: str = "", course_name: str = None, enrollment_code: str = None):
     """
     發送課程綁定成功的Flex Message到群組
+    
+    Args:
+        group_id: LINE群組ID
+        course_id: Google Classroom課程ID
+        bound_by_line_user_id: 綁定者的LINE用戶ID
+        course_name: 課程名稱（可選，如果為None則嘗試從資料庫或Google API獲取）
+        enrollment_code: 課程加入碼（可選，如果為None則嘗試從資料庫或Google API獲取）
     """
     try:
-        # 從本地數據庫獲取課程信息
+        # 從本地數據庫獲取課程信息（如果未提供課程名稱或加入碼）
         from course.models import Course
-        try:
-            local_course = Course.objects.get(gc_course_id=course_id)
-            course_name = local_course.name
-            enrollment_code = local_course.enrollment_code
-            course_description = local_course.description or f"歡迎加入 {course_name}！"
-            section_info = local_course.section or ""
+        
+        # 如果未提供課程名稱或加入碼，嘗試從本地資料庫獲取
+        if course_name is None or enrollment_code is None:
             try:
-                teacher_name = local_course.owner.name or "老師"
-            except:
-                teacher_name = "老師"
-        except Course.DoesNotExist:
-            # 如果本地沒有，使用預設信息
-            course_name = f"課程 {course_id}"
-            enrollment_code = ""
-            course_description = "歡迎加入這個課程！"
+                local_course = Course.objects.get(gc_course_id=course_id)
+                if course_name is None:
+                    course_name = local_course.name
+                if enrollment_code is None:
+                    enrollment_code = local_course.enrollment_code
+                course_description = local_course.description or f"歡迎加入 {course_name}！"
+                section_info = local_course.section or ""
+                try:
+                    teacher_name = local_course.owner.name or "老師"
+                except:
+                    teacher_name = "老師"
+            except Course.DoesNotExist:
+                # 如果本地沒有，嘗試從Google Classroom API獲取課程信息
+                course_info = get_course_info_from_google(course_id, bound_by_line_user_id)
+                if course_name is None:
+                    course_name = course_info.get("name", f"課程 {course_id}")
+                if enrollment_code is None:
+                    enrollment_code = course_info.get("enrollment_code", "")
+                course_description = course_info.get("description", "歡迎加入這個課程！")
+                section_info = course_info.get("section", "")
+                teacher_name = course_info.get("teacher_name", "老師")
+        else:
+            # 使用提供的課程信息
+            course_description = f"歡迎加入 {course_name}！"
             section_info = ""
             teacher_name = "老師"
         
@@ -2075,6 +2095,68 @@ def send_note_created_message(line_user_id: str, note_id: int, text: str = "", i
         return False
 
 
+def get_course_info_from_google(course_id: str, line_user_id: str = "") -> dict:
+    """
+    從Google Classroom API獲取課程信息
+    
+    Args:
+        course_id: Google Classroom課程ID
+        line_user_id: 用戶LINE ID（用於獲取Google憑證）
+        
+    Returns:
+        dict: 課程信息，包含name, enrollment_code, description, section, teacher_name
+    """
+    try:
+        # 獲取用戶資料和Google憑證
+        from user.models import LineProfile
+        from user.utils import get_valid_google_credentials
+        
+        if line_user_id:
+            try:
+                profile = LineProfile.objects.get(line_user_id=line_user_id)
+                creds = get_valid_google_credentials(profile)
+                
+                # 建立Google Classroom服務
+                from googleapiclient.discovery import build
+                service = build("classroom", "v1", credentials=creds, cache_discovery=False)
+                
+                # 獲取課程信息
+                course = service.courses().get(id=course_id).execute()
+                
+                # 獲取教師信息
+                teacher_name = "老師"
+                owner_id = course.get("ownerId")
+                if owner_id:
+                    try:
+                        teacher_profile = service.userProfiles().get(userId=owner_id).execute()
+                        teacher_name = teacher_profile.get("name", {}).get("fullName", "老師")
+                    except:
+                        pass
+                
+                return {
+                    "name": course.get("name", f"課程 {course_id}"),
+                    "enrollment_code": course.get("enrollmentCode", ""),
+                    "description": course.get("description", "歡迎加入這個課程！"),
+                    "section": course.get("section", ""),
+                    "teacher_name": teacher_name
+                }
+                
+            except (LineProfile.DoesNotExist, Exception) as e:
+                print(f"無法從Google獲取課程信息 {course_id}: {e}")
+    
+    except Exception as e:
+        print(f"獲取Google課程信息時發生錯誤: {e}")
+    
+    # 如果無法獲取信息，返回默認值
+    return {
+        "name": f"課程 {course_id}",
+        "enrollment_code": "",
+        "description": "歡迎加入這個課程！",
+        "section": "",
+        "teacher_name": "老師"
+    }
+
+
 # ═══════════════════════════════════════════════════════════════
 # 缺交學生通知功能
 # ═══════════════════════════════════════════════════════════════
@@ -2110,7 +2192,24 @@ def notify_unsubmitted_students_from_cache(teacher_line_user_id: str, course_id:
             }
         
         unsubmitted_students = cached_data.unsubmitted_students
-        homework_title = cached_data.homework_title
+        cached_homework_title = cached_data.homework_title
+        
+        # 如果暫存資料中的作業標題為空或未知，嘗試重新從Google Classroom獲取
+        if not cached_homework_title or cached_homework_title == "未知作業":
+            try:
+                coursework = service.courses().courseWork().get(
+                    courseId=course_id, 
+                    id=coursework_id
+                ).execute()
+                homework_title = coursework.get("title", "")
+                if not homework_title:
+                    homework_title = "未知作業"
+                print(f"重新從API獲取作業標題: {homework_title}")
+            except Exception as e:
+                print(f"重新獲取作業標題失敗: {e}")
+                homework_title = cached_homework_title or "未知作業"
+        else:
+            homework_title = cached_homework_title
         
         # 取得教師資料和Google憑證
         from user.models import LineProfile
@@ -2190,7 +2289,9 @@ def notify_unsubmitted_students_from_cache(teacher_line_user_id: str, course_id:
             results["notification_details"].append(notification_detail)
         
         # 發送通知結果給教師
-        send_notification_result_to_teacher(teacher_line_user_id, homework_title, results)
+        # 確保作業標題不為空
+        final_homework_title = homework_title if homework_title and homework_title != "未知作業" else "作業"
+        send_notification_result_to_teacher(teacher_line_user_id, final_homework_title, results)
         
         return results
         
@@ -2201,7 +2302,7 @@ def notify_unsubmitted_students_from_cache(teacher_line_user_id: str, course_id:
             "details": str(e)
         }
 
-def notify_unsubmitted_students(teacher_line_user_id: str, course_id: str, homework_title: str, unsubmitted_students: list):
+def notify_unsubmitted_students(teacher_line_user_id: str, course_id: str, homework_title: str, unsubmitted_students: list, coursework_id: str = None):
     """
     自動通知缺交學生（舊版本，保留向後兼容）
     系統會自動判斷學生是否有LINE帳號，選擇合適的通知方式
@@ -2211,6 +2312,7 @@ def notify_unsubmitted_students(teacher_line_user_id: str, course_id: str, homew
         course_id (str): Google Classroom課程ID
         homework_title (str): 作業標題
         unsubmitted_students (list): 缺交學生列表，包含學生資料
+        coursework_id (str, optional): Google Classroom作業ID，用於email通知
         
     Returns:
         dict: 通知結果統計
@@ -2294,7 +2396,9 @@ def notify_unsubmitted_students(teacher_line_user_id: str, course_id: str, homew
             results["notification_details"].append(notification_detail)
         
         # 發送通知結果給教師
-        send_notification_result_to_teacher(teacher_line_user_id, homework_title, results)
+        # 確保作業標題不為空
+        final_homework_title = homework_title if homework_title and homework_title != "未知作業" else "作業"
+        send_notification_result_to_teacher(teacher_line_user_id, final_homework_title, results)
         
         return results
         
@@ -2318,6 +2422,9 @@ def send_homework_reminder_line(student_line_user_id: str, homework_title: str, 
         course_id (str): 課程ID
         teacher_name (str): 教師姓名
     """
+    # 確保作業標題不為空
+    if not homework_title or homework_title == "未知作業":
+        homework_title = "作業"
     from .utils_encoding import create_google_classroom_assignment_url, create_google_classroom_course_url
     
     flex_message = {
@@ -2433,6 +2540,9 @@ def send_homework_reminder_email(service, course_id: str, coursework_id: str, st
         homework_title (str): 作業標題
         teacher_name (str): 教師姓名
     """
+    # 確保作業標題不為空
+    if not homework_title or homework_title == "未知作業":
+        homework_title = "作業"
     
     try:
         # 獲取學生的email地址
@@ -2599,6 +2709,9 @@ def send_notification_result_to_teacher(teacher_line_user_id: str, homework_titl
         homework_title (str): 作業標題
         results (dict): 通知結果統計
     """
+    # 確保作業標題不為空
+    if not homework_title or homework_title == "未知作業":
+        homework_title = "作業"
     
     total = results.get('total_students', 0)
     line_notified = results.get('line_notified', 0)

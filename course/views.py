@@ -548,13 +548,14 @@ def check_course(request):
 @permission_classes([AllowAny])
 def get_homeworks(request):
     """
-    GET /api/homeworks/?course_id=xxx&line_user_id=xxx
+    GET /api/homeworks/?course_id=xxx,yyy,zzz&line_user_id=xxx
     抓取Google Classroom課程的所有作業
+    支援多個課程ID，用逗號分隔
     """
-    course_id = request.GET.get("course_id")
+    course_id_param = request.GET.get("course_id")
     line_user_id = request.GET.get("line_user_id")
     
-    if not course_id or not line_user_id:
+    if not course_id_param or not line_user_id:
         return Response({
             "error": "缺少必要參數",
             "required": ["course_id", "line_user_id"]
@@ -569,68 +570,122 @@ def get_homeworks(request):
         
         service = build_google_service("classroom", "v1", creds)
         
-        # 驗證課程是否存在
-        course_result = validate_course_exists(service, course_id)
-        if isinstance(course_result, Response):
-            return course_result
-        course = course_result
+        # 分割課程ID（支援多個課程）
+        course_ids = [cid.strip() for cid in course_id_param.split(",") if cid.strip()]
         
-        # 抓取課程的所有作業
-        try:
-            course_works = service.courses().courseWork().list(courseId=course_id).execute()
-            
-            homeworks = []
-            for work in course_works.get("courseWork", []):
-                # 格式化到期時間
-                due_date = work.get("dueDate")
-                due_time = work.get("dueTime")
-                
-                formatted_due = ""
-                if due_date:
-                    due_str = f"{due_date['year']}-{due_date['month']:02d}-{due_date['day']:02d}"
-                    if due_time:
-                        due_str += f" {due_time['hours']:02d}:{due_time['minutes']:02d}"
-                    else:
-                        due_str += " 23:59"
-                    formatted_due = due_str
-                
-                homework_info = {
-                    "id": work.get("id"),
-                    "title": work.get("title"),
-                    "description": work.get("description", ""),
-                    "state": work.get("state"),
-                    "workType": work.get("workType"),
-                    "dueDate": formatted_due,
-                    "creationTime": work.get("creationTime"),
-                    "updateTime": work.get("updateTime"),
-                    "maxPoints": work.get("maxPoints"),
-                    "assigneeMode": work.get("assigneeMode"),
-                }
-                homeworks.append(homework_info)
-            
+        if not course_ids:
             return Response({
-                "course_id": course_id,
-                "course_name": course.get("name", ""),
-                "course_section": course.get("section", ""),
-                "total_homeworks": len(homeworks),
-                "homeworks": homeworks
-            })
-            
-        except Exception as e:
-            err = str(e)
-            # 若是權限不足或 scope 缺失，提示重新授權
-            if "insufficientPermissions" in err or "Request had insufficient authentication scopes" in err:
-                return Response({
-                    "error": "權限不足，請重新授權以取得作業讀取權限",
-                    "details": err,
-                    "action": "relogin"
-                }, status=401)
-            return Response({
-                "error": "抓取作業失敗",
-                "course_id": course_id,
-                "details": err
+                "error": "無效的課程ID參數",
+                "course_id_param": course_id_param
             }, status=400)
-            
+        
+        all_homeworks = []
+        course_summaries = []
+        total_homeworks = 0
+        
+        # 為每個課程查詢作業
+        for course_id in course_ids:
+            try:
+                # 驗證課程是否存在
+                course_result = validate_course_exists(service, course_id)
+                if isinstance(course_result, Response):
+                    # 如果課程不存在，記錄錯誤但繼續處理其他課程
+                    course_summaries.append({
+                        "course_id": course_id,
+                        "course_name": "未知課程",
+                        "course_section": "",
+                        "total_homeworks": 0,
+                        "error": "課程不存在或無權限訪問",
+                        "homeworks": []
+                    })
+                    continue
+                
+                course = course_result
+                
+                # 抓取課程的所有作業
+                try:
+                    course_works = service.courses().courseWork().list(courseId=course_id).execute()
+                    
+                    course_homeworks = []
+                    for work in course_works.get("courseWork", []):
+                        # 格式化到期時間
+                        due_date = work.get("dueDate")
+                        due_time = work.get("dueTime")
+                        
+                        formatted_due = ""
+                        if due_date:
+                            due_str = f"{due_date['year']}-{due_date['month']:02d}-{due_date['day']:02d}"
+                            if due_time:
+                                due_str += f" {due_time['hours']:02d}:{due_time['minutes']:02d}"
+                            else:
+                                due_str += " 23:59"
+                            formatted_due = due_str
+                        
+                        homework_info = {
+                            "id": work.get("id"),
+                            "title": work.get("title"),
+                            "description": work.get("description", ""),
+                            "state": work.get("state"),
+                            "workType": work.get("workType"),
+                            "dueDate": formatted_due,
+                            "creationTime": work.get("creationTime"),
+                            "updateTime": work.get("updateTime"),
+                            "maxPoints": work.get("maxPoints"),
+                            "assigneeMode": work.get("assigneeMode"),
+                            "course_id": course_id,  # 添加課程ID以便識別
+                        }
+                        course_homeworks.append(homework_info)
+                        all_homeworks.append(homework_info)
+                    
+                    course_summaries.append({
+                        "course_id": course_id,
+                        "course_name": course.get("name", ""),
+                        "course_section": course.get("section", ""),
+                        "total_homeworks": len(course_homeworks),
+                        "homeworks": course_homeworks
+                    })
+                    
+                    total_homeworks += len(course_homeworks)
+                    
+                except Exception as e:
+                    err = str(e)
+                    # 若是權限不足或 scope 缺失，提示重新授權
+                    if "insufficientPermissions" in err or "Request had insufficient authentication scopes" in err:
+                        return Response({
+                            "error": "權限不足，請重新授權以取得作業讀取權限",
+                            "details": err,
+                            "action": "relogin"
+                        }, status=401)
+                    
+                    # 記錄課程錯誤但繼續處理其他課程
+                    course_summaries.append({
+                        "course_id": course_id,
+                        "course_name": "未知課程",
+                        "course_section": "",
+                        "total_homeworks": 0,
+                        "error": f"抓取作業失敗: {err}",
+                        "homeworks": []
+                    })
+                    
+            except Exception as e:
+                # 記錄課程處理錯誤但繼續處理其他課程
+                course_summaries.append({
+                    "course_id": course_id,
+                    "course_name": "未知課程",
+                    "course_section": "",
+                    "total_homeworks": 0,
+                    "error": f"處理課程時發生錯誤: {str(e)}",
+                    "homeworks": []
+                })
+        
+        # 返回所有課程的作業摘要和總計
+        return Response({
+            "total_courses": len(course_ids),
+            "total_homeworks": total_homeworks,
+            "course_summaries": course_summaries,
+            "all_homeworks": all_homeworks  # 所有作業的平鋪列表
+        })
+        
     except LineProfile.DoesNotExist:
         return Response({
             "error": "用戶不存在",
@@ -1284,22 +1339,35 @@ def manage_calendar_attendees(request):
 @permission_classes([AllowAny])
 def get_submissions_status(request):
     """
-    課堂作業繳交統計 - 隱私保護版本 + 資料庫暫存
+    課堂作業繳交統計 - 隱私保護版本 + 資料庫暫存 + 批量查詢支援
     
     支援兩種角色：
-    1. 教師：完整統計數據（不包含學生個資）+ 資料庫暫存
+    1. 教師：完整統計數據（不包含學生個資）+ 資料庫暫存 + Flex Message 發送
     2. 學生：僅顯示自己的繳交狀態
     
+    支援兩種批量查詢方式：
+    1. course_coursework_pairs：明確指定課程作業對應關係
+    2. course_ids + coursework_ids：並行陣列方式
+    
     GET/POST /api/classroom/submissions/status
-    參數: line_user_id, course_id, coursework_id
     """
     params = request.GET if request.method == "GET" else request.data
     ser = SubmissionsStatusSerializer(data=params)
     ser.is_valid(raise_exception=True)
 
     line_user_id = ser.validated_data["line_user_id"]
-    course_id = ser.validated_data["course_id"]
-    coursework_id = ser.validated_data["coursework_id"]
+    
+    # 構建查詢項目
+    if ser.validated_data.get("course_coursework_pairs"):
+        query_items = ser.validated_data["course_coursework_pairs"]
+    else:
+        # 從 course_ids 和 coursework_ids 構建對應關係
+        course_ids = ser.validated_data["course_ids"]
+        coursework_ids = ser.validated_data["coursework_ids"]
+        query_items = [
+            {"course_id": cid, "coursework_id": cwid} 
+            for cid, cwid in zip(course_ids, coursework_ids)
+        ]
     
     result = get_user_and_credentials(line_user_id)
     if isinstance(result, Response):
@@ -1309,57 +1377,207 @@ def get_submissions_status(request):
     service = build_google_service("classroom", "v1", creds)
 
     try:
-        # 首先獲取課程資訊來驗證角色
-        course = service.courses().get(id=course_id).execute()
-        course_name = course.get("name", "未知課程")
+        # 批量處理查詢項目
+        all_results = []
+        teacher_results = []  # 收集教師查詢結果，用於發送 Flex Message
         
-        # 獲取作業資訊
-        coursework = service.courses().courseWork().get(
-            courseId=course_id, 
-            id=coursework_id
-        ).execute()
-        homework_title = coursework.get("title", "未知作業")
-        
-        # 方法1：準確的角色辨識 - 使用Google API驗證教師身份
-        is_teacher = False
-        try:
-            # 檢查當前用戶是否為課程的教師
-            teachers_response = service.courses().teachers().list(courseId=course_id).execute()
-            teacher_emails = [teacher.get("profile", {}).get("emailAddress") for teacher in teachers_response.get("teachers", [])]
-            is_teacher = prof.email in teacher_emails
-        except Exception as e:
-            print(f"驗證教師身份失敗: {e}")
-            # 備用方案：檢查是否為課程擁有者
-            is_teacher = course.get("ownerId") == prof.email
-
-        if is_teacher:
-            # 教師角色：使用資料庫暫存保護個資
-            from django.utils import timezone
+        for query_item in query_items:
+            course_id = query_item["course_id"]
+            coursework_id = query_item["coursework_id"]
             
-            # 先檢查是否有有效的暫存資料
             try:
-                cached_data = HomeworkStatisticsCache.get_valid_cache(
-                    line_user_id=line_user_id,
-                    course_id=course_id,
-                    coursework_id=coursework_id
-                )
+                # 首先獲取課程資訊來驗證角色
+                course = service.courses().get(id=course_id).execute()
+                course_name = course.get("name", "未知課程")
                 
-                if cached_data and cached_data.is_valid():
-                    # 使用暫存資料
-                    print(f"使用暫存的作業統計資料: {cached_data.id}")
-                    statistics = {
-                        "total_students": cached_data.total_students,
-                        "submitted": cached_data.submitted_count,
-                        "unsubmitted": cached_data.unsubmitted_count,
-                        "completion_rate": cached_data.completion_rate,
-                        "status_counts": cached_data.status_counts
+                # 獲取作業資訊
+                coursework = service.courses().courseWork().get(
+                    courseId=course_id, 
+                    id=coursework_id
+                ).execute()
+                homework_title = coursework.get("title", "未知作業")
+                
+                # 方法1：準確的角色辨識 - 使用Google API驗證教師身份
+                is_teacher = False
+                try:
+                    # 檢查當前用戶是否為課程的教師
+                    teachers_response = service.courses().teachers().list(courseId=course_id).execute()
+                    teacher_emails = [teacher.get("profile", {}).get("emailAddress") for teacher in teachers_response.get("teachers", [])]
+                    is_teacher = prof.email in teacher_emails
+                except Exception as e:
+                    print(f"驗證教師身份失敗: {e}")
+                    # 備用方案：檢查是否為課程擁有者
+                    is_teacher = course.get("ownerId") == prof.email
+
+                if is_teacher:
+                    # 教師角色：使用資料庫暫存保護個資
+                    from django.utils import timezone
+                    
+                    # 先檢查是否有有效的暫存資料
+                    try:
+                        cached_data = HomeworkStatisticsCache.get_valid_cache(
+                            line_user_id=line_user_id,
+                            course_id=course_id,
+                            coursework_id=coursework_id
+                        )
+                        
+                        if cached_data and cached_data.is_valid():
+                            # 使用暫存資料
+                            print(f"使用暫存的作業統計資料: {cached_data.id}")
+                            statistics = {
+                                "total_students": cached_data.total_students,
+                                "submitted": cached_data.submitted_count,
+                                "unsubmitted": cached_data.unsubmitted_count,
+                                "completion_rate": cached_data.completion_rate,
+                                "status_counts": cached_data.status_counts
+                            }
+                            unsubmitted_students = cached_data.unsubmitted_students
+                            
+                        else:
+                            # 暫存資料不存在或已過期，重新查詢並暫存
+                            print("查詢Google Classroom API並暫存資料")
+                            
+                            # 獲取作業提交狀態
+                            resp = service.courses().courseWork().studentSubmissions().list(
+                                courseId=course_id,
+                                courseWorkId=coursework_id,
+                                pageSize=200
+                            ).execute()
+                            items = resp.get("studentSubmissions", [])
+                            
+                            counts = {"TURNED_IN": 0, "RETURNED": 0, "CREATED": 0}
+                            total_students = len(items)
+                            
+                            # 統計各種狀態的數量並收集缺交學生資料
+                            unsubmitted_students = []
+                            for submission in items:
+                                state = submission.get("state", "CREATED")
+                                counts[state] = counts.get(state, 0) + 1
+                                
+                                # 如果是缺交狀態，獲取學生資料
+                                if state in ["CREATED", "NEW"]:
+                                    try:
+                                        student_id = submission.get("userId")
+                                        if student_id:
+                                            # 獲取學生個人資料
+                                            student_profile = service.userProfiles().get(userId=student_id).execute()
+                                            student_name = student_profile.get("name", {}).get("fullName", "未知學生")
+                                            unsubmitted_students.append({
+                                                "name": student_name,
+                                                "userId": student_id,
+                                                "emailAddress": student_profile.get("emailAddress", "")
+                                            })
+                                    except Exception as e:
+                                        print(f"獲取學生資料失敗: {e}")
+                                        continue
+                            
+                            # 計算繳交率
+                            submitted_count = counts.get("TURNED_IN", 0) + counts.get("RETURNED", 0)
+                            unsubmitted_count = counts.get("CREATED", 0) + counts.get("NEW", 0)
+                            completion_rate = round((submitted_count / total_students * 100), 1) if total_students > 0 else 0
+                            
+                            # 準備統計數據
+                            statistics = {
+                                "total_students": total_students,
+                                "submitted": submitted_count,
+                                "unsubmitted": unsubmitted_count,
+                                "completion_rate": completion_rate,
+                                "status_counts": counts
+                            }
+                            
+                            # 🔒 重要：將個資暫存到資料庫，不傳給AI
+                            try:
+                                expires_at = timezone.now() + timedelta(hours=1)
+                                
+                                # 先刪除舊的暫存資料
+                                HomeworkStatisticsCache.objects.filter(
+                                    line_user_id=line_user_id,
+                                    course_id=course_id,
+                                    coursework_id=coursework_id
+                                ).delete()
+                                
+                                # 建立新的暫存資料
+                                HomeworkStatisticsCache.objects.create(
+                                    line_user_id=line_user_id,
+                                    course_id=course_id,
+                                    coursework_id=coursework_id,
+                                    course_name=course_name,
+                                    homework_title=homework_title,
+                                    total_students=total_students,
+                                    submitted_count=submitted_count,
+                                    unsubmitted_count=unsubmitted_count,
+                                    completion_rate=completion_rate,
+                                    unsubmitted_students=unsubmitted_students,  # 個資存在資料庫，不外洩
+                                    status_counts=counts,
+                                    expires_at=expires_at
+                                )
+                                print(f"✅ 已暫存作業統計資料，過期時間: {expires_at}")
+                                
+                            except Exception as e:
+                                print(f"⚠️ 暫存資料失敗: {e}")
+                                # 暫存失敗不影響主要功能，繼續執行
+                                
+                    except Exception as e:
+                        print(f"⚠️ 暫存系統錯誤，改用直接查詢: {e}")
+                        
+                        # 如果暫存系統有問題，回退到直接查詢
+                        resp = service.courses().courseWork().studentSubmissions().list(
+                            courseId=course_id,
+                            courseWorkId=coursework_id,
+                            pageSize=200
+                        ).execute()
+                        items = resp.get("studentSubmissions", [])
+                        
+                        counts = {"TURNED_IN": 0, "RETURNED": 0, "CREATED": 0}
+                        total_students = len(items)
+                        unsubmitted_students = []
+                        
+                        for submission in items:
+                            state = submission.get("state", "CREATED")
+                            counts[state] = counts.get(state, 0) + 1
+                            
+                            if state in ["CREATED", "NEW"]:
+                                try:
+                                    student_id = submission.get("userId")
+                                    if student_id:
+                                        student_profile = service.userProfiles().get(userId=student_id).execute()
+                                        student_name = student_profile.get("name", {}).get("fullName", "未知學生")
+                                        unsubmitted_students.append({
+                                            "name": student_name,
+                                            "userId": student_id,
+                                            "emailAddress": student_profile.get("emailAddress", "")
+                                        })
+                                except Exception:
+                                    continue
+                        
+                        submitted_count = counts.get("TURNED_IN", 0) + counts.get("RETURNED", 0)
+                        unsubmitted_count = counts.get("CREATED", 0) + counts.get("NEW", 0)
+                        completion_rate = round((submitted_count / total_students * 100), 1) if total_students > 0 else 0
+                        
+                        statistics = {
+                            "total_students": total_students,
+                            "submitted": submitted_count,
+                            "unsubmitted": unsubmitted_count,
+                            "completion_rate": completion_rate,
+                            "status_counts": counts
+                        }
+                    
+                    # 收集教師查詢結果
+                    teacher_result = {
+                        "course_id": course_id,
+                        "coursework_id": coursework_id,
+                        "course_name": course_name,
+                        "homework_title": homework_title,
+                        "role": "teacher",
+                        "statistics": statistics,
+                        "unsubmitted_students": unsubmitted_students
                     }
-                    unsubmitted_students = cached_data.unsubmitted_students
+                    
+                    all_results.append(teacher_result)
+                    teacher_results.append(teacher_result)
                     
                 else:
-                    # 暫存資料不存在或已過期，重新查詢並暫存
-                    print("查詢Google Classroom API並暫存資料")
-                    
+                    # 學生角色：只顯示自己的狀態（不使用暫存）
                     # 獲取作業提交狀態
                     resp = service.courses().courseWork().studentSubmissions().list(
                         courseId=course_id,
@@ -1368,124 +1586,83 @@ def get_submissions_status(request):
                     ).execute()
                     items = resp.get("studentSubmissions", [])
                     
-                    counts = {"TURNED_IN": 0, "RETURNED": 0, "CREATED": 0}
-                    total_students = len(items)
-                    
-                    # 統計各種狀態的數量並收集缺交學生資料
-                    unsubmitted_students = []
-                    for submission in items:
-                        state = submission.get("state", "CREATED")
-                        counts[state] = counts.get(state, 0) + 1
-                        
-                        # 如果是缺交狀態，獲取學生資料
-                        if state in ["CREATED", "NEW"]:
+                    # 先獲取當前用戶的 Google userId
+                    current_user_id = None
+                    try:
+                        # 方法1：用 "me" 獲取當前用戶資料
+                        current_profile = service.userProfiles().get(userId="me").execute()
+                        current_user_id = current_profile.get("id")
+                    except Exception as e:
+                        print(f"無法獲取當前用戶ID: {e}")
+                        # 方法2：嘗試用email匹配
+                        for submission in items:
                             try:
-                                student_id = submission.get("userId")
-                                if student_id:
-                                    # 獲取學生個人資料
-                                    student_profile = service.userProfiles().get(userId=student_id).execute()
-                                    student_name = student_profile.get("name", {}).get("fullName", "未知學生")
-                                    unsubmitted_students.append({
-                                        "name": student_name,
-                                        "userId": student_id,
-                                        "emailAddress": student_profile.get("emailAddress", "")
-                                    })
-                            except Exception as e:
-                                print(f"獲取學生資料失敗: {e}")
+                                # 獲取這個submission對應的用戶資料
+                                submission_user = service.userProfiles().get(userId=submission.get("userId")).execute()
+                                if submission_user.get("emailAddress") == prof.email:
+                                    current_user_id = submission.get("userId")
+                                    break
+                            except Exception:
                                 continue
                     
-                    # 計算繳交率
-                    submitted_count = counts.get("TURNED_IN", 0) + counts.get("RETURNED", 0)
-                    unsubmitted_count = counts.get("CREATED", 0) + counts.get("NEW", 0)
-                    completion_rate = round((submitted_count / total_students * 100), 1) if total_students > 0 else 0
+                    user_submission = None
+                    if current_user_id:
+                        for submission in items:
+                            if submission.get("userId") == current_user_id:
+                                user_submission = submission
+                                break
                     
-                    # 準備統計數據
-                    statistics = {
-                        "total_students": total_students,
-                        "submitted": submitted_count,
-                        "unsubmitted": unsubmitted_count,
-                        "completion_rate": completion_rate,
-                        "status_counts": counts
-                    }
-                    
-                    # 🔒 重要：將個資暫存到資料庫，不傳給AI
-                    try:
-                        expires_at = timezone.now() + timedelta(hours=1)
+                    if user_submission:
+                        state = user_submission.get("state", "CREATED")
+                        is_late = user_submission.get("late", False)
+                        update_time = user_submission.get("updateTime", "")
                         
-                        # 先刪除舊的暫存資料
-                        HomeworkStatisticsCache.objects.filter(
-                            line_user_id=line_user_id,
-                            course_id=course_id,
-                            coursework_id=coursework_id
-                        ).delete()
+                        status_text = {
+                            "TURNED_IN": "✅ 已繳交",
+                            "RETURNED": "📋 已批改",
+                            "CREATED": "❌ 未繳交"
+                        }.get(state, "❓ 狀態不明")
                         
-                        # 建立新的暫存資料
-                        HomeworkStatisticsCache.objects.create(
-                            line_user_id=line_user_id,
-                            course_id=course_id,
-                            coursework_id=coursework_id,
-                            course_name=course_name,
-                            homework_title=homework_title,
-                            total_students=total_students,
-                            submitted_count=submitted_count,
-                            unsubmitted_count=unsubmitted_count,
-                            completion_rate=completion_rate,
-                            unsubmitted_students=unsubmitted_students,  # 個資存在資料庫，不外洩
-                            status_counts=counts,
-                            expires_at=expires_at
-                        )
-                        print(f"✅ 已暫存作業統計資料，過期時間: {expires_at}")
+                        late_text = " (遲交)" if is_late else ""
                         
-                    except Exception as e:
-                        print(f"⚠️ 暫存資料失敗: {e}")
-                        # 暫存失敗不影響主要功能，繼續執行
+                        # 收集學生查詢結果
+                        all_results.append({
+                            "course_id": course_id,
+                            "coursework_id": coursework_id,
+                            "course_name": course_name,
+                            "homework_title": homework_title,
+                            "role": "student",
+                            "status": state,
+                            "status_text": status_text,
+                            "is_late": is_late,
+                            "update_time": update_time or "無更新時間"
+                        })
+                    else:
+                        # 收集學生查詢結果（找不到記錄）
+                        all_results.append({
+                            "course_id": course_id,
+                            "coursework_id": coursework_id,
+                            "course_name": course_name,
+                            "homework_title": homework_title,
+                            "role": "student",
+                            "status": "NOT_FOUND",
+                            "status_text": "❓ 狀態不明",
+                            "is_late": False,
+                            "update_time": "無記錄",
+                            "error": "submission_not_found"
+                        })
                         
             except Exception as e:
-                print(f"⚠️ 暫存系統錯誤，改用直接查詢: {e}")
-                
-                # 如果暫存系統有問題，回退到直接查詢
-                resp = service.courses().courseWork().studentSubmissions().list(
-                    courseId=course_id,
-                    courseWorkId=coursework_id,
-                    pageSize=200
-                ).execute()
-                items = resp.get("studentSubmissions", [])
-                
-                counts = {"TURNED_IN": 0, "RETURNED": 0, "CREATED": 0}
-                total_students = len(items)
-                unsubmitted_students = []
-                
-                for submission in items:
-                    state = submission.get("state", "CREATED")
-                    counts[state] = counts.get(state, 0) + 1
-                    
-                    if state in ["CREATED", "NEW"]:
-                        try:
-                            student_id = submission.get("userId")
-                            if student_id:
-                                student_profile = service.userProfiles().get(userId=student_id).execute()
-                                student_name = student_profile.get("name", {}).get("fullName", "未知學生")
-                                unsubmitted_students.append({
-                                    "name": student_name,
-                                    "userId": student_id,
-                                    "emailAddress": student_profile.get("emailAddress", "")
-                                })
-                        except Exception:
-                            continue
-                
-                submitted_count = counts.get("TURNED_IN", 0) + counts.get("RETURNED", 0)
-                unsubmitted_count = counts.get("CREATED", 0) + counts.get("NEW", 0)
-                completion_rate = round((submitted_count / total_students * 100), 1) if total_students > 0 else 0
-                
-                statistics = {
-                    "total_students": total_students,
-                    "submitted": submitted_count,
-                    "unsubmitted": unsubmitted_count,
-                    "completion_rate": completion_rate,
-                    "status_counts": counts
-                }
-            
-            # 直接發送教師統計 Flex Message
+                # 收集錯誤結果
+                all_results.append({
+                    "course_id": course_id,
+                    "coursework_id": coursework_id,
+                    "error": "查詢失敗",
+                    "message": str(e)
+                })
+        
+        # 處理教師的 Flex Message 發送
+        if teacher_results:
             try:
                 from line_bot.flex_templates import get_teacher_homework_statistics_flex
                 from linebot import LineBotApi
@@ -1496,171 +1673,56 @@ def get_submissions_status(request):
                 CHANNEL_TOKEN = os.getenv("CHANNEL_TOKEN")
                 line_bot_api = LineBotApi(CHANNEL_TOKEN)
                 
-                # 生成 Flex Message（包含缺交學生名單和 ID）
-                flex_message = get_teacher_homework_statistics_flex(
-                    course_name=course_name,
-                    homework_title=homework_title,
-                    statistics=statistics,
-                    unsubmitted_students=unsubmitted_students,
-                    course_id=course_id,
-                    coursework_id=coursework_id
-                )
-                
-                # 發送 Flex Message
-                line_bot_api.push_message(
-                    line_user_id,
-                    FlexSendMessage(
-                        alt_text=flex_message['altText'],
-                        contents=flex_message['contents']
-                    )
-                )
-                
-                # 簡化回傳內容
-                return Response({
-                    "role": "teacher",
-                    "message": "✅ 已發送作業統計圖表到您的LINE"
-                })
-                
-            except Exception as e:
-                print(f"發送教師統計 Flex Message 失敗: {e}")
-                
-                # 如果發送失敗，回傳簡化的錯誤訊息
-                return Response({
-                    "role": "teacher",
-                    "message": "❌ 發送統計圖表失敗，請稍後再試"
-                })
-            
-        else:
-            # 學生角色：只顯示自己的狀態（不使用暫存）
-            # 獲取作業提交狀態
-            resp = service.courses().courseWork().studentSubmissions().list(
-                courseId=course_id,
-                courseWorkId=coursework_id,
-                pageSize=200
-            ).execute()
-            items = resp.get("studentSubmissions", [])
-            
-            # 先獲取當前用戶的 Google userId
-            current_user_id = None
-            try:
-                # 方法1：用 "me" 獲取當前用戶資料
-                current_profile = service.userProfiles().get(userId="me").execute()
-                current_user_id = current_profile.get("id")
-            except Exception as e:
-                print(f"無法獲取當前用戶ID: {e}")
-                # 方法2：嘗試用email匹配
-                for submission in items:
+                # 為每個教師查詢結果發送 Flex Message
+                for teacher_result in teacher_results:
                     try:
-                        # 獲取這個submission對應的用戶資料
-                        submission_user = service.userProfiles().get(userId=submission.get("userId")).execute()
-                        if submission_user.get("emailAddress") == prof.email:
-                            current_user_id = submission.get("userId")
-                            break
-                    except Exception:
-                        continue
-            
-            user_submission = None
-            if current_user_id:
-                for submission in items:
-                    if submission.get("userId") == current_user_id:
-                        user_submission = submission
-                        break
-            
-            if user_submission:
-                state = user_submission.get("state", "CREATED")
-                is_late = user_submission.get("late", False)
-                update_time = user_submission.get("updateTime", "")
-                
-                status_text = {
-                    "TURNED_IN": "✅ 已繳交",
-                    "RETURNED": "📋 已批改",
-                    "CREATED": "❌ 未繳交"
-                }.get(state, "❓ 狀態不明")
-                
-                late_text = " (遲交)" if is_late else ""
-                
-                response_text = f"""📝 您的作業狀態
-
-課程：{course_name}
-作業：{homework_title}
-
-📊 您的狀態：{status_text}{late_text}
-
-更新時間：{update_time}
-
-💡 提示：如需繳交或查看詳細內容，請前往Google Classroom。"""
-
-                # 查詢學生還有哪些作業未交
-                unsubmitted_homeworks = []
-                try:
-                    all_courseworks = service.courses().courseWork().list(courseId=course_id).execute()
-                    
-                    for work in all_courseworks.get("courseWork", []):
-                        work_id = work.get("id")
-                        work_title = work.get("title", "未知作業")
+                        # 生成 Flex Message（包含缺交學生名單和 ID）
+                        flex_message = get_teacher_homework_statistics_flex(
+                            course_name=teacher_result["course_name"],
+                            homework_title=teacher_result["homework_title"],
+                            statistics=teacher_result["statistics"],
+                            unsubmitted_students=teacher_result["unsubmitted_students"],
+                            course_id=teacher_result["course_id"],
+                            coursework_id=teacher_result["coursework_id"]
+                        )
                         
-                        # 查詢該作業的提交狀態（使用正確的userId）
-                        if current_user_id:
-                            work_submissions = service.courses().courseWork().studentSubmissions().list(
-                                courseId=course_id,
-                                courseWorkId=work_id,
-                                userId=current_user_id
-                            ).execute()
-                            
-                            user_work_submission = None
-                            for sub in work_submissions.get("studentSubmissions", []):
-                                if sub.get("userId") == current_user_id:
-                                    user_work_submission = sub
-                                    break
-                            
-                            if user_work_submission and user_work_submission.get("state") == "CREATED":
-                                unsubmitted_homeworks.append(work_title)
+                        # 發送 Flex Message
+                        line_bot_api.push_message(
+                            line_user_id,
+                            FlexSendMessage(
+                                alt_text=flex_message['altText'],
+                                contents=flex_message['contents']
+                            )
+                        )
+                        
+                        print(f"✅ 已發送作業統計圖表到LINE: {teacher_result['course_name']} - {teacher_result['homework_title']}")
+                        
+                    except Exception as e:
+                        print(f"⚠️ 發送Flex Message失敗: {e}")
+                        # 在結果中標記發送失敗
+                        teacher_result["flex_message_sent"] = False
+                        teacher_result["flex_message_error"] = str(e)
+                else:
+                    teacher_result["flex_message_sent"] = True
                     
-                    if unsubmitted_homeworks:
-                        response_text += f"\n\n📚 您還有以下作業未繳交：\n"
-                        for i, hw_title in enumerate(unsubmitted_homeworks[:5], 1):  # 最多顯示5個
-                            response_text += f"• {hw_title}\n"
-                        if len(unsubmitted_homeworks) > 5:
-                            response_text += f"... 還有 {len(unsubmitted_homeworks) - 5} 個作業"
-                
-                except Exception as e:
-                    print(f"查詢學生其他作業失敗: {e}")
-                    unsubmitted_homeworks = []  # 確保在異常情況下也有定義
-                
-                return Response({
-                    "role": "student",
-                    "message": "✅ 查詢成功",
-                    "course_name": course_name,
-                    "homework_title": homework_title,
-                    "status": state,
-                    "status_text": status_text,
-                    "is_late": is_late,
-                    "update_time": update_time or "無更新時間"
-                })
-            else:
-                response_text = f"""📝 作業狀態查詢
-
-課程：{course_name}
-作業：{homework_title}
-
-❓ 找不到您的作業記錄，可能原因：
-• 您尚未加入此課程
-• 作業尚未分派給您
-• 系統資料同步延遲
-
-💡 建議前往Google Classroom確認作業狀態。"""
-
-                return Response({
-                    "role": "student", 
-                    "message": "❓ 找不到您的作業記錄",
-                    "course_name": course_name,
-                    "homework_title": homework_title,
-                    "status": "NOT_FOUND",
-                    "status_text": "❓ 狀態不明",
-                    "is_late": False,
-                    "update_time": "無記錄",
-                    "error": "submission_not_found"
-                })
+            except Exception as e:
+                print(f"⚠️ Flex Message 系統錯誤: {e}")
+                # 標記所有教師結果的 Flex Message 發送狀態
+                for teacher_result in teacher_results:
+                    teacher_result["flex_message_sent"] = False
+                    teacher_result["flex_message_error"] = str(e)
+        
+        # 回傳批量查詢結果
+        return Response({
+            "query_mode": "batch",
+            "total_queries": len(query_items),
+            "successful_queries": len([r for r in all_results if "error" not in r]),
+            "failed_queries": len([r for r in all_results if "error" in r]),
+            "teacher_queries": len(teacher_results),
+            "student_queries": len([r for r in all_results if r.get("role") == "student"]),
+            "flex_messages_sent": len([r for r in teacher_results if r.get("flex_message_sent", False)]),
+            "results": all_results
+        })
                 
     except Exception as e:
         error_msg = str(e)

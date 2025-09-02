@@ -23,7 +23,7 @@ from line_bot.utils import (
     send_ask_question_guide,
     hash_code,
 )
-from .flex_templates import (get_flex_template, create_custom_carousel, get_start_register_flex, get_register_done_flex)
+from .flex_templates import (get_flex_template, create_custom_carousel, get_start_register_flex, get_register_done_flex, get_available_templates, get_template_categories)
 
 
 
@@ -112,7 +112,6 @@ def callback(request):
                     
                     course_id = params.get('course_id', [''])[0]
                     coursework_id = params.get('coursework_id', [''])[0]
-                    homework_title = params.get('homework', [''])[0]
                     
                     if not course_id or not coursework_id:
                         line_bot_api.reply_message(
@@ -219,7 +218,13 @@ def callback(request):
                             
                             # 發送美觀的課程綁定成功 Flex Message
                             try:
-                                send_course_binding_success_message(group_id, bind_obj.course_id, line_user_id or "")
+                                send_course_binding_success_message(
+                                    group_id, 
+                                    bind_obj.course_id, 
+                                    line_user_id or "",
+                                    bind_obj.course_name,
+                                    bind_obj.enrollment_code
+                                )
                             except Exception as e:
                                 print(f"發送課程綁定 Flex Message 失敗: {e}")
                     else:
@@ -398,7 +403,7 @@ def callback(request):
                 except Exception as e:
                     print(f"儲存用戶訊息失敗: {e}")
                 
-                # 送到 n8n
+                # 送到 n8n（根據角色分流）
                 payload = {
                     "lineUserId": line_user_id,
                     "rawText": message_content,
@@ -406,25 +411,26 @@ def callback(request):
                     "messageType": message_type,
                     "messageId": getattr(ev.message, "id", None),
                 }
-                try:
-                    requests.post(N8N_NLP_URL, json=payload, timeout=5)
-                except requests.exceptions.RequestException:
-                    line_bot_api.reply_message(
-                        ev.reply_token,
-                        FlexSendMessage(
-                            alt_text="系統忙碌",
-                            contents={
-                                "type": "bubble",
-                                "body": {
-                                    "type": "box",
-                                    "layout": "vertical",
-                                    "contents": [
-                                        {"type": "text", "text": "系統忙碌中，請稍後再試 🙏", "wrap": True}
-                                    ]
-                                }
-                            }
-                        )
-                    )
+                
+                # 根據角色選擇不同的 n8n endpoint
+                if role == "teacher":
+                    n8n_url = os.getenv("N8N_TEACHER_URL", N8N_NLP_URL)
+                elif role == "student":
+                    n8n_url = os.getenv("N8N_STUDENT_URL", N8N_NLP_URL)
+                else:
+                    n8n_url = N8N_NLP_URL
+                
+                # 非同步發送 n8n 請求，避免阻塞 LINE 回應
+                import threading
+                def async_n8n_request(url, payload_data):
+                    try:
+                        requests.post(url, json=payload_data, timeout=10)
+                    except requests.exceptions.RequestException:
+                        # 記錄錯誤但不影響用戶體驗
+                        print(f"n8n 請求失敗: {url}")
+                
+                # 啟動非執行緒發送請求
+                threading.Thread(target=async_n8n_request, args=(n8n_url, payload)).start()
                 # 完成私聊處理
                 continue
 
@@ -497,6 +503,8 @@ def api_create_bind_code(request):
 
     course_id = (data.get("course_id") or "").strip()
     line_user_id = (data.get("line_user_id") or "").strip()
+    course_name = (data.get("course_name") or "").strip()
+    enrollment_code = (data.get("enrollment_code") or "").strip()
     ttl_minutes = int(data.get("ttl_minutes") or 10)
 
     if not course_id or not line_user_id:
@@ -519,6 +527,8 @@ def api_create_bind_code(request):
     OneTimeBindCode.objects.create(
         code_hash=code_hash_value,
         course_id=course_id,
+        course_name=course_name,
+        enrollment_code=enrollment_code,
         created_by_line_user_id=line_user_id,
         expires_at=expires_at,
         used=False,
@@ -527,6 +537,8 @@ def api_create_bind_code(request):
     return JsonResponse({
         "code": plain_code,
         "course_id": course_id,
+        "course_name": course_name,
+        "enrollment_code": enrollment_code,
         "expires_at": expires_at.isoformat(),
     })
 

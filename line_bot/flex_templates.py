@@ -3314,7 +3314,7 @@ def get_teacher_homework_statistics_flex(course_name, homework_title, statistics
         "action": {
             "type": "postback",
             "label": "🔔 自動通知缺交學生",
-            "data": f"action=notify_unsubmitted&course_id={course_id or ''}&coursework_id={coursework_id or ''}&homework={homework_title}"
+            "data": f"action=notify_unsubmitted&course_id={course_id or ''}&coursework_id={coursework_id or ''}"
         },
         "style": "primary" if unsubmitted > 0 else "secondary",
         "color": "#FF6B35" if unsubmitted > 0 else "#CCCCCC",
@@ -3425,7 +3425,7 @@ def get_student_homework_status_flex(homeworks: list):
                         },
                         {
                             "type": "text",
-                            "text": homework.get("homework_title", "未知作業"),
+                            "text": homework.get("homework_title") or "未知作業",
                             "size": "sm",
                             "color": "#4B5563",
                             "margin": "xs",

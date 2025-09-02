@@ -52,6 +52,8 @@ class OneTimeBindCode(models.Model):
 
     code_hash = models.CharField(max_length=128, unique=True)
     course_id = models.CharField(max_length=100)
+    course_name = models.CharField(max_length=200, blank=True, default="")
+    enrollment_code = models.CharField(max_length=50, blank=True, default="")
     created_by_line_user_id = models.CharField(max_length=50)
     expires_at = models.DateTimeField()
     used = models.BooleanField(default=False)

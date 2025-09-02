@@ -34,8 +34,55 @@ class DeleteCourseSerializer(serializers.Serializer):
 
 class SubmissionsStatusSerializer(serializers.Serializer):
     line_user_id  = serializers.CharField()
-    course_id     = serializers.CharField()
-    coursework_id = serializers.CharField()
+    
+    # 批量查詢參數
+    course_ids    = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        help_text="課程ID列表，支援批量查詢"
+    )
+    coursework_ids = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        help_text="作業ID列表，支援批量查詢"
+    )
+    
+    # 批量查詢的課程作業對應關係
+    course_coursework_pairs = serializers.ListField(
+        child=serializers.DictField(),
+        required=False,
+        help_text="課程作業對應關係列表，格式：[{'course_id': 'xxx', 'coursework_id': 'xxx'}]"
+    )
+    
+    def validate(self, data):
+        # 檢查是否提供了有效的查詢參數
+        has_batch_query = data.get('course_ids') or data.get('coursework_ids') or data.get('course_coursework_pairs')
+        
+        if not has_batch_query:
+            raise serializers.ValidationError(
+                "必須提供批量查詢參數：course_coursework_pairs 或同時提供 course_ids 和 coursework_ids"
+            )
+        
+        # 驗證參數完整性
+        if data.get('course_coursework_pairs'):
+            # 使用 course_coursework_pairs 時，驗證格式
+            for pair in data['course_coursework_pairs']:
+                if not pair.get('course_id') or not pair.get('coursework_id'):
+                    raise serializers.ValidationError(
+                        "course_coursework_pairs 中的每個項目都必須包含 course_id 和 coursework_id"
+                    )
+        elif data.get('course_ids') and data.get('coursework_ids'):
+            # 使用 course_ids + coursework_ids 時，驗證數量匹配
+            if len(data['course_ids']) != len(data['coursework_ids']):
+                raise serializers.ValidationError(
+                    "course_ids 和 coursework_ids 的數量必須相同"
+                )
+        else:
+            raise serializers.ValidationError(
+                "批量查詢必須提供 course_coursework_pairs 或同時提供 course_ids 和 coursework_ids"
+            )
+        
+        return data
 
 class CreateNoteSerializer(serializers.Serializer):
     line_user_id = serializers.CharField()
