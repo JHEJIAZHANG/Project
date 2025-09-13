@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { BottomNavigation } from "@/components/bottom-navigation"
+import { SidebarNavigation } from "@/components/sidebar-navigation"
 import { PageHeader } from "@/components/page-header"
 import { CourseForm } from "@/components/course-form"
 import { CourseCard } from "@/components/course-card"
@@ -9,7 +10,7 @@ import { CourseDetail } from "@/components/course-detail"
 import { CourseCalendar } from "@/components/course-calendar"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { ExclamationIcon, PlusIcon, CalendarIcon, ListIcon } from "@/components/icons"
+import { PlusIcon, CalendarIcon, ListIcon } from "@/components/icons"
 import { useCourses } from "@/hooks/use-courses"
 import { AssignmentForm } from "@/components/assignment-form"
 import { AssignmentCard } from "@/components/assignment-card"
@@ -19,10 +20,7 @@ import { NoteForm } from "@/components/note-form"
 import { NoteCard } from "@/components/note-card"
 import { NoteFilters } from "@/components/note-filters"
 import { NoteDetail } from "@/components/note-detail"
-import { DashboardStats } from "@/components/dashboard-stats"
 import { UpcomingSchedule } from "@/components/upcoming-schedule"
-import { RecentNotes } from "@/components/recent-notes"
-import { RecentExams } from "@/components/recent-exams"
 import { FloatingActionButton } from "@/components/floating-action-button"
 import { ExamForm } from "@/components/exam-form"
 import { ExamDetail } from "@/components/exam-detail"
@@ -30,7 +28,20 @@ import { ExamCard } from "@/components/exam-card"
 import { ExamFilters } from "@/components/exam-filters"
 import { ScrollSummary } from "@/components/scroll-summary"
 import { TaskTypeToggle } from "@/components/task-type-toggle"
-import { getTaiwanTime, getDaysDifferenceTaiwan, isTodayTaiwan, isSameDayTaiwan } from "@/lib/taiwan-time"
+import { ProfileContent } from "@/components/profile-content"
+import { CompactMonthlyCalendar } from "@/components/compact-monthly-calendar"
+import { AddCourseDropdown } from "@/components/add-course-dropdown"
+import { GoogleClassroomImport } from "@/components/google-classroom-import"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
+import { getTaiwanTime, isTodayTaiwan, isExamEndedTaiwan, getDaysDifferenceTaiwan } from "@/lib/taiwan-time"
+import type { Course } from "@/types/course"
+import { CustomCategoryForm, type CustomCategoryItem } from "@/components/custom-category-form"
+import { CustomCategoryCard } from "@/components/custom-category-card"
+import { UnifiedTodoSection } from "@/components/unified-todo-section"
+import { CustomCategoryFilters } from "@/components/custom-category-filters"
+import { CustomCategoryDetail } from "@/components/custom-category-detail"
+import { getNotificationSettings } from "@/components/profile-content"
+import { GoogleClassroomSync } from "@/components/google-classroom-sync"
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState("home")
@@ -52,8 +63,30 @@ export default function HomePage() {
   const [selectedExamId, setSelectedExamId] = useState<string | null>(null)
   const [examFilter, setExamFilter] = useState("all")
   const [courseView, setCourseView] = useState<"list" | "calendar">("list")
-  const [taskType, setTaskType] = useState<"assignment" | "exam">("assignment")
+  const [taskType, setTaskType] = useState<string>("assignment") // Changed to string to support custom categories
   const [selectedDate, setSelectedDate] = useState(new Date())
+  const [showGoogleClassroomImport, setShowGoogleClassroomImport] = useState(false)
+  const [customCategories, setCustomCategories] = useState<string[]>([]) // Added state for custom categories
+  const [customCategoryItems, setCustomCategoryItems] = useState<CustomCategoryItem[]>([])
+  const [showCustomCategoryForm, setShowCustomCategoryForm] = useState(false)
+  const [editingCustomCategory, setEditingCustomCategory] = useState<string | null>(null)
+  const [selectedCustomCategoryId, setSelectedCustomCategoryId] = useState<string | null>(null)
+  const [customCategoryFilter, setCustomCategoryFilter] = useState("all") // Added custom category filter state
+  const [notificationSettings, setNotificationSettings] = useState(() => getNotificationSettings())
+
+  const [user, setUser] = useState<{
+    id: string
+    name: string
+    email: string
+    avatar?: string
+    isLoggedIn: boolean
+  }>({
+    id: "1",
+    name: "學生",
+    email: "student@example.com",
+    avatar: "",
+    isLoggedIn: false,
+  })
 
   const {
     courses,
@@ -84,6 +117,43 @@ export default function HomePage() {
     return notes.find((note) => note.id === id)
   }
 
+  const addCustomCategoryItem = (itemData: Omit<CustomCategoryItem, "id" | "createdAt" | "updatedAt">) => {
+    const newItem: CustomCategoryItem = {
+      ...itemData,
+      id: Date.now().toString(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }
+    setCustomCategoryItems((prev) => [...prev, newItem])
+  }
+
+  const updateCustomCategoryItem = (id: string, updates: Partial<CustomCategoryItem>) => {
+    setCustomCategoryItems((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, ...updates, updatedAt: new Date() } : item)),
+    )
+  }
+
+  const deleteCustomCategoryItem = (id: string) => {
+    setCustomCategoryItems((prev) => prev.filter((item) => item.id !== id))
+  }
+
+  const getCustomCategoryItemById = (id: string) => {
+    return customCategoryItems.find((item) => item.id === id)
+  }
+
+  const handleDeleteCategory = (categoryName: string) => {
+    if (confirm(`確定要刪除「${categoryName}」分類嗎？這將會刪除該分類下的所有待辦事項。`)) {
+      // Remove all items in this category
+      setCustomCategoryItems((prev) => prev.filter((item) => item.category !== categoryName))
+      // Remove the category itself
+      setCustomCategories((prev) => prev.filter((cat) => cat !== categoryName))
+      // If currently viewing this category, switch to assignments
+      if (taskType === categoryName) {
+        setTaskType("assignment")
+      }
+    }
+  }
+
   const renderContent = () => {
     if (showExamForm) {
       return (
@@ -110,45 +180,20 @@ export default function HomePage() {
       )
     }
 
-    if (activeTab === "courses") {
-      if (selectedCourseId) {
-        const course = getCourseById(selectedCourseId)
-        if (course) {
-          return (
-            <CourseDetail
-              course={course}
-              assignments={getAssignmentsByCourse(selectedCourseId)}
-              notes={getNotesByCourse(selectedCourseId)}
-              exams={getExamsByCourse(selectedCourseId)}
-              onBack={() => setSelectedCourseId(null)}
-              onViewAssignment={(assignment) => {
-                setSelectedAssignmentId(assignment.id)
-                setTaskType("assignment")
-                setActiveTab("tasks")
-              }}
-              onViewExam={(exam) => {
-                setSelectedExamId(exam.id)
-                setTaskType("exam")
-                setActiveTab("tasks")
-              }}
-              onViewNote={(note) => {
-                setSelectedNoteId(note.id)
-                setActiveTab("notes")
-              }}
-              onEdit={() => {
-                setEditingCourse(selectedCourseId)
-                setSelectedCourseId(null)
-                setShowCourseForm(true)
-              }}
-              onDelete={() => {
-                deleteCourse(selectedCourseId)
-                setSelectedCourseId(null)
-              }}
-            />
-          )
-        }
-      }
+    if (activeTab === "assignments") {
+      return (
+        <div className="space-y-6">
+          <GoogleClassroomSync
+            onSync={() => {
+              // Refresh assignments after sync
+              console.log("[v0] Google Classroom sync completed")
+            }}
+          />
+        </div>
+      )
+    }
 
+    if (activeTab === "courses") {
       if (showCourseForm) {
         return (
           <div>
@@ -229,6 +274,31 @@ export default function HomePage() {
         }
       }
 
+      if (selectedCustomCategoryId) {
+        const item = getCustomCategoryItemById(selectedCustomCategoryId)
+        if (item) {
+          return (
+            <CustomCategoryDetail
+              item={item}
+              course={getCourseById(item.courseId)}
+              onBack={() => setSelectedCustomCategoryId(null)}
+              onEdit={() => {
+                setEditingCustomCategory(item.id)
+                setSelectedCustomCategoryId(null)
+                setShowCustomCategoryForm(true)
+              }}
+              onDelete={() => {
+                if (confirm(`確定要刪除這個${taskType}嗎？`)) {
+                  deleteCustomCategoryItem(item.id)
+                  setSelectedCustomCategoryId(null)
+                }
+              }}
+              onStatusChange={(id, status) => updateCustomCategoryItem(id, { status })}
+            />
+          )
+        }
+      }
+
       if (showAssignmentForm) {
         return (
           <div>
@@ -273,6 +343,32 @@ export default function HomePage() {
               onCancel={() => {
                 setShowExamForm(false)
                 setEditingExam(null)
+              }}
+            />
+          </div>
+        )
+      }
+
+      if (showCustomCategoryForm) {
+        return (
+          <div>
+            <PageHeader title={editingCustomCategory ? `編輯${taskType}` : `新增${taskType}`} />
+            <CustomCategoryForm
+              courses={courses}
+              category={taskType}
+              initialData={editingCustomCategory ? getCustomCategoryItemById(editingCustomCategory) : undefined}
+              onSubmit={(itemData) => {
+                if (editingCustomCategory) {
+                  updateCustomCategoryItem(editingCustomCategory, itemData)
+                } else {
+                  addCustomCategoryItem(itemData)
+                }
+                setShowCustomCategoryForm(false)
+                setEditingCustomCategory(null)
+              }}
+              onCancel={() => {
+                setShowCustomCategoryForm(false)
+                setEditingCustomCategory(null)
               }}
             />
           </div>
@@ -335,6 +431,10 @@ export default function HomePage() {
       return <NotesContent />
     }
 
+    if (activeTab === "profile") {
+      return <ProfileContent user={user} onUserChange={setUser} />
+    }
+
     switch (activeTab) {
       case "home":
         return <HomeContent />
@@ -350,127 +450,65 @@ export default function HomePage() {
 
     const dateCourses = courses.filter((course) => course.schedule.some((slot) => slot.dayOfWeek === selectedDay))
 
-    const urgentAssignments = assignments
-      .filter((assignment) => {
-        if (assignment.status === "completed") return false
-
-        if (assignment.notificationTime) {
-          return taiwanNow >= assignment.notificationTime
-        }
-
-        const daysUntilDue = getDaysDifferenceTaiwan(selectedDate, assignment.dueDate)
-        return daysUntilDue <= 7 && daysUntilDue >= 0
-      })
-      .sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime())
-
     return (
       <>
-        <ScrollSummary
-          courses={courses}
-          assignments={assignments}
-          exams={exams}
-          selectedDate={selectedDate}
-          onDateChange={setSelectedDate}
-        />
+        <div className="space-y-6 lg:grid lg:grid-cols-5 lg:gap-6 lg:space-y-0 mb-6">
+          {/* Mobile: Date (ScrollSummary) - First on mobile */}
+          <div className="lg:col-span-2 lg:space-y-6">
+            {/* 摘要 */}
+            <ScrollSummary
+              courses={courses}
+              assignments={assignments}
+              exams={exams}
+              selectedDate={selectedDate}
+              onDateChange={setSelectedDate}
+              user={user}
+            />
 
-        <DashboardStats courses={courses} assignments={assignments} notes={notes} exams={exams} />
+            {/* Mobile: Recent Courses - Second on mobile, Desktop: stays in left column */}
+            <div className="lg:block">
+              <UpcomingSchedule courses={courses} selectedDate={selectedDate} />
+            </div>
 
-        <UpcomingSchedule courses={courses} selectedDate={selectedDate} />
-
-        <Card className="bg-white p-4 mb-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-foreground flex items-center gap-2">
-              <ExclamationIcon className="w-5 h-5 text-destructive" />
-              緊急作業
-            </h2>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setActiveTab("tasks")
-                setTaskType("assignment")
-                setAssignmentFilter("pending")
-              }}
-            >
-              查看全部
-            </Button>
+            {/* Mobile: Todo Items - Third on mobile, Desktop: stays in left column */}
+            <div className="lg:block">
+              <UnifiedTodoSection
+                assignments={assignments}
+                exams={exams}
+                customCategoryItems={customCategoryItems}
+                courses={courses}
+                selectedDate={selectedDate}
+                notificationSettings={{
+                  assignmentReminderTiming: notificationSettings.assignmentReminderTiming,
+                }}
+                onViewItem={(id, type) => {
+                  if (type === "assignment") {
+                    setSelectedAssignmentId(id)
+                    setTaskType("assignment")
+                  } else if (type === "exam") {
+                    setSelectedExamId(id)
+                    setTaskType("exam")
+                  } else if (type === "custom") {
+                    const item = getCustomCategoryItemById(id)
+                    if (item) {
+                      setSelectedCustomCategoryId(id)
+                      setTaskType(item.category)
+                    }
+                  }
+                  setActiveTab("tasks")
+                }}
+                onViewAllTodos={() => {
+                  setActiveTab("tasks")
+                }}
+              />
+            </div>
           </div>
 
-          {urgentAssignments.length > 0 ? (
-            <div className="space-y-3">
-              {urgentAssignments.slice(0, 3).map((assignment) => {
-                const course = getCourseById(assignment.courseId)
-                const daysUntilDue = getDaysDifferenceTaiwan(selectedDate, assignment.dueDate)
-                const isUrgent = daysUntilDue <= 1
-
-                return (
-                  <div
-                    key={assignment.id}
-                    className="flex items-center justify-between p-2 bg-muted rounded-lg cursor-pointer hover:shadow-sm transition-shadow"
-                    onClick={() => {
-                      setSelectedAssignmentId(assignment.id)
-                      setTaskType("assignment")
-                      setActiveTab("tasks")
-                    }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-1 h-8 flex-shrink-0 rounded-sm"
-                        style={{ backgroundColor: isUrgent ? "#ef4444" : "#f59e0b" }}
-                      />
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{assignment.title}</p>
-                        <p className="text-xs text-muted-foreground">{course?.name}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className={`text-xs font-medium ${isUrgent ? "text-destructive" : "text-chart-5"}`}>
-                        {isSameDayTaiwan(assignment.dueDate, selectedDate)
-                          ? isViewingToday
-                            ? "今天到期"
-                            : "當天到期"
-                          : daysUntilDue === 1
-                            ? isViewingToday
-                              ? "明天到期"
-                              : "隔天到期"
-                            : `${daysUntilDue}天後到期`}
-                      </p>
-                      <p className="text-xs text-muted-foreground">{assignment.dueDate.toLocaleDateString("zh-TW")}</p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <p className="text-muted-foreground text-center py-4">暫無緊急的作業</p>
-          )}
-        </Card>
-
-        <RecentExams
-          exams={exams}
-          courses={courses}
-          selectedDate={selectedDate}
-          onViewExam={(examId) => {
-            setSelectedExamId(examId)
-            setTaskType("exam")
-            setActiveTab("tasks")
-          }}
-          onViewAllExams={() => {
-            setTaskType("exam")
-            setActiveTab("tasks")
-          }}
-        />
-
-        <RecentNotes
-          notes={notes}
-          courses={courses}
-          selectedDate={selectedDate}
-          onViewNote={(noteId) => {
-            setSelectedNoteId(noteId)
-            setActiveTab("notes")
-          }}
-          onViewAllNotes={() => setActiveTab("notes")}
-        />
+          {/* Mobile: Calendar - Fourth on mobile, Desktop: right column */}
+          <div className="lg:col-span-3">
+            <CompactMonthlyCalendar selectedDate={selectedDate} onDateSelect={setSelectedDate} />
+          </div>
+        </div>
       </>
     )
   }
@@ -495,10 +533,10 @@ export default function HomePage() {
                 )}
                 {courseView === "list" ? "月曆視圖" : "列表視圖"}
               </Button>
-              <Button size="sm" onClick={() => setShowCourseForm(true)}>
-                <PlusIcon className="w-4 h-4 mr-1" />
-                新增
-              </Button>
+              <AddCourseDropdown
+                onManualAdd={() => setShowCourseForm(true)}
+                onGoogleClassroomImport={() => setShowGoogleClassroomImport(true)}
+              />
             </div>
           }
         />
@@ -516,21 +554,78 @@ export default function HomePage() {
         ) : (
           <Card className="p-8 text-center">
             <p className="text-muted-foreground mb-4">還沒有任何課程</p>
-            <Button onClick={() => setShowCourseForm(true)}>
-              <PlusIcon className="w-4 h-4 mr-2" />
-              新增第一個課程
-            </Button>
+            <AddCourseDropdown
+              onManualAdd={() => setShowCourseForm(true)}
+              onGoogleClassroomImport={() => setShowGoogleClassroomImport(true)}
+            />
           </Card>
         )}
+
+        <GoogleClassroomImport
+          isOpen={showGoogleClassroomImport}
+          onClose={() => setShowGoogleClassroomImport(false)}
+          onImport={handleBulkImport}
+        />
+
+        <Dialog open={!!selectedCourseId} onOpenChange={() => setSelectedCourseId(null)}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            {selectedCourseId && <CourseDetail courseId={selectedCourseId} showBackButton={false} />}
+          </DialogContent>
+        </Dialog>
       </>
     )
   }
 
   function TasksContent() {
+    const handleAddCategory = (name: string, icon: string) => {
+      if (!customCategories.some((cat) => (typeof cat === "string" ? cat === name : cat.name === name))) {
+        // Store both name and icon for custom categories
+        const newCategory = { name, icon }
+        setCustomCategories([...customCategories, name]) // Keep string format for compatibility
+        setTaskType(name)
+      }
+    }
+
+    const handleEditCategory = (oldName: string, newName: string, newIcon: string) => {
+      // Update category name in the list
+      setCustomCategories((prev) => prev.map((cat) => (cat === oldName ? newName : cat)))
+
+      // Update all items in this category to use new name and icon
+      setCustomCategoryItems((prev) =>
+        prev.map((item) =>
+          item.category === oldName ? { ...item, category: newName, icon: newIcon, updatedAt: new Date() } : item,
+        ),
+      )
+
+      // Update current task type if it was the edited category
+      if (taskType === oldName) {
+        setTaskType(newName)
+      }
+    }
+
+    const pendingAssignmentCount = assignments.filter((a) => a.status !== "completed").length
+    const pendingExamCount = exams.filter((e) => e.status !== "completed").length
+
+    const customCategoryData = customCategories.map((categoryName) => {
+      const categoryItems = customCategoryItems.filter(
+        (item) => item.category === categoryName && item.status !== "completed",
+      )
+
+      // Get icon from the first item in this category, or default to clipboard
+      const firstItem = customCategoryItems.find((item) => item.category === categoryName)
+      const icon = firstItem?.icon || "clipboard"
+
+      return {
+        name: categoryName,
+        icon,
+        count: categoryItems.length,
+      }
+    })
+
     return (
       <>
         <PageHeader
-          title="任務管理"
+          title="待辦事項"
           subtitle="追蹤你的作業與考試"
           action={
             <Button
@@ -538,8 +633,10 @@ export default function HomePage() {
               onClick={() => {
                 if (taskType === "assignment") {
                   setShowAssignmentForm(true)
-                } else {
+                } else if (taskType === "exam") {
                   setShowExamForm(true)
+                } else {
+                  setShowCustomCategoryForm(true)
                 }
               }}
             >
@@ -550,27 +647,158 @@ export default function HomePage() {
         />
 
         <TaskTypeToggle
-          activeType={taskType}
-          onTypeChange={setTaskType}
-          assignmentCount={assignments.length}
-          examCount={exams.length}
+          taskType={taskType}
+          setTaskType={setTaskType}
+          pendingAssignmentCount={pendingAssignmentCount}
+          pendingExamCount={pendingExamCount}
+          customCategoryData={customCategoryData}
+          onAddCategory={handleAddCategory}
+          onEditCategory={handleEditCategory}
+          onDeleteCategory={handleDeleteCategory}
         />
 
-        {taskType === "assignment" ? <AssignmentsContent /> : <ExamsContent />}
+        {taskType === "assignment" ? (
+          <AssignmentsContent />
+        ) : taskType === "exam" ? (
+          <ExamsContent />
+        ) : (
+          <CustomCategoryContent />
+        )}
+      </>
+    )
+  }
+
+  function CustomCategoryContent() {
+    const filteredCustomCategoryItems = customCategoryItems.filter((item) => {
+      const today = new Date()
+      const daysUntilDue = getDaysDifferenceTaiwan(today, item.dueDate)
+      const isOverdue = item.status === "overdue" || (item.status === "pending" && daysUntilDue < 0)
+
+      // Update overdue status if needed
+      if (item.status === "pending" && daysUntilDue < 0) {
+        updateCustomCategoryItem(item.id, { status: "overdue" })
+      }
+
+      switch (customCategoryFilter) {
+        case "pending":
+          return item.status === "pending" && !isOverdue
+        case "completed":
+          return item.status === "completed"
+        case "overdue":
+          return item.status === "overdue" || isOverdue
+        default:
+          return true
+      }
+    })
+
+    const sortedCustomCategoryItems = filteredCustomCategoryItems.sort((a, b) => {
+      if (a.status === "overdue" && b.status !== "overdue") return -1
+      if (b.status === "overdue" && a.status !== "overdue") return 1
+      return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
+    })
+
+    const counts = {
+      all: customCategoryItems.length,
+      pending: customCategoryItems.filter((item) => {
+        const today = new Date()
+        const daysUntilDue = getDaysDifferenceTaiwan(today, item.dueDate)
+        return item.status === "pending" && daysUntilDue >= 0
+      }).length,
+      completed: customCategoryItems.filter((item) => item.status === "completed").length,
+      overdue: customCategoryItems.filter((item) => {
+        const today = new Date()
+        const daysUntilDue = getDaysDifferenceTaiwan(today, item.dueDate)
+        return item.status === "overdue" || (item.status === "pending" && daysUntilDue < 0)
+      }).length,
+    }
+
+    return (
+      <>
+        <CustomCategoryFilters
+          activeFilter={customCategoryFilter}
+          onFilterChange={setCustomCategoryFilter}
+          counts={counts}
+        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {sortedCustomCategoryItems.map((item) => (
+            <CustomCategoryCard
+              key={item.id}
+              item={item}
+              course={getCourseById(item.courseId)}
+              onStatusChange={(id, status) => updateCustomCategoryItem(id, { status })}
+              onViewDetail={() => setSelectedCustomCategoryId(item.id)}
+              onEdit={() => {
+                setEditingCustomCategory(item.id)
+                setShowCustomCategoryForm(true)
+              }}
+              onDelete={() => deleteCustomCategoryItem(item.id)}
+            />
+          ))}
+        </div>
+        {sortedCustomCategoryItems.length === 0 && (
+          <Card className="p-8 text-center">
+            <p className="text-muted-foreground mb-4">
+              {customCategoryFilter === "all"
+                ? `還沒有任何${taskType}`
+                : customCategoryFilter === "pending"
+                  ? `沒有進行中的${taskType}`
+                  : customCategoryFilter === "completed"
+                    ? `沒有已完成的${taskType}`
+                    : `沒有已逾期的${taskType}`}
+            </p>
+            {customCategoryFilter === "all" && (
+              <Button onClick={() => setShowCustomCategoryForm(true)}>新增第一個{taskType}</Button>
+            )}
+          </Card>
+        )}
       </>
     )
   }
 
   function AssignmentsContent() {
-    const updatedAssignments = assignments.map((assignment) => {
-      const daysUntilDue = getDaysDifferenceTaiwan(new Date(), assignment.dueDate)
-      if (assignment.status === "pending" && daysUntilDue < 0) {
-        return { ...assignment, status: "overdue" as const }
-      }
-      return assignment
-    })
+    const [, forceUpdate] = useState({})
 
-    const filteredAssignments = updatedAssignments.filter((assignment) => {
+    useEffect(() => {
+      const interval = setInterval(() => {
+        forceUpdate({})
+      }, 10000) // Check every 10 seconds for immediate overdue detection
+
+      return () => clearInterval(interval)
+    }, [])
+
+    useEffect(() => {
+      const checkAssignmentStatus = () => {
+        const taiwanNow = getTaiwanTime()
+
+        assignments.forEach((assignment) => {
+          const isOverdue = taiwanNow.getTime() > assignment.dueDate.getTime()
+
+          console.log(
+            "[v0] Assignment:",
+            assignment.title,
+            "Due:",
+            assignment.dueDate,
+            "Now:",
+            taiwanNow,
+            "IsOverdue:",
+            isOverdue,
+            "Status:",
+            assignment.status,
+          )
+
+          if (assignment.status === "pending" && isOverdue) {
+            updateAssignment(assignment.id, { status: "overdue" })
+          } else if (assignment.status === "overdue" && !isOverdue) {
+            // If assignment was overdue but due date was changed to future, make it pending again
+            updateAssignment(assignment.id, { status: "pending" })
+          }
+        })
+      }
+
+      checkAssignmentStatus()
+    }, [assignments, updateAssignment])
+
+    const filteredAssignments = assignments.filter((assignment) => {
       switch (assignmentFilter) {
         case "pending":
           return assignment.status === "pending"
@@ -590,10 +818,10 @@ export default function HomePage() {
     })
 
     const counts = {
-      all: updatedAssignments.length,
-      pending: updatedAssignments.filter((a) => a.status === "pending").length,
-      completed: updatedAssignments.filter((a) => a.status === "completed").length,
-      overdue: updatedAssignments.filter((a) => a.status === "overdue").length,
+      all: assignments.length,
+      pending: assignments.filter((a) => a.status === "pending").length,
+      completed: assignments.filter((a) => a.status === "completed").length,
+      overdue: assignments.filter((a) => a.status === "overdue").length,
     }
 
     return (
@@ -601,7 +829,7 @@ export default function HomePage() {
         <AssignmentFilters activeFilter={assignmentFilter} onFilterChange={setAssignmentFilter} counts={counts} />
 
         {sortedAssignments.length > 0 ? (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {sortedAssignments.map((assignment) => (
               <AssignmentCard
                 key={assignment.id}
@@ -624,7 +852,7 @@ export default function HomePage() {
           </div>
         ) : (
           <Card className="p-8 text-center">
-            <p className="text-muted-foreground mb-4">
+            <p className="text-sm text-muted-foreground mb-2">
               {assignmentFilter === "all"
                 ? "還沒有任何作業"
                 : `沒有${assignmentFilter === "pending" ? "進行中" : assignmentFilter === "completed" ? "已完成" : "已逾期"}的作業`}
@@ -724,31 +952,8 @@ export default function HomePage() {
           </div>
         ) : (
           <Card className="p-8 text-center">
-            <p className="text-muted-foreground mb-4">
-              {noteSearchQuery
-                ? "沒有找到符合搜尋條件的筆記"
-                : noteFilter === "all"
-                  ? "還沒有任何筆記"
-                  : "這個課程還沒有筆記"}
-            </p>
-            {courses.length > 0 && !noteSearchQuery ? (
-              <Button onClick={() => setShowNoteForm(true)}>
-                <PlusIcon className="w-4 h-4 mr-2" />
-                新增第一個筆記
-              </Button>
-            ) : !courses.length ? (
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">請先新增課程才能建立筆記</p>
-                <Button
-                  onClick={() => {
-                    setActiveTab("courses")
-                    setShowCourseForm(true)
-                  }}
-                >
-                  新增課程
-                </Button>
-              </div>
-            ) : null}
+            <p className="text-sm text-muted-foreground mb-2">還沒有任何筆記</p>
+            <Button onClick={() => setShowNoteForm(true)}>新增第一個筆記</Button>
           </Card>
         )}
       </>
@@ -756,6 +961,45 @@ export default function HomePage() {
   }
 
   function ExamsContent() {
+    const [, forceUpdate] = useState({})
+
+    useEffect(() => {
+      const interval = setInterval(() => {
+        forceUpdate({})
+      }, 10000) // Check every 10 seconds instead of 60 seconds
+
+      return () => clearInterval(interval)
+    }, [])
+
+    useEffect(() => {
+      const checkExamStatus = () => {
+        exams.forEach((exam) => {
+          const isEnded = isExamEndedTaiwan(exam.examDate, exam.duration)
+          console.log(
+            "[v0] Exam:",
+            exam.title,
+            "Date:",
+            exam.examDate,
+            "Duration:",
+            exam.duration,
+            "IsEnded:",
+            isEnded,
+            "Status:",
+            exam.status,
+          )
+
+          if (exam.status === "pending" && isEnded) {
+            updateExam(exam.id, { status: "overdue" })
+          } else if (exam.status === "overdue" && !isEnded) {
+            // If exam was overdue but date was changed to future, make it pending again
+            updateExam(exam.id, { status: "pending" })
+          }
+        })
+      }
+
+      checkExamStatus()
+    }, [exams, updateExam])
+
     const now = new Date()
     const oneWeekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
 
@@ -764,17 +1008,23 @@ export default function HomePage() {
 
       switch (examFilter) {
         case "upcoming":
-          return examDate >= now && examDate <= oneWeekFromNow && exam.status !== "completed"
+          return (
+            examDate >= now && examDate <= oneWeekFromNow && exam.status !== "completed" && exam.status !== "overdue"
+          )
         case "scheduled":
-          return examDate > oneWeekFromNow && exam.status !== "completed"
+          return examDate > oneWeekFromNow && exam.status !== "completed" && exam.status !== "overdue"
         case "completed":
-          return exam.status === "completed" || examDate < now
+          return exam.status === "completed"
+        case "overdue":
+          return exam.status === "overdue"
         default:
           return true
       }
     })
 
     const sortedExams = filteredExams.sort((a, b) => {
+      if (a.status === "overdue" && b.status !== "overdue") return -1
+      if (b.status === "overdue" && a.status !== "overdue") return 1
       return new Date(a.examDate).getTime() - new Date(b.examDate).getTime()
     })
 
@@ -782,16 +1032,14 @@ export default function HomePage() {
       all: exams.length,
       upcoming: exams.filter((e) => {
         const examDate = new Date(e.examDate)
-        return examDate >= now && examDate <= oneWeekFromNow && e.status !== "completed"
+        return examDate >= now && examDate <= oneWeekFromNow && e.status !== "completed" && e.status !== "overdue"
       }).length,
       scheduled: exams.filter((e) => {
         const examDate = new Date(e.examDate)
-        return examDate > oneWeekFromNow && e.status !== "completed"
+        return examDate > oneWeekFromNow && e.status !== "completed" && e.status !== "overdue"
       }).length,
-      completed: exams.filter((e) => {
-        const examDate = new Date(e.examDate)
-        return e.status === "completed" || examDate < now
-      }).length,
+      completed: exams.filter((e) => e.status === "completed").length,
+      overdue: exams.filter((e) => e.status === "overdue").length,
     }
 
     return (
@@ -799,7 +1047,7 @@ export default function HomePage() {
         <ExamFilters activeFilter={examFilter} onFilterChange={setExamFilter} counts={counts} />
 
         {sortedExams.length > 0 ? (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {sortedExams.map((exam) => (
               <ExamCard
                 key={exam.id}
@@ -829,7 +1077,9 @@ export default function HomePage() {
                   ? "沒有即將來臨的考試"
                   : examFilter === "scheduled"
                     ? "沒有已排程的考試"
-                    : "沒有已結束的考試"}
+                    : examFilter === "completed"
+                      ? "沒有已結束的考試"
+                      : "沒有已逾期的考試"}
             </p>
             {examFilter === "all" && (
               <Button onClick={() => setShowExamForm(true)}>
@@ -843,38 +1093,67 @@ export default function HomePage() {
     )
   }
 
+  const handleBulkImport = (course: Omit<Course, "id" | "createdAt">) => {
+    addCourse(course)
+  }
+
+  useEffect(() => {
+    const handleSettingsChange = (event: CustomEvent) => {
+      setNotificationSettings(event.detail)
+    }
+
+    window.addEventListener("notificationSettingsChanged", handleSettingsChange as EventListener)
+
+    return () => {
+      window.removeEventListener("notificationSettingsChanged", handleSettingsChange as EventListener)
+    }
+  }, [])
+
   return (
-    <div className="min-h-screen bg-background pb-20">
-      <div className="container mx-auto px-4 py-6 max-w-md">{renderContent()}</div>
-      <BottomNavigation
-        activeTab={activeTab}
-        onTabChange={(tab) => {
-          setActiveTab(tab)
-          if (tab === "home") {
-            setSelectedDate(new Date())
-          }
-        }}
-      />
-      <FloatingActionButton
-        onAddCourse={() => {
-          setActiveTab("courses")
-          setShowCourseForm(true)
-        }}
-        onAddAssignment={() => {
-          setActiveTab("tasks")
-          setTaskType("assignment")
-          setShowAssignmentForm(true)
-        }}
-        onAddNote={() => {
-          setActiveTab("notes")
-          setShowNoteForm(true)
-        }}
-        onAddExam={() => {
-          setActiveTab("tasks")
-          setTaskType("exam")
-          setShowExamForm(true)
-        }}
-      />
+    <div className="min-h-screen bg-background">
+      <SidebarNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+      <div className="lg:ml-[var(--sidebar-width)] transition-[margin] duration-300">
+        <div className="container mx-auto px-4 py-6 lg:max-w-7xl lg:px-12 lg:py-10">{renderContent()}</div>
+      </div>
+
+      <div className="lg:hidden">
+        <BottomNavigation
+          activeTab={activeTab}
+          onTabChange={(tab) => {
+            setActiveTab(tab)
+            if (tab === "home") {
+              setSelectedDate(new Date())
+            }
+          }}
+        />
+      </div>
+
+      <div className="lg:hidden">
+        <FloatingActionButton
+          onAddCourse={() => {
+            setActiveTab("courses")
+            setShowCourseForm(true)
+          }}
+          onAddAssignment={() => {
+            setActiveTab("tasks")
+            setTaskType("assignment")
+            setShowAssignmentForm(true)
+          }}
+          onAddNote={() => {
+            setActiveTab("notes")
+            setShowNoteForm(true)
+          }}
+          onAddExam={() => {
+            setActiveTab("tasks")
+            setTaskType("exam")
+            setShowExamForm(true)
+          }}
+          onAddCustomCategory={() => {
+            setActiveTab("tasks")
+            setShowCustomCategoryForm(true)
+          }}
+        />
+      </div>
     </div>
   )
 }

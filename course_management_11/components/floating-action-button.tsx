@@ -60,7 +60,8 @@ export function FloatingActionButton({
   ]
 
   return (
-    <>
+    /* hide floating action button on desktop with lg:hidden wrapper */
+    <div className="lg:hidden">
       {/* Backdrop */}
       {isOpen && <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setIsOpen(false)} />}
 
@@ -98,6 +99,6 @@ export function FloatingActionButton({
       >
         <PlusIcon className="w-6 h-6" />
       </Button>
-    </>
+    </div>
   )
 }

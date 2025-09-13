@@ -3,8 +3,8 @@
 import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { PageHeader } from "@/components/page-header"
 import { CheckIcon, ExclamationIcon, ClockIcon } from "@/components/icons"
+import { useCourses } from "@/hooks/use-courses"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -16,36 +16,28 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
-import type { Course, Assignment, Note, Exam } from "@/types/course"
+import type { Assignment, Exam } from "@/types/course"
 
 interface CourseDetailProps {
-  course: Course
-  assignments: Assignment[]
-  notes: Note[]
-  exams: Exam[]
-  onBack: () => void
-  onViewAssignment?: (assignment: Assignment) => void
-  onViewExam?: (exam: Exam) => void
-  onViewNote?: (note: Note) => void
-  onEdit?: () => void
-  onDelete?: () => void
+  courseId: string
+  showBackButton?: boolean
 }
 
 const DAYS = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"]
 
-export function CourseDetail({
-  course,
-  assignments,
-  notes,
-  exams,
-  onBack,
-  onViewAssignment,
-  onViewExam,
-  onViewNote,
-  onEdit,
-  onDelete,
-}: CourseDetailProps) {
+export function CourseDetail({ courseId, showBackButton = true }: CourseDetailProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+
+  const { getCourseById, getAssignmentsByCourse, getNotesByCourse, getExamsByCourse, deleteCourse } = useCourses()
+
+  const course = getCourseById(courseId)
+  const assignments = getAssignmentsByCourse(courseId)
+  const notes = getNotesByCourse(courseId)
+  const exams = getExamsByCourse(courseId)
+
+  if (!course) {
+    return <div className="p-4 text-center text-muted-foreground">課程不存在</div>
+  }
 
   const formatSchedule = () => {
     return course.schedule.map((slot) => `${DAYS[slot.dayOfWeek]} ${slot.startTime}-${slot.endTime}`).join(", ")
@@ -136,48 +128,60 @@ export function CourseDetail({
   })
 
   return (
-    <>
-      <PageHeader
-        title={course.name}
-        action={
-          <Button variant="outline" size="sm" onClick={onBack}>
-            返回
-          </Button>
-        }
-      />
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-foreground">{course.name}</h1>
+      </div>
 
       {/* Course Info */}
-      <div className="space-y-6 mb-6">
+      <div className="space-y-6">
         {/* Course Color and Basic Info */}
         <div className="space-y-3">
           <span className="text-sm px-3 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-200">課程</span>
         </div>
 
-        {/* Instructor */}
-        {course.instructor && (
-          <div className="space-y-1">
-            <span className="text-sm font-medium">授課教師</span>
-            <p className="text-sm text-muted-foreground">{course.instructor}</p>
-          </div>
-        )}
+        <div className="grid grid-cols-2 gap-6">
+          <div className="space-y-4">
+            {course.courseCode && (
+              <div className="space-y-1">
+                <span className="text-sm font-medium">課程代碼</span>
+                <p className="text-sm text-muted-foreground font-medium">{course.courseCode}</p>
+              </div>
+            )}
 
-        {/* Schedule */}
-        <div className="space-y-1">
-          <span className="text-sm font-medium">上課時間</span>
-          <p className="text-sm text-muted-foreground">{formatSchedule()}</p>
+            {course.instructor && (
+              <div className="space-y-1">
+                <span className="text-sm font-medium">授課教師</span>
+                <p className="text-sm text-muted-foreground">{course.instructor}</p>
+              </div>
+            )}
+
+            {course.classroom && (
+              <div className="space-y-1">
+                <span className="text-sm font-medium">教室</span>
+                <p className="text-sm text-muted-foreground">{course.classroom}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            {course.studentCount && (
+              <div className="space-y-1">
+                <span className="text-sm font-medium">學生人數</span>
+                <p className="text-sm text-muted-foreground">{course.studentCount} 人</p>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <span className="text-sm font-medium">上課時間</span>
+              <p className="text-sm text-muted-foreground">{formatSchedule()}</p>
+            </div>
+          </div>
         </div>
-
-        {/* Classroom */}
-        {course.classroom && (
-          <div className="space-y-1">
-            <span className="text-sm font-medium">教室</span>
-            <p className="text-sm text-muted-foreground">{course.classroom}</p>
-          </div>
-        )}
       </div>
 
       {/* Assignments */}
-      <Card className="p-4 mb-4">
+      <Card className="p-4">
         <h2 className="font-semibold text-foreground mb-3">作業與報告</h2>
         {sortedAssignments.length > 0 ? (
           <div className="space-y-3">
@@ -187,7 +191,6 @@ export function CourseDetail({
                 <div
                   key={assignment.id}
                   className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
-                  onClick={() => onViewAssignment?.(assignment)}
                 >
                   <div className="flex items-center gap-3">
                     <StatusIcon className={`w-4 h-4 ${getStatusColor(assignment.status)}`} />
@@ -231,7 +234,7 @@ export function CourseDetail({
       </Card>
 
       {/* Exams */}
-      <Card className="p-4 mb-4">
+      <Card className="p-4">
         <h2 className="font-semibold text-foreground mb-3">考試時間</h2>
         {activeExams.length > 0 ? (
           <div className="space-y-3">
@@ -239,7 +242,6 @@ export function CourseDetail({
               <div
                 key={exam.id}
                 className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
-                onClick={() => onViewExam?.(exam)}
               >
                 <div>
                   <p className="font-medium text-foreground">{exam.title}</p>
@@ -275,14 +277,10 @@ export function CourseDetail({
         {notes.length > 0 ? (
           <div className="space-y-3">
             {notes.map((note) => (
-              <div
-                key={note.id}
-                className="p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer"
-                onClick={() => onViewNote?.(note)}
-              >
+              <div key={note.id} className="p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors cursor-pointer">
                 <h3 className="font-medium text-foreground mb-1">{note.title}</h3>
                 <p className="text-sm text-muted-foreground line-clamp-2">{note.content}</p>
-                <p className="text-xs text-muted-foreground mt-2">{note.updatedAt.toLocaleDateString("zh-TW")}</p>
+                <p className="text-xs text-slate-600 mt-2">{note.updatedAt.toLocaleDateString("zh-TW")}</p>
               </div>
             ))}
           </div>
@@ -291,8 +289,8 @@ export function CourseDetail({
         )}
       </Card>
 
-      <div className="flex gap-2 mt-6">
-        <Button variant="outline" className="flex-1 bg-transparent" onClick={onEdit}>
+      <div className="flex gap-2">
+        <Button variant="outline" className="flex-1 bg-transparent">
           編輯
         </Button>
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -312,7 +310,7 @@ export function CourseDetail({
               <AlertDialogCancel>取消</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
-                  onDelete?.()
+                  deleteCourse(courseId)
                   setShowDeleteDialog(false)
                 }}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -323,6 +321,6 @@ export function CourseDetail({
           </AlertDialogContent>
         </AlertDialog>
       </div>
-    </>
+    </div>
   )
 }

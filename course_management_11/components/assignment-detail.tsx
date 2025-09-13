@@ -3,7 +3,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/page-header"
 import { LearningResources } from "@/components/learning-resources"
-import { CheckIcon, ClockIcon, ExclamationIcon } from "@/components/icons"
+import { CheckIcon, ClockIcon } from "@/components/icons"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,17 +46,6 @@ export function AssignmentDetail({
     }
   }
 
-  const getStatusIcon = (status: Assignment["status"]) => {
-    switch (status) {
-      case "completed":
-        return CheckIcon
-      case "overdue":
-        return ExclamationIcon
-      default:
-        return ClockIcon
-    }
-  }
-
   const getStatusText = (status: Assignment["status"]) => {
     switch (status) {
       case "completed":
@@ -65,17 +54,6 @@ export function AssignmentDetail({
         return "已逾期"
       default:
         return "進行中"
-    }
-  }
-
-  const getTypeText = (type: Assignment["type"]) => {
-    switch (type) {
-      case "exam":
-        return "考試"
-      case "project":
-        return "專案"
-      default:
-        return "作業"
     }
   }
 
@@ -103,9 +81,6 @@ export function AssignmentDetail({
             <span className={`text-sm font-medium px-3 py-1 rounded-full ${getStatusColor(assignment.status)}`}>
               {getStatusText(assignment.status)}
             </span>
-            <span className="text-sm px-3 py-1 rounded-full bg-gray-100 text-gray-700 border border-gray-200">
-              {getTypeText(assignment.type)}
-            </span>
           </div>
 
           <div className="flex items-center gap-3">
@@ -131,20 +106,6 @@ export function AssignmentDetail({
             <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">
               {assignment.description}
             </p>
-          </div>
-        )}
-
-        {/* Google Classroom link section */}
-        {assignment.source === "google_classroom" && assignment.googleClassroomUrl && (
-          <div className="space-y-2">
-            <h3 className="text-sm font-medium">Google Classroom</h3>
-            <Button
-              variant="outline"
-              onClick={() => window.open(assignment.googleClassroomUrl, "_blank")}
-              className="text-blue-600 hover:text-blue-700 border-blue-200 hover:border-blue-300"
-            >
-              在 Google Classroom 中開啟
-            </Button>
           </div>
         )}
       </div>
@@ -186,7 +147,7 @@ export function AssignmentDetail({
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>確定要刪除這個作業��？</AlertDialogTitle>
+            <AlertDialogTitle>確定要刪除這個作業？</AlertDialogTitle>
             <AlertDialogDescription>此操作無法復原。作業「{assignment.title}」將被永久刪除。</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

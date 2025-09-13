@@ -1,8 +1,10 @@
 export interface Course {
   id: string
   name: string
+  courseCode?: string // 添加課程代碼欄位
   instructor?: string
   classroom?: string
+  studentCount?: number // 添加學生人數欄位
   schedule: {
     dayOfWeek: number // 0-6 (Sunday-Saturday)
     startTime: string // HH:MM format
@@ -10,6 +12,7 @@ export interface Course {
   }[]
   color: string
   createdAt: Date
+  source?: "google_classroom" | "manual" // Added source field to distinguish between Google Classroom and manual courses
 }
 
 export interface Assignment {
@@ -20,7 +23,6 @@ export interface Assignment {
   dueDate: Date
   notificationTime?: Date
   status: "pending" | "completed" | "overdue"
-  type: "assignment" | "exam" | "project"
   googleClassroomId?: string
   googleClassroomUrl?: string
   source?: "manual" | "google_classroom"

@@ -14,9 +14,13 @@ interface ScrollSummaryProps {
   exams: Exam[]
   selectedDate: Date
   onDateChange: (date: Date) => void
+  user?: {
+    name: string
+    isLoggedIn: boolean
+  }
 }
 
-export function ScrollSummary({ courses, assignments, exams, selectedDate, onDateChange }: ScrollSummaryProps) {
+export function ScrollSummary({ courses, assignments, exams, selectedDate, onDateChange, user }: ScrollSummaryProps) {
   const isExpandedRef = useRef(true)
   const [isExpanded, setIsExpanded] = useState(true)
   const [isDragging, setIsDragging] = useState(false)
@@ -257,7 +261,7 @@ export function ScrollSummary({ courses, assignments, exams, selectedDate, onDat
         <div className="mb-6 space-y-4">
           <div className="text-muted-foreground">
             <span className="text-xl">{getGreeting()}, </span>
-            <span className="text-xl font-medium text-foreground">Alexey</span>
+            <span className="text-xl font-medium text-foreground">{user?.isLoggedIn ? user.name : "Username"}</span>
           </div>
 
           <div className="space-y-3">

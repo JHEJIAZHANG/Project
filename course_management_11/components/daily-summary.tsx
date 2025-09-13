@@ -9,9 +9,13 @@ interface DailySummaryProps {
   courses: Course[]
   assignments: Assignment[]
   exams: Exam[]
+  user?: {
+    name: string
+    isLoggedIn: boolean
+  }
 }
 
-export function DailySummary({ courses, assignments, exams }: DailySummaryProps) {
+export function DailySummary({ courses, assignments, exams, user }: DailySummaryProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
   const today = new Date()
@@ -61,7 +65,9 @@ export function DailySummary({ courses, assignments, exams }: DailySummaryProps)
     <Card className="bg-white mb-4 overflow-hidden">
       <div className="p-4 cursor-pointer select-none" onClick={() => setIsExpanded(!isExpanded)}>
         <div className="flex items-center justify-between">
-          <h3 className="font-medium text-foreground">今日摘要</h3>
+          <h3 className="font-medium text-foreground">
+            {user?.isLoggedIn ? `${user.name}，今日摘要` : "Username，今日摘要"}
+          </h3>
           {isExpanded ? (
             <ChevronUpIcon className="w-5 h-5 text-muted-foreground" />
           ) : (
