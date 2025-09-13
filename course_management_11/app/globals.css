@@ -41,6 +41,8 @@
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #e2e8f0;
   --sidebar-ring: rgba(236, 72, 153, 0.3);
+  /* Added CSS variable for dynamic sidebar width */
+  --sidebar-width: 16rem;
 }
 
 .dark {
@@ -77,6 +79,8 @@
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: #404040;
   --sidebar-ring: rgba(244, 114, 182, 0.4);
+  /* Added CSS variable for dynamic sidebar width in dark mode */
+  --sidebar-width: 16rem;
 }
 
 @theme inline {
@@ -131,4 +135,13 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
+}
+
+/* Added CSS classes for sidebar collapse states */
+.sidebar-collapsed {
+  --sidebar-width: 4rem;
+}
+
+.sidebar-expanded {
+  --sidebar-width: 16rem;
 }
