@@ -32,6 +32,7 @@ const DAYS = [
 export function CourseForm({ onSubmit, onCancel, onBulkImport, initialCourse }: CourseFormProps) {
   const [formData, setFormData] = useState({
     name: initialCourse?.name || "",
+    courseCode: initialCourse?.courseCode || "", // 添加課程代碼欄位
     instructor: initialCourse?.instructor || "",
     classroom: initialCourse?.classroom || "",
     color: initialCourse?.color || COLORS[0],
@@ -51,6 +52,7 @@ export function CourseForm({ onSubmit, onCancel, onBulkImport, initialCourse }: 
       const mockCourses = [
         {
           name: "匯入課程1",
+          courseCode: "IMP001", // 添加課程代碼到模擬數據
           instructor: "教師A",
           classroom: "A101",
           color: COLORS[0],
@@ -58,6 +60,7 @@ export function CourseForm({ onSubmit, onCancel, onBulkImport, initialCourse }: 
         },
         {
           name: "匯入課程2",
+          courseCode: "IMP002", // 添加課程代碼到模擬數據
           instructor: "教師B",
           classroom: "B202",
           color: COLORS[1],
@@ -83,6 +86,7 @@ export function CourseForm({ onSubmit, onCancel, onBulkImport, initialCourse }: 
       const mockCourses = [
         {
           name: "掃描課程1",
+          courseCode: "SCAN001", // 添加課程代碼到模擬數據
           instructor: "教師C",
           classroom: "C303",
           color: COLORS[2],
@@ -101,6 +105,7 @@ export function CourseForm({ onSubmit, onCancel, onBulkImport, initialCourse }: 
 
     onSubmit({
       name: formData.name.trim(),
+      courseCode: formData.courseCode.trim() || undefined, // 包含課程代碼在提交數據中
       instructor: formData.instructor.trim() || undefined,
       classroom: formData.classroom.trim() || undefined,
       color: formData.color,
@@ -212,6 +217,18 @@ export function CourseForm({ onSubmit, onCancel, onBulkImport, initialCourse }: 
               onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
               placeholder="輸入課程名稱"
               required
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="courseCode" className="font-bold">
+              課程代碼
+            </Label>
+            <Input
+              id="courseCode"
+              value={formData.courseCode}
+              onChange={(e) => setFormData((prev) => ({ ...prev, courseCode: e.target.value }))}
+              placeholder="輸入課程代碼 (例如: CS101)"
             />
           </div>
 

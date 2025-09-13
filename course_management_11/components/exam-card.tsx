@@ -29,10 +29,15 @@ interface ExamCardProps {
 
 export function ExamCard({ exam, course, onStatusChange, onEdit, onDelete, onViewDetail }: ExamCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showDescription, setShowDescription] = useState(false)
 
   const getStatusColor = (status: Exam["status"], examDate: Date, duration: number) => {
     if (status === "completed") {
       return "text-green-700 bg-green-100 border-green-300 dark:text-green-300 dark:bg-green-900/30 dark:border-green-700/50"
+    }
+
+    if (status === "pending") {
+      return "text-blue-700 bg-blue-100 border-blue-300 dark:text-blue-300 dark:bg-blue-900/30 dark:border-blue-700/50"
     }
 
     const isEnded = isExamEndedTaiwan(examDate, duration)
@@ -94,10 +99,12 @@ export function ExamCard({ exam, course, onStatusChange, onEdit, onDelete, onVie
   const StatusIcon = getStatusIcon(exam.status)
 
   const handleCardClick = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest("button")) {
+    if ((e.target as HTMLElement).closest("button") || (e.target as HTMLElement).closest("a")) {
       return
     }
-    onViewDetail?.()
+    if (exam.description) {
+      setShowDescription(!showDescription)
+    }
   }
 
   const handleDeleteClick = (e: React.MouseEvent) => {
@@ -110,10 +117,15 @@ export function ExamCard({ exam, course, onStatusChange, onEdit, onDelete, onVie
     setShowDeleteDialog(false)
   }
 
+  const handleToggleDescription = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowDescription(!showDescription)
+  }
+
   return (
     <>
       <Card
-        className={`p-5 ${onViewDetail ? "cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 ease-out hover:bg-white/90 dark:hover:bg-slate-900/90" : ""}`}
+        className="p-5 cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 ease-out hover:bg-white/90 dark:hover:bg-slate-900/90"
         onClick={handleCardClick}
       >
         <div className="flex items-start justify-between mb-4">
@@ -124,8 +136,10 @@ export function ExamCard({ exam, course, onStatusChange, onEdit, onDelete, onVie
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-foreground text-balance text-lg leading-tight">{exam.title}</h3>
               {course && <p className="text-sm text-muted-foreground mt-2 font-medium">{course.name}</p>}
-              {exam.description && (
-                <p className="text-sm text-muted-foreground mt-3 line-clamp-2 leading-relaxed">{exam.description}</p>
+              {exam.description && showDescription && (
+                <div className="mt-3">
+                  <p className="text-sm text-muted-foreground leading-relaxed">{exam.description}</p>
+                </div>
               )}
               {exam.location && (
                 <div className="flex items-center gap-2 mt-3">
@@ -167,15 +181,15 @@ export function ExamCard({ exam, course, onStatusChange, onEdit, onDelete, onVie
           )}
         </div>
 
-        <div className="flex gap-2 mt-4 justify-end">
+        <div className="flex gap-2 mt-4">
           {exam.status === "pending" && (
             <Button
               size="sm"
               variant="outline"
               onClick={() => onStatusChange(exam.id, "completed")}
-              className="rounded-xl font-medium"
+              className="flex-1 rounded-xl font-medium"
             >
-              標記完成
+              標記結束
             </Button>
           )}
           {exam.status === "completed" && (
@@ -183,7 +197,7 @@ export function ExamCard({ exam, course, onStatusChange, onEdit, onDelete, onVie
               size="sm"
               variant="outline"
               onClick={() => onStatusChange(exam.id, "pending")}
-              className="rounded-xl font-medium"
+              className="flex-1 rounded-xl font-medium"
             >
               標記未完成
             </Button>

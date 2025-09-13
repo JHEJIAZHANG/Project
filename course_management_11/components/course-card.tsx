@@ -2,6 +2,7 @@
 
 import { Card } from "@/components/ui/card"
 import { CalendarIcon } from "@/components/icons"
+import { Users } from "lucide-react"
 import type { Course } from "@/types/course"
 
 interface CourseCardProps {
@@ -24,21 +25,40 @@ export function CourseCard({ course, onClick }: CourseCardProps) {
       <div className="absolute left-2 top-4 bottom-4 w-1 rounded-lg" style={{ backgroundColor: course.color }} />
       <div className="flex items-start gap-4 ml-6">
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-foreground text-balance text-lg leading-tight">{course.name}</h3>
+          <div className="flex items-center gap-2 mb-1">
+            <h3 className="font-semibold text-foreground text-balance text-lg leading-tight">{course.name}</h3>
+            {course.source === "google_classroom" && (
+              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                Google Classroom
+              </span>
+            )}
+          </div>
 
           {course.instructor && <p className="text-sm text-muted-foreground mt-2 font-medium">{course.instructor}</p>}
 
           <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <CalendarIcon className="w-3.5 h-3.5" />
-              <span className="font-medium">{formatSchedule()}</span>
-            </div>
+            {course.schedule.length > 0 && (
+              <div className="flex items-center gap-1.5">
+                <CalendarIcon className="w-3.5 h-3.5" />
+                <span className="font-medium">{formatSchedule()}</span>
+              </div>
+            )}
+            {course.studentCount && course.source === "google_classroom" && (
+              <div className="flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5" />
+                <span className="font-medium">{course.studentCount} 位學生</span>
+              </div>
+            )}
           </div>
 
           {course.classroom && (
             <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground">
               <span className="font-medium">📍 {course.classroom}</span>
             </div>
+          )}
+
+          {course.source === "google_classroom" && course.schedule.length === 0 && (
+            <div className="mt-2 text-xs text-muted-foreground italic">可點擊進入課程詳細頁面新增課程時間</div>
           )}
         </div>
       </div>

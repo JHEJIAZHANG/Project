@@ -14,47 +14,46 @@ interface ExamFormProps {
   onCancel: () => void
 }
 
+const formatDateTimeLocal = (date: Date | string | undefined): string => {
+  if (!date) return ""
+
+  try {
+    const dateObj = date instanceof Date ? date : new Date(date)
+    if (isNaN(dateObj.getTime())) return ""
+
+    // Get local time components to avoid timezone shifts
+    const year = dateObj.getFullYear()
+    const month = String(dateObj.getMonth() + 1).padStart(2, "0")
+    const day = String(dateObj.getDate()).padStart(2, "0")
+    const hours = String(dateObj.getHours()).padStart(2, "0")
+    const minutes = String(dateObj.getMinutes()).padStart(2, "0")
+
+    return `${year}-${month}-${day}T${hours}:${minutes}`
+  } catch (error) {
+    console.error("[v0] Error formatting datetime-local:", error)
+    return ""
+  }
+}
+
 export function ExamForm({ courses, initialData, onSubmit, onCancel }: ExamFormProps) {
   const [formData, setFormData] = useState({
     title: initialData?.title || "",
     courseId: initialData?.courseId || "",
-    examDate: initialData?.examDate ? initialData.examDate.toISOString().slice(0, 16) : "",
-    notificationTime: initialData?.notificationTime ? initialData.notificationTime.toISOString().slice(0, 16) : "",
+    examDate: formatDateTimeLocal(initialData?.examDate),
     duration: initialData?.duration || 60,
     location: initialData?.location || "",
     description: initialData?.description || "",
     type: initialData?.type || ("midterm" as const),
   })
 
-  const [errors, setErrors] = useState<{ [key: string]: string }>({})
-
-  const validateNotificationTime = (notificationTime: string, examDate: string) => {
-    if (!notificationTime || !examDate) return ""
-
-    const notificationDate = new Date(notificationTime)
-    const examDateObj = new Date(examDate)
-
-    if (notificationDate > examDateObj) {
-      return "通知時間不能超過考試日期"
-    }
-    return ""
-  }
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.title || !formData.courseId || !formData.examDate) return
-
-    const notificationError = validateNotificationTime(formData.notificationTime, formData.examDate)
-    if (notificationError) {
-      setErrors({ notificationTime: notificationError })
-      return
-    }
 
     onSubmit({
       title: formData.title,
       courseId: formData.courseId,
       examDate: new Date(formData.examDate),
-      notificationTime: formData.notificationTime ? new Date(formData.notificationTime) : undefined,
       duration: formData.duration,
       location: formData.location,
       description: formData.description,
@@ -71,26 +70,6 @@ export function ExamForm({ courses, initialData, onSubmit, onCancel }: ExamFormP
       if (!isNaN(numValue) && numValue >= 0) {
         setFormData({ ...formData, duration: Math.min(300, numValue) })
       }
-    }
-  }
-
-  const handleNotificationTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newNotificationTime = e.target.value
-    setFormData({ ...formData, notificationTime: newNotificationTime })
-
-    // 实时验证
-    const error = validateNotificationTime(newNotificationTime, formData.examDate)
-    setErrors((prev) => ({ ...prev, notificationTime: error }))
-  }
-
-  const handleExamDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newExamDate = e.target.value
-    setFormData({ ...formData, examDate: newExamDate })
-
-    // 如果有通知时间，重新验证
-    if (formData.notificationTime) {
-      const error = validateNotificationTime(formData.notificationTime, newExamDate)
-      setErrors((prev) => ({ ...prev, notificationTime: error }))
     }
   }
 
@@ -147,25 +126,10 @@ export function ExamForm({ courses, initialData, onSubmit, onCancel }: ExamFormP
           <input
             type="datetime-local"
             value={formData.examDate}
-            onChange={handleExamDateChange}
+            onChange={(e) => setFormData({ ...formData, examDate: e.target.value })}
             className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
             required
           />
-        </div>
-
-        <div>
-          <label className="block text-sm font-bold text-foreground mb-2">通知時間</label>
-          <input
-            type="datetime-local"
-            value={formData.notificationTime}
-            onChange={handleNotificationTimeChange}
-            max={formData.examDate}
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${
-              errors.notificationTime ? "border-red-500" : "border-input"
-            }`}
-          />
-          {errors.notificationTime && <p className="text-xs text-red-500 mt-1">{errors.notificationTime}</p>}
-          <p className="text-xs text-muted-foreground mt-1">設定通知時間後，考試將從此時間開始在首頁顯示</p>
         </div>
 
         <div>

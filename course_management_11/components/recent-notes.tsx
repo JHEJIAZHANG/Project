@@ -68,7 +68,7 @@ export function RecentNotes({ notes, courses, selectedDate, onViewNote, onViewAl
                   )}
                   <p className="text-xs text-muted-foreground mt-1">{course?.name}</p>
                   <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{stripHtml(note.content)}</p>
-                  <p className="text-xs text-muted-foreground mt-2">{note.updatedAt.toLocaleDateString("zh-TW")}</p>
+                  <p className="text-xs text-slate-600 mt-2">{note.updatedAt.toLocaleDateString("zh-TW")}</p>
                 </div>
               </div>
             )

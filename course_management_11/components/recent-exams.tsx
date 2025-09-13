@@ -126,7 +126,7 @@ export function RecentExams({ exams, courses, selectedDate, onViewExam, onViewAl
                 </div>
                 <div className="text-right">
                   <p className={`text-xs font-medium ${examColorAndText.textColor}`}>{formatDate(exam.examDate)}</p>
-                  <p className="text-xs text-muted-foreground">{new Date(exam.examDate).toLocaleDateString("zh-TW")}</p>
+                  <p className="text-xs text-slate-600">{new Date(exam.examDate).toLocaleDateString("zh-TW")}</p>
                 </div>
               </div>
             )

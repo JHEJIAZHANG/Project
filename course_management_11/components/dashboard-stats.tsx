@@ -49,16 +49,16 @@ export function DashboardStats({ courses, assignments, notes, exams }: Dashboard
   ]
 
   return (
-    <div className="grid grid-cols-2 gap-3 mb-4">
+    <div className="grid grid-cols-2 gap-3 lg:gap-4">
       {stats.map((stat, index) => {
         const Icon = stat.icon
         return (
-          <Card key={index} className="p-4">
-            <div className="flex items-center gap-3">
-              <Icon className={`w-5 h-5 ${stat.color}`} />
+          <Card key={index} className="p-4 lg:p-6">
+            <div className="flex items-center gap-3 lg:gap-4">
+              <Icon className={`w-5 h-5 lg:w-6 lg:h-6 ${stat.color}`} />
               <div>
-                <p className={`text-xl font-extrabold ${stat.color}`}>{stat.value}</p>
-                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                <p className={`text-lg lg:text-2xl font-extrabold ${stat.color}`}>{stat.value}</p>
+                <p className="text-xs lg:text-sm text-muted-foreground">{stat.label}</p>
               </div>
             </div>
           </Card>

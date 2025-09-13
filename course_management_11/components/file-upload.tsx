@@ -3,7 +3,7 @@
 import type React from "react"
 import { useRef, useState } from "react"
 import { Button } from "./ui/button"
-import { PaperClipIcon, XMarkIcon } from "@heroicons/react/24/outline"
+import { PaperclipIcon, XIcon } from "@/components/icons"
 
 interface FileAttachment {
   id: string
@@ -99,7 +99,7 @@ export function FileUpload({ attachments, onAttachmentsChange, maxFiles = 5, max
           disabled={uploading || attachments.length >= maxFiles}
           className="flex items-center gap-2"
         >
-          <PaperClipIcon className="h-4 w-4" />
+          <PaperclipIcon className="h-4 w-4" />
           {uploading ? "上傳中..." : "附加檔案"}
         </Button>
         <span className="text-sm text-muted-foreground">
@@ -114,7 +114,7 @@ export function FileUpload({ attachments, onAttachmentsChange, maxFiles = 5, max
           {attachments.map((attachment) => (
             <div key={attachment.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                <PaperClipIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                <PaperclipIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{attachment.name}</p>
                   <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
@@ -127,7 +127,7 @@ export function FileUpload({ attachments, onAttachmentsChange, maxFiles = 5, max
                 onClick={() => removeAttachment(attachment.id)}
                 className="flex-shrink-0"
               >
-                <XMarkIcon className="h-4 w-4" />
+                <XIcon className="h-4 w-4" />
               </Button>
             </div>
           ))}

@@ -7,14 +7,19 @@
  * Get current Taiwan time
  */
 export function getTaiwanTime(): Date {
-  return new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Taipei" }))
+  const now = new Date()
+  const utc = now.getTime() + now.getTimezoneOffset() * 60000
+  const taiwanTime = new Date(utc + 8 * 3600000) // UTC+8 for Taiwan
+  return taiwanTime
 }
 
 /**
  * Convert any date to Taiwan timezone
  */
 export function toTaiwanTime(date: Date): Date {
-  return new Date(date.toLocaleString("en-US", { timeZone: "Asia/Taipei" }))
+  const utc = date.getTime() + date.getTimezoneOffset() * 60000
+  const taiwanTime = new Date(utc + 8 * 3600000) // UTC+8 for Taiwan
+  return taiwanTime
 }
 
 /**
@@ -74,9 +79,25 @@ export function getExamEndTime(examDate: Date, durationMinutes: number): Date {
  * Check if exam has ended in Taiwan timezone
  */
 export function isExamEndedTaiwan(examDate: Date, durationMinutes: number): boolean {
-  const examEndTime = getExamEndTime(examDate, durationMinutes)
   const nowTaiwan = getTaiwanTime()
-  return nowTaiwan > examEndTime
+  const examStartTaiwan = toTaiwanTime(examDate)
+
+  // Calculate exam end time in Taiwan timezone
+  const examEndTime = new Date(examStartTaiwan.getTime() + durationMinutes * 60000)
+
+  // Use millisecond comparison for precise time checking
+  const nowMs = nowTaiwan.getTime()
+  const examEndMs = examEndTime.getTime()
+
+  console.log("[v0] Exam deadline check:", {
+    nowTaiwan: nowTaiwan.toISOString(),
+    examStartTaiwan: examStartTaiwan.toISOString(),
+    examEndTime: examEndTime.toISOString(),
+    durationMinutes,
+    isEnded: nowMs > examEndMs,
+  })
+
+  return nowMs > examEndMs
 }
 
 /**

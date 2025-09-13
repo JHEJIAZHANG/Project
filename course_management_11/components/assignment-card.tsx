@@ -36,10 +36,15 @@ export function AssignmentCard({
   onViewDetail,
 }: AssignmentCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showDescription, setShowDescription] = useState(false)
 
   const getStatusColor = (status: Assignment["status"], dueDate: Date) => {
     if (status === "completed") {
       return "text-green-700 bg-green-100 border-green-300 dark:text-green-300 dark:bg-green-900/30 dark:border-green-700/50"
+    }
+
+    if (status === "pending") {
+      return "text-blue-700 bg-blue-100 border-blue-300 dark:text-blue-300 dark:bg-blue-900/30 dark:border-blue-700/50"
     }
 
     const daysUntilDue = getDaysDifferenceTaiwan(new Date(), dueDate)
@@ -78,17 +83,6 @@ export function AssignmentCard({
     }
   }
 
-  const getTypeText = (type: Assignment["type"]) => {
-    switch (type) {
-      case "exam":
-        return "考試"
-      case "project":
-        return "專案"
-      default:
-        return "作業"
-    }
-  }
-
   const getDaysUntilDue = () => {
     const daysUntilDue = getDaysDifferenceTaiwan(new Date(), assignment.dueDate)
 
@@ -101,10 +95,12 @@ export function AssignmentCard({
   const StatusIcon = getStatusIcon(assignment.status)
 
   const handleCardClick = (e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest("button")) {
+    if ((e.target as HTMLElement).closest("button") || (e.target as HTMLElement).closest("a")) {
       return
     }
-    onViewDetail?.()
+    if (assignment.description) {
+      setShowDescription(!showDescription)
+    }
   }
 
   const handleDeleteClick = (e: React.MouseEvent) => {
@@ -117,10 +113,15 @@ export function AssignmentCard({
     setShowDeleteDialog(false)
   }
 
+  const handleToggleDescription = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setShowDescription(!showDescription)
+  }
+
   return (
     <>
       <Card
-        className={`p-5 ${onViewDetail ? "cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 ease-out hover:bg-white/90 dark:hover:bg-slate-900/90" : ""}`}
+        className={`p-5 cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 ease-out hover:bg-white/90 dark:hover:bg-slate-900/90`}
         onClick={handleCardClick}
       >
         <div className="flex items-start justify-between mb-4">
@@ -140,18 +141,12 @@ export function AssignmentCard({
                   </span>
                 )}
               </div>
-              {assignment.description && (
-                <p className="text-sm text-muted-foreground mt-3 line-clamp-2 leading-relaxed">
-                  {assignment.description}
-                </p>
+              {assignment.description && showDescription && (
+                <div className="mt-3">
+                  <p className="text-sm text-muted-foreground leading-relaxed">{assignment.description}</p>
+                </div>
               )}
             </div>
-          </div>
-
-          <div className="flex items-center gap-2 ml-3">
-            <span className="text-xs px-3 py-1.5 rounded-full bg-gray-100 text-gray-800 font-medium dark:bg-gray-800/50 dark:text-gray-300">
-              {getTypeText(assignment.type)}
-            </span>
           </div>
         </div>
 
@@ -178,20 +173,6 @@ export function AssignmentCard({
         </div>
 
         <div className="flex gap-2 mt-4">
-          {assignment.source === "google_classroom" && assignment.googleClassroomUrl && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={(e) => {
-                e.stopPropagation()
-                window.open(assignment.googleClassroomUrl, "_blank")
-              }}
-              className="text-blue-700 hover:text-blue-800 border-blue-300 hover:border-blue-400 hover:bg-blue-50 rounded-xl font-medium dark:text-blue-300 dark:border-blue-700/50 dark:hover:bg-blue-900/20"
-            >
-              開啟 Classroom
-            </Button>
-          )}
-
           {(assignment.status === "pending" || assignment.status === "overdue") && (
             <Button
               size="sm"

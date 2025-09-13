@@ -16,74 +16,51 @@ interface AssignmentFormProps {
   initialData?: Partial<Assignment>
 }
 
+const formatDateTimeLocal = (date: Date | string | undefined): string => {
+  if (!date) return ""
+
+  try {
+    const dateObj = date instanceof Date ? date : new Date(date)
+    if (isNaN(dateObj.getTime())) return ""
+
+    // Get local time components to avoid timezone shifts
+    const year = dateObj.getFullYear()
+    const month = String(dateObj.getMonth() + 1).padStart(2, "0")
+    const day = String(dateObj.getDate()).padStart(2, "0")
+    const hours = String(dateObj.getHours()).padStart(2, "0")
+    const minutes = String(dateObj.getMinutes()).padStart(2, "0")
+
+    return `${year}-${month}-${day}T${hours}:${minutes}`
+  } catch (error) {
+    console.error("[v0] Error formatting datetime-local:", error)
+    return ""
+  }
+}
+
 export function AssignmentForm({ courses, onSubmit, onCancel, initialData }: AssignmentFormProps) {
   const [formData, setFormData] = useState({
     courseId: initialData?.courseId || courses[0]?.id || "",
     title: initialData?.title || "",
     description: initialData?.description || "",
-    dueDate: initialData?.dueDate ? initialData.dueDate.toISOString().slice(0, 16) : "",
-    notificationTime: initialData?.notificationTime ? initialData.notificationTime.toISOString().slice(0, 16) : "",
-    type: initialData?.type || ("assignment" as Assignment["type"]),
+    dueDate: formatDateTimeLocal(initialData?.dueDate),
     status: initialData?.status || ("pending" as Assignment["status"]),
     googleClassroomUrl: initialData?.googleClassroomUrl || "",
     source: initialData?.source || ("manual" as Assignment["source"]),
   })
 
-  const [errors, setErrors] = useState<{ [key: string]: string }>({})
-
-  const validateNotificationTime = (notificationTime: string, dueDate: string) => {
-    if (!notificationTime || !dueDate) return ""
-
-    const notificationDate = new Date(notificationTime)
-    const dueDateObj = new Date(dueDate)
-
-    if (notificationDate > dueDateObj) {
-      return "通知時間不能超過截止日期"
-    }
-    return ""
-  }
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.title.trim() || !formData.dueDate || !formData.courseId) return
-
-    const notificationError = validateNotificationTime(formData.notificationTime, formData.dueDate)
-    if (notificationError) {
-      setErrors({ notificationTime: notificationError })
-      return
-    }
 
     onSubmit({
       courseId: formData.courseId,
       title: formData.title.trim(),
       description: formData.description.trim() || undefined,
       dueDate: new Date(formData.dueDate),
-      notificationTime: formData.notificationTime ? new Date(formData.notificationTime) : undefined,
-      type: formData.type,
       status: formData.status,
       googleClassroomUrl: formData.googleClassroomUrl.trim() || undefined,
       source: formData.source,
     })
-  }
-
-  const handleNotificationTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newNotificationTime = e.target.value
-    setFormData((prev) => ({ ...prev, notificationTime: newNotificationTime }))
-
-    // 实时验证
-    const error = validateNotificationTime(newNotificationTime, formData.dueDate)
-    setErrors((prev) => ({ ...prev, notificationTime: error }))
-  }
-
-  const handleDueDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newDueDate = e.target.value
-    setFormData((prev) => ({ ...prev, dueDate: newDueDate }))
-
-    // 如果有通知时间，重新验证
-    if (formData.notificationTime) {
-      const error = validateNotificationTime(formData.notificationTime, newDueDate)
-      setErrors((prev) => ({ ...prev, notificationTime: error }))
-    }
   }
 
   return (
@@ -143,44 +120,10 @@ export function AssignmentForm({ courses, onSubmit, onCancel, initialData }: Ass
             id="dueDate"
             type="datetime-local"
             value={formData.dueDate}
-            onChange={handleDueDateChange}
+            onChange={(e) => setFormData((prev) => ({ ...prev, dueDate: e.target.value }))}
             required
             className="w-full px-3 py-2 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
           />
-        </div>
-
-        <div>
-          <Label htmlFor="notificationTime" className="font-bold">
-            通知時間
-          </Label>
-          <input
-            id="notificationTime"
-            type="datetime-local"
-            value={formData.notificationTime}
-            onChange={handleNotificationTimeChange}
-            max={formData.dueDate}
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary ${
-              errors.notificationTime ? "border-red-500" : "border-input"
-            }`}
-          />
-          {errors.notificationTime && <p className="text-xs text-red-500 mt-1">{errors.notificationTime}</p>}
-          <p className="text-xs text-muted-foreground mt-1">設定通知時間後，作業將從此時間開始在首頁顯示</p>
-        </div>
-
-        <div>
-          <Label htmlFor="type" className="font-bold">
-            類型
-          </Label>
-          <select
-            id="type"
-            value={formData.type}
-            onChange={(e) => setFormData((prev) => ({ ...prev, type: e.target.value as Assignment["type"] }))}
-            className="w-full px-3 py-2 border border-border rounded-md bg-background"
-          >
-            <option value="assignment">作業</option>
-            <option value="exam">考試</option>
-            <option value="project">專案</option>
-          </select>
         </div>
 
         <div>
