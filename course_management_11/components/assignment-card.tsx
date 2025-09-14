@@ -133,10 +133,10 @@ export function AssignmentCard({
               <h3 className="font-semibold text-foreground text-balance text-lg leading-tight mb-2">
                 {assignment.title}
               </h3>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between">
                 {course && <p className="text-sm text-muted-foreground font-medium">{course.name}</p>}
                 {assignment.source === "google_classroom" && (
-                  <span className="text-xs px-3 py-1.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300 font-medium dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700/50">
+                  <span className="text-xs rounded-full bg-blue-100 text-blue-800 border border-blue-300 font-medium dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700/50 py-px px-2">
                     Google Classroom
                   </span>
                 )}

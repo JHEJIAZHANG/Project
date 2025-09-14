@@ -1,9 +1,20 @@
 "use client"
 
-import { Card } from "@/components/ui/card"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { ClockIcon, EditIcon, TrashIcon, CheckIcon, ArrowLeftIcon } from "@/components/icons"
+import { PageHeader } from "@/components/page-header"
+import { LearningResources } from "@/components/learning-resources"
+import { CheckIcon, ClockIcon } from "@/components/icons"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import type { Course } from "@/types/course"
 import type { CustomCategoryItem } from "./custom-category-form"
 import { getDaysDifferenceTaiwan, isTodayTaiwan, isSameDayTaiwan } from "@/lib/taiwan-time"
@@ -25,22 +36,23 @@ export function CustomCategoryDetail({
   onDelete,
   onStatusChange,
 }: CustomCategoryDetailProps) {
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+
   const today = new Date()
   const daysUntilDue = getDaysDifferenceTaiwan(today, item.dueDate)
   const isOverdue = item.status === "overdue" || (item.status === "pending" && daysUntilDue < 0)
   const isDueToday = isSameDayTaiwan(item.dueDate, today)
   const isViewingToday = isTodayTaiwan(today)
 
-  const getStatusColor = () => {
-    switch (item.status) {
+  const getStatusColor = (status: CustomCategoryItem["status"]) => {
+    switch (status) {
       case "completed":
-        return "bg-green-100 text-green-800 border-green-200"
+        return "text-chart-4 bg-chart-4/10 border-chart-4/20"
       case "overdue":
-        return "bg-red-100 text-red-800 border-red-200"
+        return "text-destructive bg-destructive/10 border-destructive/20"
       default:
-        if (isOverdue) return "bg-red-100 text-red-800 border-red-200"
-        if (isDueToday) return "bg-orange-100 text-orange-800 border-orange-200"
-        return "bg-blue-100 text-blue-800 border-blue-200"
+        if (isOverdue) return "text-destructive bg-destructive/10 border-destructive/20"
+        return "text-chart-5 bg-chart-5/10 border-chart-5/20"
     }
   }
 
@@ -53,124 +65,122 @@ export function CustomCategoryDetail({
     return "進行中"
   }
 
+  const handleDeleteConfirm = () => {
+    onDelete()
+    setShowDeleteDialog(false)
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" onClick={onBack}>
-          <ArrowLeftIcon className="w-4 h-4" />
-        </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <h1 className="text-2xl font-bold">{item.title}</h1>
-            <Badge variant="outline" className={getStatusColor()}>
+    <>
+      <PageHeader
+        title={item.title}
+        action={
+          <Button variant="outline" size="sm" onClick={onBack}>
+            返回
+          </Button>
+        }
+      />
+
+      <div className="space-y-6 mb-6">
+        {/* Status and Course Info */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-3">
+            <span className={`text-sm font-medium px-3 py-1 rounded-full ${getStatusColor(item.status)}`}>
               {getStatusText()}
-            </Badge>
+            </span>
           </div>
-          {course && <p className="text-muted-foreground">{course.name}</p>}
+
+          <div className="flex items-center gap-3">
+            {course && <p className="text-sm text-muted-foreground">課程：{course.name}</p>}
+            <span className="text-sm px-3 py-1 rounded-full bg-purple-100 text-purple-700 border border-purple-200">
+              {item.category}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {item.status === "pending" && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onStatusChange(item.id, "completed")}
-              className="text-green-600 hover:text-green-700 hover:bg-green-50"
-            >
-              <CheckIcon className="w-4 h-4 mr-1" />
+
+        {/* Due Date */}
+        <div className="space-y-1">
+          <span className="text-sm font-medium">截止時間</span>
+          <p className="text-sm text-muted-foreground">{item.dueDate.toLocaleString("zh-TW")}</p>
+        </div>
+
+        {/* Notification Time */}
+        {item.notificationTime && (
+          <div className="space-y-1">
+            <span className="text-sm font-medium">通知時間</span>
+            <p className="text-sm text-muted-foreground">{item.notificationTime.toLocaleString("zh-TW")}</p>
+          </div>
+        )}
+
+        {/* Description */}
+        {item.description && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium">項目描述</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{item.description}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="mb-4">
+        <LearningResources
+          assignment={{
+            id: item.id,
+            title: item.title,
+            description: item.description || "",
+            dueDate: item.dueDate,
+            status: item.status as "pending" | "completed" | "overdue",
+            courseId: course?.id || "",
+            source: "manual" as const,
+          }}
+          course={course}
+        />
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          {(item.status === "pending" || item.status === "overdue") && (
+            <Button onClick={() => onStatusChange(item.id, "completed")} className="flex-1">
+              <CheckIcon className="w-4 h-4 mr-2" />
               標記完成
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={onEdit}>
-            <EditIcon className="w-4 h-4 mr-1" />
+          {item.status === "completed" && (
+            <Button variant="outline" onClick={() => onStatusChange(item.id, "pending")} className="flex-1">
+              <ClockIcon className="w-4 h-4 mr-2" />
+              標記未完成
+            </Button>
+          )}
+          <Button variant="outline" onClick={onEdit}>
             編輯
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onDelete}
-            className="text-destructive hover:text-destructive bg-transparent"
-          >
-            <TrashIcon className="w-4 h-4 mr-1" />
-            刪除
-          </Button>
         </div>
+
+        <Button
+          variant="outline"
+          onClick={() => setShowDeleteDialog(true)}
+          className="w-full text-destructive hover:text-destructive bg-transparent"
+        >
+          刪除項目
+        </Button>
       </div>
 
-      {/* Content */}
-      <div className="grid gap-6">
-        <Card className="p-6">
-          <h2 className="font-semibold mb-4">基本資訊</h2>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">分類</p>
-                <p className="text-sm">{item.category}</p>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">狀態</p>
-                <Badge variant="outline" className={getStatusColor()}>
-                  {getStatusText()}
-                </Badge>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">截止日期</p>
-                <div className="flex items-center gap-1 text-sm">
-                  <ClockIcon className="w-4 h-4" />
-                  <span>
-                    {item.dueDate.toLocaleDateString("zh-TW")}{" "}
-                    {item.dueDate.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
-                  </span>
-                </div>
-              </div>
-              {item.notificationTime && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">通知時間</p>
-                  <div className="flex items-center gap-1 text-sm">
-                    <ClockIcon className="w-4 h-4" />
-                    <span>
-                      {item.notificationTime.toLocaleDateString("zh-TW")}{" "}
-                      {item.notificationTime.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {item.description && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground mb-2">描述</p>
-                <div className="bg-muted p-3 rounded-lg">
-                  <p className="text-sm whitespace-pre-wrap">{item.description}</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <h2 className="font-semibold mb-4">時間資訊</h2>
-          <div className="space-y-3">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">建立時間</span>
-              <span>
-                {item.createdAt.toLocaleDateString("zh-TW")}{" "}
-                {item.createdAt.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
-              </span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">最後更新</span>
-              <span>
-                {item.updatedAt.toLocaleDateString("zh-TW")}{" "}
-                {item.updatedAt.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
-              </span>
-            </div>
-          </div>
-        </Card>
-      </div>
-    </div>
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定要刪除這個項目？</AlertDialogTitle>
+            <AlertDialogDescription>此操作無法復原。項目「{item.title}」將被永久刪除。</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              刪除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
