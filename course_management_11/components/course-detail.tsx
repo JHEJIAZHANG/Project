@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { CheckIcon, ExclamationIcon, ClockIcon } from "@/components/icons"
 import { useCourses } from "@/hooks/use-courses"
+import { CourseForm } from "@/components/course-form"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -27,8 +28,10 @@ const DAYS = ["週日", "週一", "週二", "週三", "週四", "週五", "週�
 
 export function CourseDetail({ courseId, showBackButton = true }: CourseDetailProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
 
-  const { getCourseById, getAssignmentsByCourse, getNotesByCourse, getExamsByCourse, deleteCourse } = useCourses()
+  const { getCourseById, getAssignmentsByCourse, getNotesByCourse, getExamsByCourse, deleteCourse, updateCourse } =
+    useCourses()
 
   const course = getCourseById(courseId)
   const assignments = getAssignmentsByCourse(courseId)
@@ -126,6 +129,26 @@ export function CourseDetail({ courseId, showBackButton = true }: CourseDetailPr
     const daysDiff = Math.ceil((examDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
     return !(exam.status === "completed" || daysDiff < 0)
   })
+
+  const handleCourseUpdate = (updatedCourse: Omit<typeof course, "id" | "createdAt">) => {
+    updateCourse(courseId, updatedCourse)
+    setIsEditing(false)
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+  }
+
+  if (isEditing) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-foreground">編輯課程</h1>
+        </div>
+        <CourseForm initialCourse={course} onSubmit={handleCourseUpdate} onCancel={handleCancelEdit} />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
@@ -290,7 +313,7 @@ export function CourseDetail({ courseId, showBackButton = true }: CourseDetailPr
       </Card>
 
       <div className="flex gap-2">
-        <Button variant="outline" className="flex-1 bg-transparent">
+        <Button variant="outline" className="flex-1 bg-transparent" onClick={() => setIsEditing(true)}>
           編輯
         </Button>
         <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
