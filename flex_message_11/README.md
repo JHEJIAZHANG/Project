@@ -14,7 +14,9 @@
 - **homework_notice.json** – 發送新作業通知至群組  
 
 ### Personal → All 個人（通用）
-- **add_schedule.json** – 新增行程  
+- **add_schedule.json** – 新增行程
+- **confirm_delete_schedule_multiple.json** – 確認是否刪除多項行程
+- **confirm_delete_schedule.json** – 確認是否刪除行程 
 - **today_schedule.json** – 顯示今日行程  
 - **today_summary.json** – 顯示今日摘要  
 
@@ -23,7 +25,9 @@
 - **create_course_carousel.json** – 建立課程（carousel 格式）  
 
 ### Image 圖片
-- **AddSchedule.png** – 新增行程 Flex Message 預覽圖  
+- **AddSchedule.png** – 新增行程 Flex Message 預覽圖
+- **ConfirmDeleteSchedule.png** – 確認是否刪除行程 Flex Message 預覽圖  
+- **ConfirmDeleteScheduleMultiple.png** – 確認是否刪除多項行程 Flex Message 預覽圖 
 - **TodaySchedule.png** – 今日行程 Flex Message 預覽圖  
 - **TodaySummary.png** – 今日摘要 Flex Message 預覽圖  
 - **HomeworkNotice.png** – 作業通知 Flex Message 預覽圖  

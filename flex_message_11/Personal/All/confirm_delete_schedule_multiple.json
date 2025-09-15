@@ -1,0 +1,228 @@
+{
+    "type": "bubble",
+    "header": {
+      "type": "box",
+      "layout": "vertical",
+      "contents": [
+        {
+          "type": "text",
+          "text": "⚠️刪除行程",
+          "color": "#ffffff",
+          "weight": "bold",
+          "size": "lg"
+        }
+      ],
+      "backgroundColor": "#EC3D44"
+    },
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "contents": [
+        {
+          "type": "box",
+          "layout": "vertical",
+          "contents": [
+            {
+              "type": "text",
+              "text": "線上會議",
+              "weight": "bold",
+              "size": "xl",
+              "color": "#222222",
+              "wrap": true,
+              "margin": "sm"
+            },
+            {
+              "type": "text",
+              "text": "2025/09/28 04:00PM - 05:00PM",
+              "size": "sm",
+              "margin": "md",
+              "color": "#999999",
+              "wrap": true
+            },
+            {
+              "type": "text",
+              "text": "備註內容...",
+              "margin": "xl",
+              "color": "#222222",
+              "size": "sm",
+              "wrap": true
+            },
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "地點",
+                  "color": "#989898",
+                  "size": "sm",
+                  "flex": 2
+                },
+                {
+                  "type": "text",
+                  "text": "國立臺北商業大學",
+                  "flex": 8,
+                  "size": "sm",
+                  "color": "#222222",
+                  "wrap": true
+                }
+              ],
+              "margin": "xl"
+            },
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "參與者",
+                  "color": "#989898",
+                  "size": "sm",
+                  "flex": 2
+                },
+                {
+                  "type": "text",
+                  "text": "attendees@gmail.com",
+                  "flex": 8,
+                  "size": "sm",
+                  "color": "#0E71EB",
+                  "wrap": true
+                }
+              ],
+              "margin": "md"
+            }
+          ]
+        },
+        {
+          "type": "separator",
+          "margin": "xl"
+        },
+        {
+          "type": "box",
+          "layout": "vertical",
+          "contents": [
+            {
+              "type": "text",
+              "text": "吃午餐",
+              "weight": "bold",
+              "size": "xl",
+              "color": "#222222",
+              "wrap": true,
+              "margin": "sm"
+            },
+            {
+              "type": "text",
+              "text": "2025/09/28 04:00PM - 05:00PM",
+              "size": "sm",
+              "margin": "md",
+              "color": "#999999",
+              "wrap": true
+            },
+            {
+              "type": "text",
+              "text": "備註內容...",
+              "margin": "xl",
+              "color": "#222222",
+              "size": "sm",
+              "wrap": true
+            },
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "地點",
+                  "color": "#989898",
+                  "size": "sm",
+                  "flex": 2
+                },
+                {
+                  "type": "text",
+                  "text": "國立臺北商業大學",
+                  "flex": 8,
+                  "size": "sm",
+                  "color": "#222222",
+                  "wrap": true
+                }
+              ],
+              "margin": "xl"
+            },
+            {
+              "type": "box",
+              "layout": "horizontal",
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "參與者",
+                  "color": "#989898",
+                  "size": "sm",
+                  "flex": 2
+                },
+                {
+                  "type": "text",
+                  "text": "attendees@gmail.com",
+                  "flex": 8,
+                  "size": "sm",
+                  "color": "#0E71EB",
+                  "wrap": true
+                }
+              ],
+              "margin": "md"
+            }
+          ],
+          "margin": "xl"
+        }
+      ]
+    },
+    "footer": {
+      "type": "box",
+      "layout": "horizontal",
+      "contents": [
+        {
+          "type": "box",
+          "layout": "vertical",
+          "contents": [
+            {
+              "type": "text",
+              "text": "確認刪除",
+              "align": "center",
+              "color": "#ffffff",
+              "weight": "bold"
+            }
+          ],
+          "backgroundColor": "#EC3D44",
+          "cornerRadius": "md",
+          "paddingBottom": "lg",
+          "paddingTop": "lg",
+          "action": {
+            "type": "message",
+            "label": "action",
+            "text": "確認刪除"
+          }
+        },
+        {
+          "type": "box",
+          "layout": "vertical",
+          "contents": [
+            {
+              "type": "text",
+              "text": "取消",
+              "align": "center"
+            }
+          ],
+          "paddingTop": "lg",
+          "paddingBottom": "lg",
+          "cornerRadius": "md",
+          "action": {
+            "type": "message",
+            "label": "action",
+            "text": "取消刪除行程"
+          },
+          "backgroundColor": "#dddddd",
+          "margin": "md"
+        }
+      ],
+      "paddingBottom": "xl"
+    }
+  }
