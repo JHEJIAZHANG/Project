@@ -23,7 +23,7 @@ from .serializers import (
 from user.models import LineProfile
 from .authentication import LineUserAuthentication
 from services.recommendation import build_query, fetch_candidates, rerank, diversify_by_source
-from services.importers import parse_courses_csv, parse_courses_ical
+from services.importers import parse_courses_csv, parse_courses_ical, parse_course_from_text
 from services.ocr import ocr_image_bytes
 
 
@@ -665,7 +665,9 @@ class FileUploadViewSet(LineUserViewSetMixin, viewsets.ViewSet):
 
     @action(detail=False, methods=['post'])
     def ocr_scan(self, request):
-        """對上傳圖片做 OCR，回傳 {engine, text}。"""
+        """對上傳圖片做 OCR，回傳 {engine, text}；
+        若帶參數 createCourse=true，則嘗試解析為 CourseV2 並建立課程。
+        """
         line_profile = self.get_line_profile()
         if not line_profile:
             return Response({'error': '無法獲取LINE用戶資料'}, status=status.HTTP_401_UNAUTHORIZED)
@@ -676,6 +678,17 @@ class FileUploadViewSet(LineUserViewSetMixin, viewsets.ViewSet):
         data = file.read()
         try:
             result = ocr_image_bytes(data)
+            if str(request.query_params.get('createCourse', 'false')).lower() in {'1','true','yes'}:
+                parsed = parse_course_from_text(result.get('text',''))
+                if parsed.get('title'):
+                    obj = CourseV2.objects.create(
+                        user=line_profile,
+                        title=parsed.get('title',''),
+                        description=parsed.get('description',''),
+                        instructor=parsed.get('instructor',''),
+                        classroom=parsed.get('classroom','')
+                    )
+                    result['createdCourseId'] = str(obj.id)
             return Response(result)
         except Exception as e:
             return Response({'engine': 'none', 'text': '', 'error': str(e)}, status=status.HTTP_200_OK)

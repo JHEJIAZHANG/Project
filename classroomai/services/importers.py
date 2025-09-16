@@ -55,3 +55,64 @@ def parse_courses_ical(data: bytes) -> List[Dict]:
     return out
 
 
+def parse_course_from_text(text: str) -> Dict:
+    """Parse a free-form OCR text into a course dict (best-effort).
+    Heuristics:
+    - Prefer labeled lines like: 課程名稱/Title, 教師/Instructor, 教室/Location/Classroom, 說明/Description
+    - Fallback: first non-empty line as title; the rest become description.
+    """
+    import re
+
+    lines = [ln.strip() for ln in (text or "").splitlines()]
+    lines = [ln for ln in lines if ln]
+
+    title = ""
+    instructor = ""
+    classroom = ""
+    desc_parts: List[str] = []
+
+    patterns = [
+        ("title", re.compile(r"^(課程名稱|課程|title|course)\s*[:：]\s*(.+)$", re.I)),
+        ("instructor", re.compile(r"^(教師|老師|instructor|teacher)\s*[:：]\s*(.+)$", re.I)),
+        ("classroom", re.compile(r"^(教室|地點|location|classroom)\s*[:：]\s*(.+)$", re.I)),
+        ("description", re.compile(r"^(說明|描述|description)\s*[:：]\s*(.+)$", re.I)),
+    ]
+
+    consumed = set()
+    for idx, ln in enumerate(lines):
+        for key, pat in patterns:
+            m = pat.match(ln)
+            if m:
+                val = m.group(2).strip()
+                if key == "title" and not title:
+                    title = val
+                    consumed.add(idx)
+                elif key == "instructor" and not instructor:
+                    instructor = val
+                    consumed.add(idx)
+                elif key == "classroom" and not classroom:
+                    classroom = val
+                    consumed.add(idx)
+                elif key == "description":
+                    desc_parts.append(val)
+                    consumed.add(idx)
+                break
+
+    # Fallbacks
+    if not title and lines:
+        title = lines[0]
+        consumed.add(0)
+    # Remaining lines become description
+    for idx, ln in enumerate(lines):
+        if idx not in consumed:
+            desc_parts.append(ln)
+
+    description = "\n".join(desc_parts).strip()
+    return {
+        "title": title[:255],
+        "description": description,
+        "instructor": instructor[:100],
+        "classroom": classroom[:100],
+    }
+
+
