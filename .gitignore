@@ -1,3 +1,11 @@
 
 # frontend (do not commit)
 course-management 2/
+
+# ignore env and artifacts
+venv/
+.venv/
+logs/
+media/
+line_jwks.sqlite
+classroomai/classroomai/.env
