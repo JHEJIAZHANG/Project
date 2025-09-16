@@ -23,6 +23,8 @@ from .serializers import (
 from user.models import LineProfile
 from .authentication import LineUserAuthentication
 from services.recommendation import build_query, fetch_candidates, rerank, diversify_by_source
+from services.importers import parse_courses_csv, parse_courses_ical
+from services.ocr import ocr_image_bytes
 
 
 class LineUserViewSetMixin:
@@ -621,6 +623,62 @@ class FileUploadViewSet(LineUserViewSetMixin, viewsets.ViewSet):
             FileAttachmentSerializer(attachment).data,
             status=status.HTTP_201_CREATED
         )
+    
+    @action(detail=False, methods=['post'])
+    def import_courses(self, request):
+        """匯入課程：支援上傳 CSV 或 iCal 檔案。
+        - CSV: 欄位 title/description/instructor/classroom（不區分大小寫）
+        - iCal: 取 VEVENT 的 SUMMARY/DESCRIPTION/LOCATION
+        """
+        line_profile = self.get_line_profile()
+        if not line_profile:
+            return Response({'error': '無法獲取LINE用戶資料'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if 'file' not in request.FILES:
+            return Response({'error': '沒有上傳檔案'}, status=status.HTTP_400_BAD_REQUEST)
+        file = request.FILES['file']
+        name = (file.name or '').lower()
+        data = file.read()
+
+        try:
+            items = []
+            if name.endswith('.csv'):
+                items = parse_courses_csv(data)
+            elif name.endswith('.ics') or name.endswith('.ical'):
+                items = parse_courses_ical(data)
+            else:
+                return Response({'error': '不支援的檔案類型，請上傳 CSV 或 iCal(.ics)'}, status=status.HTTP_400_BAD_REQUEST)
+
+            created = []
+            for it in items:
+                obj = CourseV2.objects.create(
+                    user=line_profile,
+                    title=it.get('title',''),
+                    description=it.get('description',''),
+                    instructor=it.get('instructor',''),
+                    classroom=it.get('classroom','')
+                )
+                created.append(str(obj.id))
+            return Response({'count': len(created), 'ids': created})
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=False, methods=['post'])
+    def ocr_scan(self, request):
+        """對上傳圖片做 OCR，回傳 {engine, text}。"""
+        line_profile = self.get_line_profile()
+        if not line_profile:
+            return Response({'error': '無法獲取LINE用戶資料'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if 'file' not in request.FILES:
+            return Response({'error': '沒有上傳檔案'}, status=status.HTTP_400_BAD_REQUEST)
+        file = request.FILES['file']
+        data = file.read()
+        try:
+            result = ocr_image_bytes(data)
+            return Response(result)
+        except Exception as e:
+            return Response({'engine': 'none', 'text': '', 'error': str(e)}, status=status.HTTP_200_OK)
         
     @action(detail=False, methods=['post'])
     def presign(self, request):
