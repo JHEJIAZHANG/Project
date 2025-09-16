@@ -3,7 +3,7 @@ import re
 import json
 import requests
 import time
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 
 # =====================
@@ -32,7 +32,7 @@ def build_query(title: str, desc: str) -> str:
 _CAND_CACHE: Dict[str, tuple[float, List[Dict]]] = {}
 _CACHE_TTL_SECONDS = int(os.getenv("REC_CACHE_TTL", "60") or "60")
 
-def _cache_get(query: str) -> List[Dict] | None:
+def _cache_get(query: str) -> Optional[List[Dict]]:
     try:
         ts, items = _CAND_CACHE.get(query, (0.0, []))
         if ts and (time.time() - ts) <= _CACHE_TTL_SECONDS:
@@ -87,6 +87,55 @@ def _fetch_youtube(query: str) -> List[Dict]:
     return []
 
 
+def _ensure_minimum_items(query: str, items: List[Dict], min_items: int = 2) -> List[Dict]:
+    """確保至少回傳 min_items 筆結果；若不足，補上通用搜尋連結。
+    不依賴任何金鑰，避免前後端空白畫面。
+    """
+    # 去重（以 url 為 key）
+    seen = set()
+    dedup: List[Dict] = []
+    for it in items:
+        url = (it.get("url") or "").strip()
+        if url and url not in seen:
+            seen.add(url)
+            dedup.append(it)
+
+    if len(dedup) >= min_items:
+        return dedup
+
+    # 補通用搜尋連結（穩定無金鑰）
+    q = requests.utils.quote(query)
+    fallbacks = [
+        {
+            "source": "search",
+            "url": f"https://www.google.com/search?q={q}",
+            "title": f"Google: {query}",
+            "snippet": "Google 搜尋結果"
+        },
+        {
+            "source": "youtube",
+            "url": f"https://www.youtube.com/results?search_query={q}",
+            "title": f"YouTube: {query}",
+            "snippet": "YouTube 搜尋結果"
+        },
+        {
+            "source": "wikipedia",
+            "url": f"https://en.wikipedia.org/w/index.php?search={q}",
+            "title": f"Wikipedia: {query}",
+            "snippet": "Wikipedia 搜尋結果"
+        },
+    ]
+
+    for fb in fallbacks:
+        if len(dedup) >= min_items:
+            break
+        if fb["url"] not in seen:
+            seen.add(fb["url"])
+            dedup.append(fb)
+
+    return dedup
+
+
 def fetch_candidates(query: str) -> List[Dict]:
     # 短期快取：避免重複花費與延遲
     cached = _cache_get(query)
@@ -108,6 +157,8 @@ def fetch_candidates(query: str) -> List[Dict]:
     yt = _fetch_youtube(query)
     _debug(f"youtube items: {len(yt)}")
     out += yt
+    # 最低保證：至少 2 筆
+    out = _ensure_minimum_items(query, out, min_items=2)
     _cache_set(query, out)
     return out
 
