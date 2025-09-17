@@ -126,9 +126,8 @@ def parse_courses_xlsx(data: bytes) -> List[Dict]:
     try:
         import os, json
         if os.getenv("Gemini_API_KEY") or os.getenv("GEMINI_API_KEY"):
-            from services.gemini_client import _configure  # type: ignore
-            genai = _configure()
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            from services.gemini_client import get_model  # type: ignore
+            model = get_model("gemini-1.5-flash")
             system = (
                 "Extract course list from the given table content. Output STRICT JSON only: "
                 "{\"items\":[{\"title\":string,\"description\":string,\"instructor\":string,\"classroom\":string}]}"
@@ -175,10 +174,13 @@ def parse_courses_xls(data: bytes) -> List[Dict]:
     欄位對應與 .xlsx 相同。
     """
     out: List[Dict] = []
+    print(f"[xls] 開始解析，檔案大小: {len(data)} bytes")
+    
     # 偵測偽 Excel（其實是 HTML 表格）
     try:
         sniff = data[:200].lower()
         if b"<html" in sniff or b"<table" in sniff or b"<td" in sniff:
+            print("[xls] 偵測到 HTML 內容，使用 HTML 解析器")
             # 將 HTML 轉純文字，再重用課表文字解析
             try:
                 html = data.decode("utf-8", errors="ignore")
@@ -193,7 +195,9 @@ def parse_courses_xls(data: bytes) -> List[Dict]:
             text = re.sub(r"\s+", " \n", text)
             try:
                 items = parse_multiple_courses_from_timetable(text)
-            except Exception:
+                print(f"[xls] HTML 解析到 {len(items)} 個項目")
+            except Exception as e:
+                print(f"[xls] HTML 解析失敗: {e}")
                 items = []
             # 僅回傳基本欄位（title/instructor/classroom/description），時間表先不寫入
             basic: List[Dict] = []
@@ -208,17 +212,21 @@ def parse_courses_xls(data: bytes) -> List[Dict]:
                     "classroom": (it.get("classroom") or "")[:100],
                 })
             if basic:
+                print(f"[xls] HTML 解析成功，回傳 {len(basic)} 個課程")
                 return basic
     except Exception as e:
         print(f"[xls] html sniff error: {e}")
 
     try:
         import xlrd  # type: ignore
+        print("[xls] 使用 xlrd 解析器")
         book = xlrd.open_workbook(file_contents=data)
         sheet = book.sheet_by_index(0)
+        print(f"[xls] 工作表行數: {sheet.nrows}, 列數: {sheet.ncols}")
         if sheet.nrows == 0:
             return out
         headers = [(str(sheet.cell_value(0, c)).strip() if sheet.cell_value(0, c) is not None else "") for c in range(sheet.ncols)]
+        print(f"[xls] 標題行: {headers}")
         has_header = any(headers)
         if has_header:
             mapping = {}
@@ -232,6 +240,7 @@ def parse_courses_xls(data: bytes) -> List[Dict]:
                     mapping["instructor"] = idx
                 elif key in {"classroom", "教室", "location"}:
                     mapping["classroom"] = idx
+            print(f"[xls] 欄位對應: {mapping}")
             for r in range(1, sheet.nrows):
                 rowvals = [sheet.cell_value(r, c) for c in range(sheet.ncols)]
                 title = str(rowvals[mapping.get("title", -1)]).strip() if mapping.get("title", -1) >= 0 else ""
@@ -247,6 +256,7 @@ def parse_courses_xls(data: bytes) -> List[Dict]:
                     "classroom": room[:100],
                 })
         else:
+            print("[xls] 無標題行，使用預設欄位順序")
             for r in range(sheet.nrows):
                 rowvals = [(str(sheet.cell_value(r, c)).strip() if sheet.cell_value(r, c) is not None else "") for c in range(sheet.ncols)]
                 if not any(rowvals):
@@ -263,8 +273,11 @@ def parse_courses_xls(data: bytes) -> List[Dict]:
                     "instructor": instr[:100],
                     "classroom": room[:100],
                 })
+        print(f"[xls] xlrd 解析成功，回傳 {len(out)} 個課程")
     except Exception as e:
         print(f"[xls] parse error: {e}")
+        import traceback
+        traceback.print_exc()
     return out
 def parse_courses_xml(data: bytes) -> List[Dict]:
     """Parse XML bytes to course dicts.
@@ -328,9 +341,8 @@ def parse_courses_xml(data: bytes) -> List[Dict]:
     try:
         import os, json
         if os.getenv("Gemini_API_KEY") or os.getenv("GEMINI_API_KEY"):
-            from services.gemini_client import _configure  # type: ignore
-            genai = _configure()
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            from services.gemini_client import get_model  # type: ignore
+            model = get_model("gemini-1.5-flash")
             system = (
                 "Extract course list from the given XML. Output STRICT JSON only: "
                 "{\"items\":[{\"title\":string,\"description\":string,\"instructor\":string,\"classroom\":string}]}"

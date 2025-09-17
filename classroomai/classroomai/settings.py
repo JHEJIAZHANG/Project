@@ -84,6 +84,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'classroomai.wsgi.application'
 
+# 避免對無尾斜線的 POST/GET 進行 301/308 自動轉址，配合前端 rewrites，防止重導迴圈
+APPEND_SLASH = False
+
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases

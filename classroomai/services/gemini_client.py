@@ -1,18 +1,4 @@
 import os
-import google.generativeai as genai
-
-
-def _configure():
-    """Configure and return the google.generativeai module.
-    支援環境變數名稱：Gemini_API_KEY / GEMINI_API_KEY
-    """
-    api_key = os.getenv("Gemini_API_KEY") or os.getenv("GEMINI_API_KEY")
-    if not api_key:
-        raise RuntimeError("Gemini_API_KEY/GEMINI_API_KEY not set")
-    genai.configure(api_key=api_key)
-    return genai
-
-import os
 import json
 from typing import List, Dict, Optional
 
@@ -28,18 +14,20 @@ def _get_api_key() -> str:
     return key
 
 
-def _configure() -> None:
-    # Lazy import to avoid hard dependency on install-time
+def _configure():
+    """Configure and return the google.generativeai module.
+    支援環境變數名稱：Gemini_API_KEY / GEMINI_API_KEY
+    """
     import google.generativeai as genai  # type: ignore
     genai.configure(api_key=_get_api_key())
+    return genai
 
 
 def get_model(model_name: Optional[str] = None):
     """Get a configured GenerativeModel instance.
     Default model can be overridden by env 'GEMINI_MODEL', else 'gemini-1.5-flash'.
     """
-    _configure()
-    import google.generativeai as genai  # type: ignore
+    genai = _configure()
     name = model_name or os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
     return genai.GenerativeModel(name)
 
@@ -89,8 +77,7 @@ def embed_texts(texts: List[str]) -> List[List[float]]:
     """Create embeddings via Gemini text-embedding-004.
     Caller should handle similarity scoring.
     """
-    _configure()
-    import google.generativeai as genai  # type: ignore
+    genai = _configure()
     model = os.getenv("GEMINI_EMBED_MODEL", "text-embedding-004")
     # The SDK supports single-content embedding; do simple batching
     vectors: List[List[float]] = []

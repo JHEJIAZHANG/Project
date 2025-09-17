@@ -780,39 +780,42 @@ class NoteViewSet(LineUserViewSetMixin, viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='ai/summary')
     def ai_summary(self, request, pk=None):
         from course.models import StudentNote
+        import os, re
         note = get_object_or_404(StudentNote, pk=pk)
         # 取純文字：剝除 HTML 標籤
-        import re
         html = (note.content or '')
         text = re.sub(r'<br\s*/?>', '\n', html)
         text = re.sub(r'<[^>]+>', ' ', text)
         text = re.sub(r'\s+', ' ', text).strip()
         summary = ''
         keywords = []
+        print(f'[ai_summary] note_id={pk}, text_len={len(text)}, api_key_present={bool(os.getenv("Gemini_API_KEY") or os.getenv("GEMINI_API_KEY"))}')
         try:
-            import os, json, re
+            import json
             if os.getenv('Gemini_API_KEY') or os.getenv('GEMINI_API_KEY'):
-                from services.gemini_client import _configure  # type: ignore
-                genai = _configure()
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                from services.gemini_client import get_model  # type: ignore
+                model = get_model('gemini-1.5-flash')
                 prompt = (
                     'Summarize the following note in Traditional Chinese within 3 bullet points, '
                     'and extract 3-6 comma-separated keywords. Output JSON only: '
                     '{"summary":["...","...","..."],"keywords":["k1","k2"]}\n\n' + text
                 )
                 resp = model.generate_content([{ 'role': 'user', 'parts': [prompt] }])
+                print(f'[ai_summary] Gemini response: {resp.text[:200]}...')
                 raw = (resp.text or '').strip()
                 if raw.startswith('```json') and raw.endswith('```'):
                     raw = raw[7:-3].strip()
                 data = json.loads(raw)
                 summary = '\n'.join(data.get('summary') or [])
                 keywords = data.get('keywords') or []
+                print(f'[ai_summary] parsed summary={summary[:100]}..., keywords={keywords}')
             else:
                 clean = text
                 summary = clean[:200]
                 words = [w for w in re.split(r'[^\w\u4e00-\u9fa5]+', clean) if len(w) >= 2]
                 from collections import Counter
                 keywords = [w for w,_ in Counter(words).most_common(5)]
+                print(f'[ai_summary] fallback summary={summary[:100]}..., keywords={keywords}')
         except Exception as e:
             print('[ai_summary] error:', e)
             summary = (text or '')[:200]
@@ -916,32 +919,49 @@ class FileUploadViewSet(LineUserViewSetMixin, viewsets.ViewSet):
         file = request.FILES['file']
         name = (file.name or '').lower()
         data = file.read()
+        
+        print(f'[import_courses] 檔案: {file.name}, 大小: {len(data)} bytes, 用戶: {line_profile.line_user_id}')
 
         try:
             items = []
             if name.endswith('.csv'):
+                print('[import_courses] 使用 CSV 解析器')
                 items = parse_courses_csv(data)
             elif name.endswith('.ics') or name.endswith('.ical'):
+                print('[import_courses] 使用 iCal 解析器')
                 items = parse_courses_ical(data)
             elif name.endswith('.xlsx'):
+                print('[import_courses] 使用 XLSX 解析器')
                 items = parse_courses_xlsx(data)
             elif name.endswith('.xls'):
+                print('[import_courses] 使用 XLS 解析器')
                 items = parse_courses_xls(data)
             else:
                 return Response({'error': '不支援的檔案類型，請上傳 CSV / iCal(.ics) / Excel(.xlsx/.xls)'}, status=status.HTTP_400_BAD_REQUEST)
 
+            print(f'[import_courses] 解析到 {len(items)} 個課程')
             created = []
-            for it in items:
-                obj = CourseV2.objects.create(
-                    user=line_profile,
-                    title=it.get('title',''),
-                    description=it.get('description',''),
-                    instructor=it.get('instructor',''),
-                    classroom=it.get('classroom','')
-                )
-                created.append(str(obj.id))
+            for i, it in enumerate(items):
+                try:
+                    obj = CourseV2.objects.create(
+                        user=line_profile,
+                        title=it.get('title',''),
+                        description=it.get('description',''),
+                        instructor=it.get('instructor',''),
+                        classroom=it.get('classroom','')
+                    )
+                    created.append(str(obj.id))
+                    print(f'[import_courses] 創建課程 {i+1}: {obj.title}')
+                except Exception as e:
+                    print(f'[import_courses] 創建課程 {i+1} 失敗: {e}')
+                    continue
+                    
+            print(f'[import_courses] 成功創建 {len(created)} 個課程')
             return Response({'count': len(created), 'ids': created})
         except Exception as e:
+            print(f'[import_courses] 錯誤: {e}')
+            import traceback
+            traceback.print_exc()
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         
@@ -1019,7 +1039,22 @@ class CustomCategoryViewSet(LineUserViewSetMixin, viewsets.ModelViewSet):
         line_profile = self.get_line_profile()
         if not line_profile:
             raise ValueError('無法獲取LINE用戶資料')
-        serializer.save(user=line_profile)
+        # 去除重複：同使用者 + 同名稱 視為相同分類
+        from django.db import IntegrityError
+        from .models import CustomCategory as _Cat
+        name = (serializer.validated_data.get('name') or '').strip()
+        icon = serializer.validated_data.get('icon') or 'clipboard'
+        color = serializer.validated_data.get('color') or '#3b82f6'
+        try:
+            obj, created = _Cat.objects.get_or_create(
+                user=line_profile, name=name,
+                defaults={'icon': icon, 'color': color}
+            )
+        except IntegrityError:
+            # 競態同名：回傳已存在的
+            obj = _Cat.objects.filter(user=line_profile, name=name).first()
+        # 將序列化器指向該物件，回傳一致格式
+        serializer.instance = obj
 
 
 class CustomTodoItemViewSet(LineUserViewSetMixin, viewsets.ModelViewSet):
