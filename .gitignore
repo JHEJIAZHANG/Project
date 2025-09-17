@@ -19,3 +19,6 @@ gemini-api-472317-ef4a60500856.json
 *service_account*.json
 *credentials*.json
 *.secrets.json
+
+/course-management 2/
+/classroomai/*.json
