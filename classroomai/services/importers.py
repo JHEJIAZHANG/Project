@@ -55,6 +55,307 @@ def parse_courses_ical(data: bytes) -> List[Dict]:
     return out
 
 
+def parse_courses_xlsx(data: bytes) -> List[Dict]:
+    """Parse Excel (.xlsx) bytes to course dicts.
+    支援表頭（不分大小寫/中英）：title/課程名稱、description/說明、instructor/教師、classroom/教室。
+    若讀不到表頭，會嘗試使用首行作為表頭。
+    若完全無法解析且已設定 Gemini_API_KEY，回退以 Gemini 協助抽取結構。
+    """
+    out: List[Dict] = []
+    try:
+        from openpyxl import load_workbook  # type: ignore
+        import io as _io
+        wb = load_workbook(filename=_io.BytesIO(data), read_only=True, data_only=True)
+        ws = wb.active
+        rows = list(ws.iter_rows(values_only=True))
+        if not rows:
+            return out
+        headers = [str(h).strip() if h is not None else "" for h in rows[0]]
+        # 若表頭全空，視為無表頭，嘗試以固定欄位序：title, description, instructor, classroom
+        has_header = any(h for h in headers)
+        if has_header:
+            mapping = {}
+            for idx, h in enumerate(headers):
+                key = (h or "").strip().lower()
+                if key in {"title", "課程名稱", "name"}:
+                    mapping["title"] = idx
+                elif key in {"description", "說明", "desc"}:
+                    mapping["description"] = idx
+                elif key in {"instructor", "教師", "teacher"}:
+                    mapping["instructor"] = idx
+                elif key in {"classroom", "教室", "location"}:
+                    mapping["classroom"] = idx
+            data_rows = rows[1:]
+            for r in data_rows:
+                title = str(r[mapping.get("title", -1)]).strip() if mapping.get("title", -1) >= 0 and r[mapping.get("title", -1)] is not None else ""
+                if not title:
+                    continue
+                desc = str(r[mapping.get("description", -1)]).strip() if mapping.get("description", -1) >= 0 and r[mapping.get("description", -1)] is not None else ""
+                instr = str(r[mapping.get("instructor", -1)]).strip() if mapping.get("instructor", -1) >= 0 and r[mapping.get("instructor", -1)] is not None else ""
+                room = str(r[mapping.get("classroom", -1)]).strip() if mapping.get("classroom", -1) >= 0 and r[mapping.get("classroom", -1)] is not None else ""
+                out.append({
+                    "title": title[:255],
+                    "description": desc[:1000],
+                    "instructor": instr[:100],
+                    "classroom": room[:100],
+                })
+        else:
+            for r in rows:
+                vals = [(str(v).strip() if v is not None else "") for v in r]
+                if not any(vals):
+                    continue
+                title = vals[0]
+                if not title:
+                    continue
+                desc = vals[1] if len(vals) > 1 else ""
+                instr = vals[2] if len(vals) > 2 else ""
+                room = vals[3] if len(vals) > 3 else ""
+                out.append({
+                    "title": title[:255],
+                    "description": desc[:1000],
+                    "instructor": instr[:100],
+                    "classroom": room[:100],
+                })
+        if out:
+            return out
+    except Exception as e:
+        # 記錄但不拋出，讓後備流程接手
+        print(f"[xlsx] parse error: {e}")
+
+    # 後備：Gemini 協助從表格文字抽取（將每列串為文字）
+    try:
+        import os, json
+        if os.getenv("Gemini_API_KEY") or os.getenv("GEMINI_API_KEY"):
+            from services.gemini_client import _configure  # type: ignore
+            genai = _configure()
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            system = (
+                "Extract course list from the given table content. Output STRICT JSON only: "
+                "{\"items\":[{\"title\":string,\"description\":string,\"instructor\":string,\"classroom\":string}]}"
+            )
+            # 為避免複雜處理，直接將二維表格轉純文字給 Gemini
+            lines = []
+            try:
+                from openpyxl import load_workbook  # type: ignore
+                import io as _io
+                wb = load_workbook(filename=_io.BytesIO(data), read_only=True, data_only=True)
+                ws = wb.active
+                for row in ws.iter_rows(values_only=True):
+                    vals = [(str(v).strip() if v is not None else "") for v in row]
+                    if any(vals):
+                        lines.append("\t".join(vals))
+            except Exception as e:
+                print(f"[xlsx] load workbook for gemini text failed: {e}")
+            table_text = "\n".join(lines)
+            resp = model.generate_content([
+                {"role": "user", "parts": [system, table_text]}
+            ])
+            content = (resp.text or "").strip()
+            if content.startswith("```json") and content.endswith("```"):
+                content = content[7:-3].strip()
+            data = json.loads(content)
+            for it in data.get("items", []) or []:
+                title = (it.get("title") or "").strip()
+                if not title:
+                    continue
+                out.append({
+                    "title": title[:255],
+                    "description": (it.get("description") or "")[:1000],
+                    "instructor": (it.get("instructor") or "")[:100],
+                    "classroom": (it.get("classroom") or "")[:100],
+                })
+    except Exception as e:
+        print(f"[xlsx] gemini fallback error: {e}")
+
+    return out
+
+
+def parse_courses_xls(data: bytes) -> List[Dict]:
+    """Parse legacy Excel (.xls) bytes to course dicts using xlrd.
+    欄位對應與 .xlsx 相同。
+    """
+    out: List[Dict] = []
+    # 偵測偽 Excel（其實是 HTML 表格）
+    try:
+        sniff = data[:200].lower()
+        if b"<html" in sniff or b"<table" in sniff or b"<td" in sniff:
+            # 將 HTML 轉純文字，再重用課表文字解析
+            try:
+                html = data.decode("utf-8", errors="ignore")
+            except Exception:
+                html = data.decode("big5", errors="ignore")
+            import re
+            # 保留換行
+            html = re.sub(r"<br\s*/?>", "\n", html, flags=re.I)
+            # 將單元格關閉視為換行，避免內容黏在一起
+            html = re.sub(r"</td>", "\n", html, flags=re.I)
+            text = re.sub(r"<[^>]+>", " ", html)
+            text = re.sub(r"\s+", " \n", text)
+            try:
+                items = parse_multiple_courses_from_timetable(text)
+            except Exception:
+                items = []
+            # 僅回傳基本欄位（title/instructor/classroom/description），時間表先不寫入
+            basic: List[Dict] = []
+            for it in items:
+                title = (it.get("title") or it.get("name") or "").strip()
+                if not title:
+                    continue
+                basic.append({
+                    "title": title[:255],
+                    "description": (it.get("description") or "")[:1000],
+                    "instructor": (it.get("instructor") or "")[:100],
+                    "classroom": (it.get("classroom") or "")[:100],
+                })
+            if basic:
+                return basic
+    except Exception as e:
+        print(f"[xls] html sniff error: {e}")
+
+    try:
+        import xlrd  # type: ignore
+        book = xlrd.open_workbook(file_contents=data)
+        sheet = book.sheet_by_index(0)
+        if sheet.nrows == 0:
+            return out
+        headers = [(str(sheet.cell_value(0, c)).strip() if sheet.cell_value(0, c) is not None else "") for c in range(sheet.ncols)]
+        has_header = any(headers)
+        if has_header:
+            mapping = {}
+            for idx, h in enumerate(headers):
+                key = (h or "").strip().lower()
+                if key in {"title", "課程名稱", "name"}:
+                    mapping["title"] = idx
+                elif key in {"description", "說明", "desc"}:
+                    mapping["description"] = idx
+                elif key in {"instructor", "教師", "teacher"}:
+                    mapping["instructor"] = idx
+                elif key in {"classroom", "教室", "location"}:
+                    mapping["classroom"] = idx
+            for r in range(1, sheet.nrows):
+                rowvals = [sheet.cell_value(r, c) for c in range(sheet.ncols)]
+                title = str(rowvals[mapping.get("title", -1)]).strip() if mapping.get("title", -1) >= 0 else ""
+                if not title:
+                    continue
+                desc = str(rowvals[mapping.get("description", -1)]).strip() if mapping.get("description", -1) >= 0 else ""
+                instr = str(rowvals[mapping.get("instructor", -1)]).strip() if mapping.get("instructor", -1) >= 0 else ""
+                room = str(rowvals[mapping.get("classroom", -1)]).strip() if mapping.get("classroom", -1) >= 0 else ""
+                out.append({
+                    "title": title[:255],
+                    "description": desc[:1000],
+                    "instructor": instr[:100],
+                    "classroom": room[:100],
+                })
+        else:
+            for r in range(sheet.nrows):
+                rowvals = [(str(sheet.cell_value(r, c)).strip() if sheet.cell_value(r, c) is not None else "") for c in range(sheet.ncols)]
+                if not any(rowvals):
+                    continue
+                title = rowvals[0]
+                if not title:
+                    continue
+                desc = rowvals[1] if len(rowvals) > 1 else ""
+                instr = rowvals[2] if len(rowvals) > 2 else ""
+                room = rowvals[3] if len(rowvals) > 3 else ""
+                out.append({
+                    "title": title[:255],
+                    "description": desc[:1000],
+                    "instructor": instr[:100],
+                    "classroom": room[:100],
+                })
+    except Exception as e:
+        print(f"[xls] parse error: {e}")
+    return out
+def parse_courses_xml(data: bytes) -> List[Dict]:
+    """Parse XML bytes to course dicts.
+    支援常見欄位：title/name、description/desc、instructor/teacher、classroom/location。
+    若無法解析任何課程且已設定 Gemini_API_KEY，嘗試以 Gemini 進行結構化抽取。
+    """
+    import xml.etree.ElementTree as ET
+
+    text = data.decode("utf-8", errors="ignore")
+    out: List[Dict] = []
+
+    try:
+        root = ET.fromstring(text)
+    except Exception:
+        root = None
+
+    def _pick(elem, names):
+        # 先找子元素，再找屬性
+        for n in names:
+            node = elem.find(n)
+            if node is not None and (node.text or "").strip():
+                return (node.text or "").strip()
+        for n in names:
+            val = elem.attrib.get(n)
+            if val:
+                return val.strip()
+        return ""
+
+    if root is not None:
+        # 常見集合節點：course/item/entry/row/課程
+        candidates = []
+        for tag in ["course", "item", "entry", "row", "Course", "Item", "課程"]:
+            candidates.extend(root.findall(f".//{tag}"))
+        if not candidates:
+            candidates = list(root)
+
+        for elem in candidates:
+            title = _pick(elem, ["title", "name", "Title", "Name", "課程名稱"]) or ""
+            desc = _pick(elem, ["description", "desc", "Description", "說明"]) or ""
+            instructor = _pick(elem, ["instructor", "teacher", "Instructor", "Teacher", "教師"]) or ""
+            classroom = _pick(elem, ["classroom", "location", "Location", "教室"]) or ""
+            if not title:
+                # 使用最長文字作為候選標題
+                try:
+                    texts = [t.strip() for t in elem.itertext() if (t or "").strip()]
+                    title = max(texts, key=len, default="").strip()
+                except Exception:
+                    title = ""
+            if title:
+                out.append({
+                    "title": title[:255],
+                    "description": desc[:1000],
+                    "instructor": instructor[:100],
+                    "classroom": classroom[:100],
+                })
+
+    if out:
+        return out
+
+    # 後備：Gemini 結構化抽取
+    try:
+        import os, json
+        if os.getenv("Gemini_API_KEY") or os.getenv("GEMINI_API_KEY"):
+            from services.gemini_client import _configure  # type: ignore
+            genai = _configure()
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            system = (
+                "Extract course list from the given XML. Output STRICT JSON only: "
+                "{\"items\":[{\"title\":string,\"description\":string,\"instructor\":string,\"classroom\":string}]}"
+            )
+            resp = model.generate_content([
+                {"role": "user", "parts": [system, text]}
+            ])
+            content = (resp.text or "").strip()
+            if content.startswith("```json") and content.endswith("```"):
+                content = content[7:-3].strip()
+            data = json.loads(content)
+            for it in data.get("items", []) or []:
+                title = (it.get("title") or "").strip()
+                if not title:
+                    continue
+                out.append({
+                    "title": title[:255],
+                    "description": (it.get("description") or "")[:1000],
+                    "instructor": (it.get("instructor") or "")[:100],
+                    "classroom": (it.get("classroom") or "")[:100],
+                })
+    except Exception as e:
+        print(f"[xml] gemini fallback error: {e}")
+
+    return out
 def parse_course_from_text(text: str) -> Dict:
     """Parse a free-form OCR text into a course dict (best-effort).
     Heuristics:

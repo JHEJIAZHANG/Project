@@ -22,3 +22,11 @@ gemini-api-472317-ef4a60500856.json
 
 /course-management 2/
 /classroomai/*.json
+
+*.json
+classroomai/*.json
+
+/.venv/
+/venv/
+/media/
+/.next/

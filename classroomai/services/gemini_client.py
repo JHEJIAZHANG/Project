@@ -1,4 +1,18 @@
 import os
+import google.generativeai as genai
+
+
+def _configure():
+    """Configure and return the google.generativeai module.
+    支援環境變數名稱：Gemini_API_KEY / GEMINI_API_KEY
+    """
+    api_key = os.getenv("Gemini_API_KEY") or os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise RuntimeError("Gemini_API_KEY/GEMINI_API_KEY not set")
+    genai.configure(api_key=api_key)
+    return genai
+
+import os
 import json
 from typing import List, Dict, Optional
 

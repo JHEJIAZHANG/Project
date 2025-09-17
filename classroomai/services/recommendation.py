@@ -19,9 +19,9 @@ def _debug(msg: str) -> None:
 
 
 def build_query(title: str, desc: str) -> str:
-    text = f"{title or ''} {desc or ''}"
+    text = f"{title or ''} {desc or ''}".strip()
     tokens = [w for w in text.split() if w and w not in STOPWORDS]
-    return (" ".join(tokens[:8]) + " tutorial explain").strip()
+    return (" ".join(tokens[:8]) + " tutorial").strip()
 
 
 # =====================
@@ -49,49 +49,50 @@ def _cache_set(query: str, items: List[Dict]) -> None:
         pass
 
 def _fetch_youtube(query: str) -> List[Dict]:
-    api_key = os.getenv("YOUTUBE_API_KEY") or os.getenv("YT_API_KEY")
-    if not api_key:
-        _debug("YOUTUBE_API_KEY / YT_API_KEY not set, skipping YouTube")
-        return []
-    url = (
-        "https://www.googleapis.com/youtube/v3/search?part=snippet&q="
-        + requests.utils.quote(query)
-        + f"&key={api_key}&type=video&maxResults=5"
-    )
-    last_err = None
-    for attempt in range(2):
-        try:
-            res = requests.get(url, timeout=10)
-            res.raise_for_status()
-            data = res.json()
-            items = data.get("items", [])
-            out = []
-            for item in items:
-                vid = item.get("id", {}).get("videoId")
-                snippet = item.get("snippet", {})
-                if not vid:
-                    continue
-                out.append(
-                    {
-                        "source": "youtube",
-                        "url": f"https://www.youtube.com/watch?v={vid}",
-                        "title": snippet.get("title", ""),
-                        "snippet": snippet.get("description", ""),
-                    }
-                )
-            return out
-        except Exception as e:
-            last_err = e
-            _debug(f"youtube attempt {attempt+1} failed: {e}")
-    _debug(f"youtube skipped after retries: {last_err}")
-    return []
+    # 回到簡化版：只提供 YouTube 搜尋連結
+    q = requests.utils.quote(query)
+    return [{
+        "source": "youtube",
+        "url": f"https://www.youtube.com/results?search_query={q}",
+        "title": f"YouTube: {query}",
+        "snippet": "YouTube 搜尋結果",
+    }]
+
+
+def _fetch_youtube_piped(query: str) -> List[Dict]:
+    # 已不使用，保留空實作避免引用錯誤
+    return _fetch_youtube(query)
+
+
+def fallback_wiki_and_video(query: str) -> List[Dict]:
+    """Return at least one Wikipedia link and one direct-play YouTube video.
+    Always safe (no exceptions) and independent of API keys.
+    """
+    out: List[Dict] = []
+    try:
+        yt = _fetch_youtube(query)  # may use piped
+        if yt:
+            out.append(yt[0])
+    except Exception as e:
+        _debug(f"fallback youtube error: {e}")
+    try:
+        q = requests.utils.quote(query)
+        out.append({
+            "source": "wikipedia",
+            "url": f"https://en.wikipedia.org/w/index.php?search={q}",
+            "title": f"Wikipedia: {query}",
+            "snippet": "Wikipedia 搜尋結果",
+        })
+    except Exception:
+        pass
+    return _ensure_minimum_items(query, out, min_items=2)
 
 
 def _ensure_minimum_items(query: str, items: List[Dict], min_items: int = 2) -> List[Dict]:
     """確保至少回傳 min_items 筆結果；若不足，補上通用搜尋連結。
     不依賴任何金鑰，避免前後端空白畫面。
     """
-    # 去重（以 url 為 key）
+    # 去重（以 url 為 key），保留 YouTube 搜尋與 Wikipedia
     seen = set()
     dedup: List[Dict] = []
     for it in items:
@@ -103,15 +104,9 @@ def _ensure_minimum_items(query: str, items: List[Dict], min_items: int = 2) -> 
     if len(dedup) >= min_items:
         return dedup
 
-    # 補通用搜尋連結（穩定無金鑰）
+    # 補：YouTube 搜尋 + Wikipedia 搜尋
     q = requests.utils.quote(query)
     fallbacks = [
-        {
-            "source": "search",
-            "url": f"https://www.google.com/search?q={q}",
-            "title": f"Google: {query}",
-            "snippet": "Google 搜尋結果"
-        },
         {
             "source": "youtube",
             "url": f"https://www.youtube.com/results?search_query={q}",
@@ -153,7 +148,7 @@ def fetch_candidates(query: str) -> List[Dict]:
             out += items
     except Exception:
         pass
-    # 2) YouTube
+    # 2) YouTube（含無金鑰管道）
     yt = _fetch_youtube(query)
     _debug(f"youtube items: {len(yt)}")
     out += yt

@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from django.utils import timezone
 from django.conf import settings
-from datetime import timedelta
+from datetime import timedelta, datetime
 import uuid
 import os
 import traceback
@@ -23,8 +23,8 @@ from .serializers import (
 )
 from user.models import LineProfile
 from .authentication import LineUserAuthentication
-from services.recommendation import build_query, fetch_candidates, rerank, diversify_by_source
-from services.importers import parse_courses_csv, parse_courses_ical
+from services.recommendation import build_query, fetch_candidates, rerank, diversify_by_source, fallback_wiki_and_video
+from services.importers import parse_courses_csv, parse_courses_ical, parse_courses_xlsx, parse_courses_xls
 
 
 class LineUserViewSetMixin:
@@ -106,17 +106,31 @@ class CourseViewSet(LineUserViewSetMixin, viewsets.ModelViewSet):
             return CourseV2.objects.filter(user=line_profile)
         return CourseV2.objects.none()
 
+    def create(self, request, *args, **kwargs):
+        try:
+            line_profile = self.get_line_profile()
+            if not line_profile:
+                return Response({'error': '無法獲取LINE用戶資料'}, status=status.HTTP_401_UNAUTHORIZED)
+
+            serializer = self.get_serializer(data=request.data)
+            if not serializer.is_valid():
+                return Response({'error': '資料驗證失敗', 'details': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+            # 寫入使用者並保存
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except Exception as e:
+            print("[courses.create] error:", e)
+            import traceback as _tb
+            _tb.print_exc()
+            return Response({'error': '建立課程失敗', 'message': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
     def perform_create(self, serializer):
         line_profile = self.get_line_profile()
+        serializer.save(user=line_profile)
         if line_profile:
-            serializer.save(user=line_profile)
             print(f"✅ 為用戶 {line_profile.name} ({line_profile.line_user_id}) 創建資料")
-        else:
-            # 提供更詳細的错誤信息
-            line_user_id = self.request.META.get('HTTP_X_LINE_USER_ID') or self.request.query_params.get('line_user_id')
-            error_msg = f"無法獲取LINE用戶資料 - 用戶ID: {line_user_id or 'None'}"
-            print(f"❌ {error_msg}")
-            raise ValueError(error_msg)
     
     @action(detail=False, methods=['post'], url_path='bulk-delete')
     def bulk_delete(self, request):
@@ -376,6 +390,85 @@ class AssignmentViewSet(LineUserViewSetMixin, viewsets.ModelViewSet):
         else:
             raise ValueError("無法獲取LINE用戶資料")
 
+    @action(detail=False, methods=['post'], url_path='quick-add')
+    def quick_add(self, request):
+        """一句話快速新增：例如「下週三晚上交 網路作業」
+        極簡解析：
+        - 先找日期關鍵詞（今天/明天/後天/下週X/週X/下週三等）
+        - 找時間（HH:MM / 晚上/下午 => 使用 20:00/15:00 預設）
+        - 其餘文字作為標題
+        """
+        line_profile = self.get_line_profile()
+        if not line_profile:
+            return Response({'error': '無法獲取LINE用戶資料'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        text = (request.data.get('text') or '').strip()
+        course_id = (request.data.get('course') or '').strip() or None
+        if not text:
+            return Response({'error': '請提供 text'}, status=status.HTTP_400_BAD_REQUEST)
+
+        import re
+        now = timezone.now()
+        due = None
+
+        # 日詞
+        m = re.search(r'(今天|明天|後天|下?週[一二三四五六日天])', text)
+        if m:
+            w = m.group(1)
+            delta = 0
+            if w == '明天':
+                delta = 1
+            elif w == '後天':
+                delta = 2
+            elif '週' in w or '天' in w:
+                mapw = {'一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'日':0,'天':0}
+                target = mapw[w[-1]]
+                cur = now.weekday() if now.weekday()!=6 else 0
+                # 下週或本週
+                k = (target - cur) % 7
+                if k == 0:
+                    k = 7
+                if w.startswith('下'):
+                    k += 7
+                delta = k
+            due_date = now + timedelta(days=delta)
+        else:
+            due_date = now + timedelta(days=2)
+
+        # 時間
+        t = re.search(r'(\d{1,2}):(\d{2})', text)
+        if t:
+            hh, mm = int(t.group(1)), int(t.group(2))
+        else:
+            if '晚上' in text or '夜' in text:
+                hh, mm = 20, 0
+            elif '下午' in text:
+                hh, mm = 15, 0
+            else:
+                hh, mm = 23, 59
+        due = due_date.replace(hour=hh, minute=mm, second=0, microsecond=0)
+
+        # 標題
+        title = re.sub(r'\s+', ' ', re.sub(r'(今天|明天|後天|下?週[一二三四五六日天])|\d{1,2}:\d{2}|(晚上|下午|早上)', '', text)).strip() or '未命名代辦'
+
+        # 若未指定課程，使用使用者第一門課；若不存在則自動建立「未分類」
+        if not course_id:
+            first = CourseV2.objects.filter(user=line_profile).only('id', 'title').first()
+            if not first:
+                first = CourseV2.objects.create(user=line_profile, title='未分類', description='', instructor='', classroom='')
+            course_id = str(first.id)
+
+        obj = AssignmentV2.objects.create(
+            user=line_profile,
+            course_id=course_id,
+            title=title[:255],
+            description='',
+            due_date=due,
+            type='assignment',
+            status='pending',
+        )
+        return Response(AssignmentSerializer(obj).data, status=201)
+
     @action(detail=True, methods=['post'])
     def status(self, request, pk=None):
         assignment = self.get_object()
@@ -395,62 +488,89 @@ class AssignmentViewSet(LineUserViewSetMixin, viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def recommendations(self, request, pk=None):
-        assignment = self.get_object()
-        title = assignment.title or ""
-        desc = assignment.description or ""
-        # 支援自訂搜尋字串：若帶 q，則直接用 q 取代作業推導的查詢
-        user_q = (request.query_params.get('q') or '').strip()
-        if user_q:
-            query = user_q
-            print(f"[rec] override query via 'q': {query}")
-            assignment_text = user_q
-        else:
-            query = build_query(title, desc)
-            assignment_text = f"{title} {desc}"
-
-        candidates = fetch_candidates(query)
-        # 無條件列印來源統計，便於直接觀察
-        print(f"[rec] candidates total={len(candidates)} by source:")
-        tmp = {}
-        for it in candidates:
-            s = (it.get('source') or '').lower()
-            tmp[s] = tmp.get(s, 0) + 1
-        print(f"[rec] candidates sources: {tmp}")
-
-        ranked = rerank(assignment_text, candidates)
-        print(f"[rec] ranked total={len(ranked)}")
-
         try:
-            limit = int(request.query_params.get('limit', '6'))
-        except Exception:
-            limit = 6
-        try:
-            per_source = int(request.query_params.get('per_source', '3'))
-        except Exception:
-            per_source = 3
+            assignment = self.get_object()
+            title = assignment.title or ""
+            desc = assignment.description or ""
+            user_q = (request.query_params.get('q') or '').strip()
+            if user_q:
+                query = user_q
+                print(f"[rec] override query via 'q': {query}")
+                assignment_text = user_q
+            else:
+                query = build_query(title, desc)
+                assignment_text = f"{title} {desc}"
 
-        # 允許僅查看特定來源，便於除錯（perplexity / youtube）
-        only = (request.query_params.get('only') or '').lower().strip()
-        if only in {'perplexity', 'youtube'}:
-            ranked = [it for it in ranked if (it.get('source') or '').lower() == only]
-            print(f"[rec] ONLY filter applied: {only}, items={len(ranked)}")
+            try:
+                candidates = fetch_candidates(query)
+            except Exception as e:
+                print(f"[rec] fetch_candidates error: {e}")
+                candidates = []
+            print(f"[rec] candidates total={len(candidates)} by source:")
+            tmp = {}
+            for it in candidates:
+                s = (it.get('source') or '').lower()
+                tmp[s] = tmp.get(s, 0) + 1
+            print(f"[rec] candidates sources: {tmp}")
 
-        diversified = diversify_by_source(ranked, max_total=limit, per_source_limit=per_source)
-        print(f"[rec] diversified total={len(diversified)} per_source={per_source} limit={limit}")
+            try:
+                ranked = rerank(assignment_text, candidates)
+            except Exception as e:
+                print(f"[rec] rerank error: {e}")
+                ranked = candidates
+            print(f"[rec] ranked total={len(ranked)}")
 
-        # 來源統計，便於檢查是否有使用到 perplexity / wikipedia 等
-        src_counts = {}
-        for it in diversified:
-            src = (it.get("source") or "").lower()
-            src_counts[src] = src_counts.get(src, 0) + 1
-        print(f"[rec] diversified sources: {src_counts}")
+            try:
+                limit = int(request.query_params.get('limit', '6'))
+            except Exception:
+                limit = 6
+            try:
+                per_source = int(request.query_params.get('per_source', '3'))
+            except Exception:
+                per_source = 3
 
-        return Response({
-            "assignment": str(assignment.id),
-            "query": query,
-            "results": diversified,
-            "meta": {"sources": src_counts}
-        })
+            only = (request.query_params.get('only') or '').lower().strip()
+            if only in {'perplexity', 'youtube'}:
+                ranked = [it for it in ranked if (it.get('source') or '').lower() == only]
+                print(f"[rec] ONLY filter applied: {only}, items={len(ranked)}")
+
+            try:
+                diversified = diversify_by_source(ranked, max_total=limit, per_source_limit=per_source)
+            except Exception as e:
+                print(f"[rec] diversify error: {e}")
+                diversified = ranked[:limit]
+            print(f"[rec] diversified total={len(diversified)} per_source={per_source} limit={limit}")
+
+            src_counts = {}
+            for it in diversified:
+                src = (it.get("source") or "").lower()
+                src_counts[src] = src_counts.get(src, 0) + 1
+            print(f"[rec] diversified sources: {src_counts}")
+
+            return Response({
+                "assignment": str(assignment.id),
+                "query": query,
+                "results": diversified,
+                "meta": {"sources": src_counts}
+            })
+        except Exception as e:
+            print("[rec] outer error:", e)
+            import traceback as _tb
+            _tb.print_exc()
+            # 絕不再 500，回保底資料
+            from services.recommendation import fallback_wiki_and_video
+            safe_query = request.query_params.get('q') or ''
+            fbq = safe_query or (getattr(assignment, 'title', '') or '')
+            try:
+                items = fallback_wiki_and_video(fbq or 'learning')
+            except Exception:
+                items = []
+            return Response({
+                "assignment": str(getattr(assignment, 'id', '')),
+                "query": fbq,
+                "results": items,
+                "meta": {"sources": {i.get('source','unknown'): 1 for i in items}}
+            }, status=200)
 
 
 # 筆記功能已整合至 course 應用中
@@ -657,6 +777,49 @@ class NoteViewSet(LineUserViewSetMixin, viewsets.ModelViewSet):
                     object_id=note.id
                 )
 
+    @action(detail=True, methods=['post'], url_path='ai/summary')
+    def ai_summary(self, request, pk=None):
+        from course.models import StudentNote
+        note = get_object_or_404(StudentNote, pk=pk)
+        # 取純文字：剝除 HTML 標籤
+        import re
+        html = (note.content or '')
+        text = re.sub(r'<br\s*/?>', '\n', html)
+        text = re.sub(r'<[^>]+>', ' ', text)
+        text = re.sub(r'\s+', ' ', text).strip()
+        summary = ''
+        keywords = []
+        try:
+            import os, json, re
+            if os.getenv('Gemini_API_KEY') or os.getenv('GEMINI_API_KEY'):
+                from services.gemini_client import _configure  # type: ignore
+                genai = _configure()
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                prompt = (
+                    'Summarize the following note in Traditional Chinese within 3 bullet points, '
+                    'and extract 3-6 comma-separated keywords. Output JSON only: '
+                    '{"summary":["...","...","..."],"keywords":["k1","k2"]}\n\n' + text
+                )
+                resp = model.generate_content([{ 'role': 'user', 'parts': [prompt] }])
+                raw = (resp.text or '').strip()
+                if raw.startswith('```json') and raw.endswith('```'):
+                    raw = raw[7:-3].strip()
+                data = json.loads(raw)
+                summary = '\n'.join(data.get('summary') or [])
+                keywords = data.get('keywords') or []
+            else:
+                clean = text
+                summary = clean[:200]
+                words = [w for w in re.split(r'[^\w\u4e00-\u9fa5]+', clean) if len(w) >= 2]
+                from collections import Counter
+                keywords = [w for w,_ in Counter(words).most_common(5)]
+        except Exception as e:
+            print('[ai_summary] error:', e)
+            summary = (text or '')[:200]
+            keywords = []
+
+        return Response({'id': str(note.id), 'summary': summary, 'keywords': keywords})
+
 
 class FileUploadViewSet(LineUserViewSetMixin, viewsets.ViewSet):
     permission_classes = []  # 簡化權限檢查
@@ -760,8 +923,12 @@ class FileUploadViewSet(LineUserViewSetMixin, viewsets.ViewSet):
                 items = parse_courses_csv(data)
             elif name.endswith('.ics') or name.endswith('.ical'):
                 items = parse_courses_ical(data)
+            elif name.endswith('.xlsx'):
+                items = parse_courses_xlsx(data)
+            elif name.endswith('.xls'):
+                items = parse_courses_xls(data)
             else:
-                return Response({'error': '不支援的檔案類型，請上傳 CSV 或 iCal(.ics)'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': '不支援的檔案類型，請上傳 CSV / iCal(.ics) / Excel(.xlsx/.xls)'}, status=status.HTTP_400_BAD_REQUEST)
 
             created = []
             for it in items:
