@@ -88,17 +88,28 @@ WSGI_APPLICATION = 'classroomai.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    "default": {
-        "ENGINE":"django.db.backends.mysql",
-        "NAME":os.getenv("DB_NAME"),
-        "USER":os.getenv("DB_USER"),
-        "PASSWORD":os.getenv("DB_PASSWORD"),
-        "HOST":os.getenv("DB_HOST"),
-        "PORT":os.getenv("DB_PORT"),
-        "OPTIONS":{"charset":"utf8mb4"},
+# 資料庫設定 - 優先使用環境變數，否則使用 SQLite 進行開發
+if os.getenv("DB_HOST"):
+    # 使用 MySQL（生產環境）
+    DATABASES = {
+        "default": {
+            "ENGINE":"django.db.backends.mysql",
+            "NAME":os.getenv("DB_NAME", "classroomai"),
+            "USER":os.getenv("DB_USER", "root"),
+            "PASSWORD":os.getenv("DB_PASSWORD", ""),
+            "HOST":os.getenv("DB_HOST"),
+            "PORT":os.getenv("DB_PORT", "3306"),
+            "OPTIONS":{"charset":"utf8mb4"},
+        }
     }
-}
+else:
+    # 使用 SQLite（開發環境）
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": os.path.join(BASE_DIR, "db.sqlite3"),
+        }
+    }
 
 
 # Password validation

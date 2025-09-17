@@ -10,6 +10,7 @@ from django.conf import settings
 from datetime import timedelta
 import uuid
 import os
+import traceback
 from .models import CourseV2, AssignmentV2, ExamV2, NoteV2, FileAttachment, CustomCategory, CustomTodoItem
 from .serializers import (
     CourseSerializer,
@@ -23,8 +24,7 @@ from .serializers import (
 from user.models import LineProfile
 from .authentication import LineUserAuthentication
 from services.recommendation import build_query, fetch_candidates, rerank, diversify_by_source
-from services.importers import parse_courses_csv, parse_courses_ical, parse_course_from_text
-from services.ocr import ocr_image_bytes
+from services.importers import parse_courses_csv, parse_courses_ical
 
 
 class LineUserViewSetMixin:
@@ -39,9 +39,17 @@ class LineUserViewSetMixin:
         # 從 HTTP 頭部獲取 LINE 用戶 ID
         line_user_id = self.request.META.get('HTTP_X_LINE_USER_ID')
         
+        # 某些瀏覽器或代理可能重複附帶 header，形如 "id1, id1"
+        if line_user_id and ',' in line_user_id:
+            line_user_id = line_user_id.split(',')[0].strip()
+        
         # 如果頭部中沒有，則從查詢參數獲取
         if not line_user_id:
             line_user_id = self.request.query_params.get('line_user_id')
+        
+        # 防呆：資料庫欄位長度 50，避免超長造成 500
+        if line_user_id:
+            line_user_id = line_user_id.strip()[:50]
             
         print(f"🔍 正在查找用戶: {line_user_id}")
             
@@ -56,26 +64,31 @@ class LineUserViewSetMixin:
             return line_profile
         except LineProfile.DoesNotExist:
             print(f"❓ 用戶不存在，嘗試創建: {line_user_id}")
-            # 自動創建測試用戶
+            # 允許任何提供的 ID（含 guest- / test_user_）自動建立訪客帳號，方便前端無 LINE 連結測試
+            default_name = '訪客使用者'
             if line_user_id.startswith('test_user_'):
-                # 為測試用戶設置默認顯示名稱
                 display_names = {
                     'test_user_001': '張三同學',
-                    'test_user_002': '李四老師', 
-                    'test_user_003': '王五助教'
+                    'test_user_002': '李四老師',
+                    'test_user_003': '王五助教',
                 }
-                display_name = display_names.get(line_user_id, f'測試用戶_{line_user_id[-3:]}')
-                
-                # 創建新的測試用戶
-                line_profile = LineProfile.objects.create(
-                    line_user_id=line_user_id,
-                    name=display_name,
-                    role='student'  # 設定預設角色
-                )
-                print(f"✅ 自動創建測試用戶: {display_name} ({line_user_id})")
-                return line_profile
-            print(f"❌ 無法創建用戶 (非測試用戶): {line_user_id}")
-            return None
+                default_name = display_names.get(line_user_id, f'測試用戶_{line_user_id[-3:]}')
+            elif line_user_id.startswith('guest-'):
+                default_name = '訪客使用者'
+            else:
+                # 其他自訂 ID 也允許建立，名稱以 ID 後三碼區分
+                try:
+                    default_name = f'訪客_{line_user_id[-3:]}'
+                except Exception:
+                    default_name = '訪客使用者'
+
+            line_profile = LineProfile.objects.create(
+                line_user_id=line_user_id,
+                name=default_name,
+                role='student'
+            )
+            print(f"✅ 自動創建用戶: {default_name} ({line_user_id})")
+            return line_profile
 
 
 class CourseViewSet(LineUserViewSetMixin, viewsets.ModelViewSet):
@@ -104,6 +117,107 @@ class CourseViewSet(LineUserViewSetMixin, viewsets.ModelViewSet):
             error_msg = f"無法獲取LINE用戶資料 - 用戶ID: {line_user_id or 'None'}"
             print(f"❌ {error_msg}")
             raise ValueError(error_msg)
+    
+    @action(detail=False, methods=['post'], url_path='bulk-delete')
+    def bulk_delete(self, request):
+        """
+        批量刪除課程
+        接受 course_ids 陣列作為請求體
+        """
+        line_profile = self.get_line_profile()
+        if not line_profile:
+            return Response(
+                {'error': '用戶未找到'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        course_ids = request.data.get('course_ids', [])
+        if not course_ids:
+            return Response(
+                {'error': '請提供要刪除的課程ID列表'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if not isinstance(course_ids, list):
+            return Response(
+                {'error': 'course_ids 必須是陣列格式'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 驗證課程ID格式
+        valid_course_ids = []
+        for course_id in course_ids:
+            try:
+                uuid.UUID(course_id)
+                valid_course_ids.append(course_id)
+            except (ValueError, TypeError):
+                continue
+        
+        if not valid_course_ids:
+            return Response(
+                {'error': '無效的課程ID格式'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 查找並刪除課程
+        courses_to_delete = CourseV2.objects.filter(
+            id__in=valid_course_ids,
+            user=line_profile
+        )
+        
+        deleted_count = courses_to_delete.count()
+        if deleted_count == 0:
+            return Response(
+                {'error': '未找到要刪除的課程'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # 執行刪除
+        courses_to_delete.delete()
+        
+        return Response({
+            'message': f'成功刪除 {deleted_count} 門課程',
+            'deleted_count': deleted_count,
+            'deleted_course_ids': valid_course_ids[:deleted_count]
+        }, status=status.HTTP_200_OK)
+    
+    @action(detail=False, methods=['delete'], url_path='delete-all')
+    def delete_all(self, request):
+        """
+        刪除用戶的所有課程
+        """
+        line_profile = self.get_line_profile()
+        if not line_profile:
+            return Response(
+                {'error': '用戶未找到'}, 
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+        
+        # 確認參數
+        confirm = request.query_params.get('confirm', 'false').lower()
+        if confirm != 'true':
+            return Response(
+                {'error': '請添加 ?confirm=true 參數來確認刪除所有課程'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # 獲取所有課程
+        all_courses = CourseV2.objects.filter(user=line_profile)
+        total_count = all_courses.count()
+        
+        if total_count == 0:
+            return Response(
+                {'message': '沒有課程需要刪除'}, 
+                status=status.HTTP_200_OK
+            )
+        
+        # 執行刪除
+        all_courses.delete()
+        
+        return Response({
+            'message': f'成功刪除所有 {total_count} 門課程',
+            'deleted_count': total_count
+        }, status=status.HTTP_200_OK)
 
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
@@ -663,35 +777,6 @@ class FileUploadViewSet(LineUserViewSetMixin, viewsets.ViewSet):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=False, methods=['post'])
-    def ocr_scan(self, request):
-        """對上傳圖片做 OCR，回傳 {engine, text}；
-        若帶參數 createCourse=true，則嘗試解析為 CourseV2 並建立課程。
-        """
-        line_profile = self.get_line_profile()
-        if not line_profile:
-            return Response({'error': '無法獲取LINE用戶資料'}, status=status.HTTP_401_UNAUTHORIZED)
-
-        if 'file' not in request.FILES:
-            return Response({'error': '沒有上傳檔案'}, status=status.HTTP_400_BAD_REQUEST)
-        file = request.FILES['file']
-        data = file.read()
-        try:
-            result = ocr_image_bytes(data)
-            if str(request.query_params.get('createCourse', 'false')).lower() in {'1','true','yes'}:
-                parsed = parse_course_from_text(result.get('text',''))
-                if parsed.get('title'):
-                    obj = CourseV2.objects.create(
-                        user=line_profile,
-                        title=parsed.get('title',''),
-                        description=parsed.get('description',''),
-                        instructor=parsed.get('instructor',''),
-                        classroom=parsed.get('classroom','')
-                    )
-                    result['createdCourseId'] = str(obj.id)
-            return Response(result)
-        except Exception as e:
-            return Response({'engine': 'none', 'text': '', 'error': str(e)}, status=status.HTTP_200_OK)
         
     @action(detail=False, methods=['post'])
     def presign(self, request):
