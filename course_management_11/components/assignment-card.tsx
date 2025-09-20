@@ -18,6 +18,7 @@ import { CheckIcon, ClockIcon, ExclamationIcon } from "@/components/icons"
 import type { Assignment, Course } from "@/types/course"
 import { getDaysDifferenceTaiwan, isTodayTaiwan, isTomorrowTaiwan } from "@/lib/taiwan-time"
 
+// AssignmentCardProps 為組件參數的型別，包含作業資料、課程資料與多個事件回調函式
 interface AssignmentCardProps {
   assignment: Assignment
   course?: Course
@@ -27,6 +28,7 @@ interface AssignmentCardProps {
   onViewDetail?: () => void
 }
 
+// AssignmentCard 元件，展示單筆作業的卡片 UI，根據作業狀態改變外觀與圖示
 export function AssignmentCard({
   assignment,
   course,
@@ -35,9 +37,11 @@ export function AssignmentCard({
   onDelete,
   onViewDetail,
 }: AssignmentCardProps) {
+  // 本地狀態：控制刪除確認對話框與描述欄位顯示
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showDescription, setShowDescription] = useState(false)
 
+  // 根據作業狀態及到期日，回傳對應的顏色 class 用於樣式
   const getStatusColor = (status: Assignment["status"], dueDate: Date) => {
     if (status === "completed") {
       return "text-green-700 bg-green-100 border-green-300 dark:text-green-300 dark:bg-green-900/30 dark:border-green-700/50"
@@ -61,6 +65,7 @@ export function AssignmentCard({
     return "text-blue-700 bg-blue-100 border-blue-300 dark:text-blue-300 dark:bg-blue-900/30 dark:border-blue-700/50"
   }
 
+  // 根據狀態返回對應的圖示組件
   const getStatusIcon = (status: Assignment["status"]) => {
     switch (status) {
       case "completed":
@@ -72,6 +77,7 @@ export function AssignmentCard({
     }
   }
 
+  // 根據作業狀態回傳對應的中文狀態文字
   const getStatusText = (status: Assignment["status"]) => {
     switch (status) {
       case "completed":
@@ -83,6 +89,7 @@ export function AssignmentCard({
     }
   }
 
+  // 計算並回傳離截止日的天數描述（含今天、明天、已逾期文字）
   const getDaysUntilDue = () => {
     const daysUntilDue = getDaysDifferenceTaiwan(new Date(), assignment.dueDate)
 
@@ -92,8 +99,10 @@ export function AssignmentCard({
     return `${daysUntilDue}天後到期`
   }
 
+  // 取得目前狀態的圖示組件
   const StatusIcon = getStatusIcon(assignment.status)
 
+  // 處理卡片點擊事件，如果點擊到按鈕或超連結則不執行，如果有描述欄位則顯示/隱藏
   const handleCardClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("button") || (e.target as HTMLElement).closest("a")) {
       return
@@ -103,27 +112,32 @@ export function AssignmentCard({
     }
   }
 
+  // 點擊刪除按鈕時停止事件冒泡，並顯示刪除確認對話框
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     setShowDeleteDialog(true)
   }
 
+  // 確認刪除時觸發傳入的刪除回調，並關閉對話框
   const handleDeleteConfirm = () => {
     onDelete?.()
     setShowDeleteDialog(false)
   }
 
+  // 切換描述欄位的展開與隱藏，避免事件冒泡
   const handleToggleDescription = (e: React.MouseEvent) => {
     e.stopPropagation()
     setShowDescription(!showDescription)
   }
 
+  // JSX 回傳：組件的 UI 結構
   return (
     <>
       <Card
         className={`p-5 cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 ease-out hover:bg-white/90 dark:hover:bg-slate-900/90`}
         onClick={handleCardClick}
       >
+        {/* 作業標題區與狀態圖示 */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-start gap-4 flex-1">
             <StatusIcon
@@ -141,6 +155,7 @@ export function AssignmentCard({
                   </span>
                 )}
               </div>
+              {/* 描述欄位，點擊可展開與隱藏 */}
               {assignment.description && showDescription && (
                 <div className="mt-3">
                   <p className="text-sm text-muted-foreground leading-relaxed">{assignment.description}</p>
@@ -150,6 +165,7 @@ export function AssignmentCard({
           </div>
         </div>
 
+        {/* 作業狀態及截止時間區塊 */}
         <div
           className={`flex items-center justify-between p-4 rounded-2xl border-2 ${getStatusColor(assignment.status, assignment.dueDate)}`}
         >
@@ -165,6 +181,7 @@ export function AssignmentCard({
             </p>
           </div>
 
+          {/* 若狀態為 pending，顯示距離截止的天數 */}
           {assignment.status === "pending" && (
             <div className="text-right">
               <p className="text-xs font-semibold text-foreground">{getDaysUntilDue()}</p>
@@ -172,6 +189,7 @@ export function AssignmentCard({
           )}
         </div>
 
+        {/* 操作按鈕：根據不同狀態顯示標記完成、標記未完成、查看詳情、編輯及刪除 */}
         <div className="flex gap-2 mt-4">
           {(assignment.status === "pending" || assignment.status === "overdue") && (
             <Button
@@ -221,6 +239,7 @@ export function AssignmentCard({
         </div>
       </Card>
 
+      {/* 刪除作業時彈跳的確認對話框 */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
