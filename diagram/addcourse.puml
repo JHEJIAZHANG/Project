@@ -1,0 +1,31 @@
+@startuml
+actor User
+participant "ClassroomAI " as System
+database "資料庫" as DB
+participant "Google Classroom" as GC
+
+User -> System : 開啟課表介面
+User -> System : 點選「新增課程」
+User -> System : 輸入課程名稱/時間/地點/老師
+User -> System : (可選)輸入 Google Classroom 課程代碼
+User -> System : 選擇上課週期
+User -> System : 確認送出
+
+System -> System : 驗證內容合法性
+alt 驗證失敗
+    System -> User : 顯示新增失敗訊息
+else 驗證成功
+    System -> System : 檢查是否有時間衝突
+    alt 有衝突
+        System -> User : 回傳錯誤訊息
+    else 無衝突
+        System -> DB : 儲存課程資料
+        DB --> System : 儲存成功
+        System -> User : 顯示新增成功訊息
+        opt 使用者有輸入 Google Classroom 代碼
+            System -> GC : 綁定 Google Classroom 課程
+            GC --> System : 回傳綁定結果
+        end
+    end
+end
+@enduml

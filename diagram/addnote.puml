@@ -1,0 +1,21 @@
+@startuml
+actor User
+participant "ClassroomAI " as System
+database "資料庫" as DB
+
+User -> System : 開啟筆記事項介面
+User -> System : 點選「新增筆記」
+User -> System : 輸入筆記名稱/內容/關聯課程
+User -> System : 上傳檔案或圖片(可選)
+User -> System : 確認送出
+
+System -> System : 驗證內容合法性
+alt 驗證失敗
+    System -> User : 顯示新增失敗訊息
+else 驗證成功
+    System -> DB : 儲存筆記資料
+    DB -> System : 儲存成功
+    System -> User : 顯示新增成功訊息
+
+end
+@enduml

@@ -1,0 +1,29 @@
+@startuml
+actor 使用者
+participant ClassroomAI as System
+database 資料庫 as DB
+
+
+使用者 -> System: 開啟課表頁面
+System -> DB: 查詢課表資料
+DB -> System: 傳回課表資料
+System -> 使用者: 顯示課表資料
+
+使用者 -> System: 點擊欲編輯之課程
+使用者 -> System: 修改課程名稱/時間/地點/老師資訊
+使用者 -> System: 確認送出
+
+System -> System: 驗證內容合法性
+alt 驗證不通過
+    System -> 使用者: 回傳錯誤訊息 (更新失敗)
+else 驗證通過
+    System -> System: 檢查是否有時間衝突
+    alt 有時間衝突
+        System -> 使用者: 顯示更新失敗訊息
+    else 無時間衝突
+        System -> DB: 覆蓋舊資料並儲存新內容
+        DB -> System: 儲存成功
+        System -> 使用者: 顯示更新成功訊息
+    end
+end
+@enduml

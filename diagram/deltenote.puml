@@ -1,0 +1,18 @@
+@startuml
+actor 使用者
+participant ClassroomAI as System
+database 資料庫 as DB
+
+
+使用者 -> System: 開啟筆記頁面
+System -> DB: 查詢筆記資料
+DB -> System: 傳回筆記資料
+System -> 使用者: 顯示筆記資料
+
+使用者 -> System: 點擊欲刪除之筆記
+使用者 -> System: 按下刪除按鈕
+
+System -> DB: 刪除筆記和附加檔案檔案
+DB -> System: 刪除成功
+System -> 使用者: 通知刪除成功
+@enduml

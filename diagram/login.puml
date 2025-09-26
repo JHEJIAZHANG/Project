@@ -1,0 +1,18 @@
+@startuml
+actor User
+participant "ClassroomAI System" as System
+participant "Google 驗證服務" as Google
+
+User -> System : 開啟 Line 頁面
+User -> System : 加入 Line Bot
+
+System -> Google : 導向 Google 登入
+Google -> User : 輸入帳號密碼
+User -> Google : 提交帳號密碼
+
+Google -> System : 驗證成功並回傳 Token
+System -> System : 驗證 Token
+System -> System : 綁定帳號
+System -> User : 登入成功訊息
+
+@enduml

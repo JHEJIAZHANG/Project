@@ -1,0 +1,12 @@
+@startuml
+actor 使用者
+participant ClassroomAI as System
+database 資料庫 as DB
+
+
+使用者 -> System: 開啟待辦事項頁面
+System -> DB: 查詢使用者待辦事項資料
+DB -> System: 回傳待辦事項資料
+System -> 使用者: 顯示待辦事項資料
+
+@enduml

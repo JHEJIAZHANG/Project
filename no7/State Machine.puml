@@ -1,0 +1,12 @@
+@startuml
+[*] --> NotLoggedIn
+
+NotLoggedIn --> Authenticating : loginWithLine()
+Authenticating --> AuthSuccess : authenticateUser(token)
+Authenticating --> AuthFailed : invalidToken
+
+AuthSuccess --> LoggedIn : sessionCreated
+AuthFailed --> NotLoggedIn : retry
+
+LoggedIn --> NotLoggedIn : logout()
+@enduml

@@ -1,0 +1,46 @@
+@startuml
+
+
+node "ClassroomAI" {
+node "用戶端" {
+  artifact "Line or LIFF" as client
+
+}
+  node "後端" {
+    component "API Gateway" as api
+    component "Application Service (Django/Node.js)" as app
+  }
+}
+
+database "資料庫" {
+  component "SQL (MySQL)" as db
+}
+
+node "外部服務" {
+  node "Line Platform" {
+    component "LineBot"
+    component "LineAuth"
+  }
+
+  node "Google Services" {
+    component "GoogleAuth"
+    component "GoogleCalendar"
+    component "GoogleClassroom"
+  }
+
+  node "AI Services" {
+    component "GeminiAI"
+  }
+}
+
+client --> app
+api --> app : Internal Call
+app --> db : JDBC/SQL
+
+app --> LineBot : sendNotification()
+app --> LineAuth : loginWithLine()
+app --> GoogleAuth : loginWithGoogle()
+app --> GoogleCalendar : syncSchedule()
+app --> GoogleClassroom : syncCourse()
+app --> GeminiAI : generateSummary()
+@enduml

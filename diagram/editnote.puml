@@ -1,0 +1,26 @@
+@startuml
+actor 使用者
+participant System
+database 資料庫 as DB
+
+
+使用者 -> System: 開啟筆記頁面
+System -> DB: 查詢筆記資料
+DB -> System: 傳回筆記資料
+System -> 使用者: 顯示筆記資料
+
+
+使用者 -> System: 點擊欲編輯之筆記
+使用者 -> System: 修改筆記名稱/內容/關聯課程
+使用者 -> System: 上傳檔案或圖片(可選)
+使用者 -> System: 確認送出
+
+System -> System: 驗證內容合法性
+alt 驗證不通過
+    System -> 使用者: 回傳錯誤訊息 (更新失敗)
+else 驗證通過
+    System -> DB: 覆蓋舊資料並儲存新內容
+    DB -> System: 儲存成功
+    System -> 使用者: 顯示更新成功訊息
+end
+@enduml

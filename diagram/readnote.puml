@@ -1,0 +1,17 @@
+@startuml
+actor 使用者
+participant ClassroomAI as System
+database 資料庫 as DB
+
+
+使用者 -> System: 開啟筆記頁面
+System -> DB: 查詢使用者筆記資料
+opt 筆記有附加檔案
+    System -> DB: 查詢附加檔案資料
+    DB -> System: 回傳附加檔案資料
+    System -> 使用者: 顯示附加檔案資料
+end
+DB -> System: 回傳筆記資料
+System -> 使用者: 顯示筆記資料
+
+@enduml

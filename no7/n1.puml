@@ -1,0 +1,28 @@
+@startuml
+title LIFF/LINE 身分識別與綁定流程
+
+[*] --> 未綁定
+
+state 未綁定 {
+  [*] --> LIFF初始化
+  LIFF初始化 --> 取得用戶資料 : LIFF.getProfile / getIDToken
+  取得用戶資料 --> 傳送標頭 : 前端附加 X-Line-User-Id
+  傳送標頭 --> 後端驗證 : DRF Authentication
+}
+
+後端驗證 --> 使用者已存在 : find_or_create_by_line_user_id
+後端驗證 --> 缺少標頭 : 缺少 X-Line-User-Id
+後端驗證 --> 無效標頭 : 無法解析/黑名單
+
+缺少標頭 --> 錯誤 : 401/400
+無效標頭 --> 錯誤 : 401
+
+使用者已存在 --> 已綁定 : 發放存取（session/jwt/headers）
+已綁定 --> [*]
+
+state 錯誤 #red {
+  [*] --> 提示修復
+  提示修復 --> LIFF初始化 : 使用者重試/重新登入
+}
+
+@enduml

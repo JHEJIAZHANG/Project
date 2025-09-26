@@ -1,0 +1,12 @@
+@startuml
+actor 使用者
+participant ClassroomAI as System
+database 資料庫 as DB
+
+
+使用者 -> System: 開啟課表頁面
+System -> DB: 查詢使用者課表資料
+DB -> System: 回傳課表資料
+System -> 使用者: 顯示課表資料
+
+@enduml
