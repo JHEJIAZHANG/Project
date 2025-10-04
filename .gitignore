@@ -1,0 +1,44 @@
+
+# frontend (do not commit)
+course-management 2/
+
+# ignore env and artifacts
+.env
+venv/
+.venv/
+logs/
+media/
+line_jwks.sqlite
+classroomai/classroomai/.env
+
+# google credentials (do not commit)
+Gemfile.lock
+# specific file
+gemini-api-472317-ef4a60500856.json
+# common patterns
+*service-account*.json
+*service_account*.json
+*credentials*.json
+*.secrets.json
+
+/course-management 2/
+/classroomai/*.json
+
+*.json
+classroomai/*.json
+
+/.venv/
+/venv/
+/media/
+/.next/
+
+classroomai/.env
+
+# macOS
+.DS_Store
+# Python
+__pycache__/
+*.pyc
+
+# macOS
+.DS_Store
