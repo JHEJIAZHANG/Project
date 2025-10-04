@@ -1,0 +1,139 @@
+{
+    "type": "bubble",
+    "header": {
+      "type": "box",
+      "layout": "vertical",
+      "contents": [
+        {
+          "type": "text",
+          "text": "🎉",
+          "size": "4xl",
+          "align": "center"
+        },
+        {
+          "type": "text",
+          "text": "註冊成功！",
+          "size": "xl",
+          "weight": "bold",
+          "color": "#ffffff",
+          "align": "center",
+          "margin": "md"
+        },
+        {
+          "type": "text",
+          "text": "歡迎 王小明 加入我們",
+          "size": "md",
+          "color": "#ffffff",
+          "align": "center",
+          "wrap": true,
+          "margin": "md"
+        }
+      ],
+      "backgroundColor": "#4CAF50"
+    },
+    "body": {
+      "type": "box",
+      "layout": "vertical",
+      "paddingAll": "24px",
+      "spacing": "lg",
+      "contents": [
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "spacing": "md",
+          "paddingAll": "16px",
+          "backgroundColor": "#F2F2F7",
+          "cornerRadius": "12px",
+          "margin": "none",
+          "contents": [
+            {
+              "type": "text",
+              "text": "👤",
+              "size": "xl",
+              "flex": 0
+            },
+            {
+              "type": "box",
+              "layout": "vertical",
+              "flex": 1,
+              "contents": [
+                {
+                  "type": "text",
+                  "text": "身份類型",
+                  "size": "sm",
+                  "color": "#8E8E93"
+                },
+                {
+                  "type": "text",
+                  "text": "📚 學生",
+                  "size": "md",
+                  "weight": "bold",
+                  "color": "#4CAF50",
+                  "margin": "xs"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "box",
+          "layout": "horizontal",
+          "spacing": "sm",
+          "paddingAll": "12px",
+          "backgroundColor": "#E8F5E8",
+          "cornerRadius": "8px",
+          "margin": "md",
+          "contents": [
+            {
+              "type": "text",
+              "text": "✅",
+              "flex": 0,
+              "size": "sm"
+            },
+            {
+              "type": "text",
+              "text": "帳號綁定完成",
+              "flex": 1,
+              "size": "sm",
+              "color": "#2E7D32",
+              "weight": "bold",
+              "wrap": true
+            }
+          ]
+        }
+      ]
+    },
+    "footer": {
+      "type": "box",
+      "layout": "vertical",
+      "contents": [
+        {
+          "type": "text",
+          "text": "🚀 準備開始使用",
+          "weight": "bold",
+          "size": "md",
+          "align": "center",
+          "margin": "md"
+        },
+        {
+          "type": "text",
+          "text": "💬 輸入「建立作業 ...」開始使用",
+          "size": "sm",
+          "align": "center",
+          "margin": "md"
+        },
+        {
+          "type": "text",
+          "text": "📋 或輸入「幫助」查看完整功能",
+          "color": "#8E8E93",
+          "size": "xs",
+          "align": "center"
+        }
+      ]
+    },
+    "styles": {
+      "footer": {
+        "separator": true
+      }
+    }
+  }
