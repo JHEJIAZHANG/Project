@@ -33,3 +33,9 @@ classroomai/*.json
 /.next/
 
 classroomai/.env
+
+# macOS
+.DS_Store
+# Python
+__pycache__/
+*.pyc
