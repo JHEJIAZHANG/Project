@@ -13,7 +13,8 @@ from user.models import LineProfile
 from services.classroom_sync_service import ClassroomSyncService, ClassroomSyncError
 from services.auto_sync_trigger import AutoSyncTrigger, SyncNotificationService
 from services.error_handler import handle_api_errors, rate_limit
-from services.calendar_sync_service import CalendarSyncService
+
+from services.preview_sync_service import PreviewSyncService
 
 logger = logging.getLogger(__name__)
 
@@ -40,6 +41,227 @@ def sync_classroom_to_v2(request):
                 "message": "缺少 line_user_id 參數",
                 "code": "MISSING_LINE_USER_ID"
             }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 驗證使用者存在
+        user = get_object_or_404(LineProfile, line_user_id=line_user_id)
+        
+        logger.info(f"Starting classroom sync to V2 for user: {line_user_id}")
+        
+        # 執行同步
+        classroom_service = ClassroomSyncService(line_user_id)
+        sync_result = classroom_service.sync_all_courses()
+        
+        if sync_result['success']:
+            logger.info(f"Classroom sync to V2 completed for user: {line_user_id}")
+            return Response({
+                "success": True,
+                "message": "Google Classroom 同步完成",
+                "data": sync_result
+            }, status=status.HTTP_200_OK)
+        else:
+            logger.warning(f"Classroom sync to V2 failed for user: {line_user_id}")
+            return Response({
+                "success": False,
+                "message": "Google Classroom 同步失敗",
+                "data": sync_result
+            }, status=status.HTTP_207_MULTI_STATUS)
+    
+    except ClassroomSyncError as e:
+        logger.error(f"Classroom sync service error for user {line_user_id}: {str(e)}")
+        return Response({
+            "error": "sync_service_error",
+            "message": str(e),
+            "code": "CLASSROOM_SYNC_SERVICE_ERROR"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    except Exception as e:
+        logger.error(f"Unexpected error during classroom sync for user {line_user_id}: {str(e)}")
+        return Response({
+            "error": "internal_error",
+            "message": "同步過程中發生未預期錯誤",
+            "details": str(e),
+            "code": "INTERNAL_ERROR"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@handle_api_errors
+@rate_limit(limit=5, window=300)  # 每5分鐘最多5次預覽同步
+def preview_sync_all(request):
+    """
+    預覽所有 Google 服務的同步資料（不寫入資料庫）
+    
+    POST /api/v2/sync/preview-sync-all/
+    {
+        "line_user_id": "U123456789"
+    }
+    """
+    try:
+        # 驗證請求參數
+        line_user_id = request.data.get('line_user_id')
+        if not line_user_id:
+            return Response({
+                "error": "missing_parameter",
+                "message": "缺少 line_user_id 參數",
+                "code": "MISSING_LINE_USER_ID"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 驗證使用者存在
+        user = get_object_or_404(LineProfile, line_user_id=line_user_id)
+        
+        logger.info(f"Starting preview sync for user: {line_user_id}")
+        
+        # 執行預覽同步
+        preview_service = PreviewSyncService(line_user_id)
+        preview_result = preview_service.preview_all_sync_data()
+        
+        if preview_result['success']:
+            logger.info(f"Preview sync completed for user: {line_user_id}")
+            return Response({
+                "success": True,
+                "message": "預覽同步完成",
+                "data": {
+                    "preview_data": preview_result,
+                    "user_id": line_user_id,
+                    "preview_time": timezone.now().isoformat()
+                }
+            }, status=status.HTTP_200_OK)
+        else:
+            logger.warning(f"Preview sync failed for user: {line_user_id}")
+            return Response({
+                "success": False,
+                "message": "預覽同步失敗",
+                "data": {
+                    "errors": preview_result.get('errors', []),
+                    "user_id": line_user_id
+                }
+            }, status=status.HTTP_207_MULTI_STATUS)
+    
+    except ClassroomSyncError as e:
+        logger.error(f"Preview sync service error for user {line_user_id}: {str(e)}")
+        return Response({
+            "error": "sync_service_error",
+            "message": str(e),
+            "code": "PREVIEW_SYNC_SERVICE_ERROR"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    except Exception as e:
+        logger.error(f"Unexpected error during preview sync for user {line_user_id}: {str(e)}")
+        return Response({
+            "error": "internal_error",
+            "message": "預覽同步過程中發生未預期錯誤",
+            "details": str(e),
+            "code": "INTERNAL_ERROR"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(["POST"])
+@permission_classes([AllowAny])
+@handle_api_errors
+@rate_limit(limit=5, window=300)  # 每5分鐘最多5次確認匯入
+def confirm_import(request):
+    """
+    確認匯入選擇的 Google Classroom 項目到資料庫
+    
+    POST /api/v2/sync/confirm-import/
+    {
+        "line_user_id": "U123456789",
+        "selected_items": {
+            "courses": ["course_id_1", "course_id_2"],
+            "assignments": ["assignment_id_1", "assignment_id_2"]
+        }
+    }
+    """
+    try:
+        # 驗證請求參數
+        line_user_id = request.data.get('line_user_id')
+        selected_items = request.data.get('selected_items', {})
+        
+        if not line_user_id:
+            return Response({
+                "error": "missing_parameter",
+                "message": "缺少 line_user_id 參數",
+                "code": "MISSING_LINE_USER_ID"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not selected_items:
+            return Response({
+                "error": "missing_parameter",
+                "message": "缺少 selected_items 參數",
+                "code": "MISSING_SELECTED_ITEMS"
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # 驗證使用者存在
+        user = get_object_or_404(LineProfile, line_user_id=line_user_id)
+        
+        logger.info(f"Starting confirm import for user: {line_user_id}")
+        
+        import_results = {
+            "classroom": {"success": False, "error": None}
+        }
+        
+        # 1. 匯入選擇的 Google Classroom 項目
+        selected_courses = selected_items.get('courses', [])
+        selected_assignments = selected_items.get('assignments', [])
+        
+        if selected_courses or selected_assignments:
+            try:
+                classroom_service = ClassroomSyncService(line_user_id)
+                
+                # 如果有選擇課程，進行選擇性同步
+                if selected_courses:
+                    classroom_result = classroom_service._selective_sync_courses(selected_courses)
+                    import_results["classroom"] = {
+                        "success": classroom_result.get('success', False),
+                        "courses_imported": len(selected_courses),
+                        "assignments_imported": classroom_result.get('assignments_synced', 0),
+                        "errors": classroom_result.get('errors', [])
+                    }
+                else:
+                    import_results["classroom"] = {
+                        "success": True,
+                        "courses_imported": 0,
+                        "assignments_imported": 0,
+                        "errors": []
+                    }
+                
+                logger.info(f"Classroom import completed for user: {line_user_id}")
+            except Exception as e:
+                import_results["classroom"]["error"] = str(e)
+                logger.error(f"Classroom import failed for user {line_user_id}: {str(e)}")
+        
+        # 計算整體成功狀態
+        overall_success = (
+            (not selected_courses and not selected_assignments) or import_results["classroom"]["success"]
+        )
+        
+        # 發送匯入通知
+        try:
+            SyncNotificationService.send_sync_notification(line_user_id, import_results, 'selective_import')
+        except Exception as e:
+            logger.warning(f"Failed to send import notification: {str(e)}")
+        
+        return Response({
+            "success": overall_success,
+            "message": "選擇性匯入完成" if overall_success else "匯入完成但有部分錯誤",
+            "data": {
+                "import_results": import_results,
+                "selected_items": selected_items,
+                "user_id": line_user_id,
+                "import_time": timezone.now().isoformat(),
+                "import_type": "selective"
+            }
+        }, status=status.HTTP_200_OK if overall_success else status.HTTP_207_MULTI_STATUS)
+    
+    except Exception as e:
+        logger.error(f"Unexpected error during confirm import for user {line_user_id}: {str(e)}")
+        return Response({
+            "error": "internal_error",
+            "message": "確認匯入過程中發生未預期錯誤",
+            "details": str(e),
+            "code": "INTERNAL_ERROR"
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
         # 驗證使用者存在
         user = get_object_or_404(LineProfile, line_user_id=line_user_id)

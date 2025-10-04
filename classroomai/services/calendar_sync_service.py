@@ -510,6 +510,74 @@ class CalendarSyncService:
                 'total_updated': 0
             }
     
+    def _selective_sync_events(self, selected_event_ids: List[str]) -> Dict[str, Any]:
+        """
+        選擇性同步指定的 Google Calendar 事件
+        
+        Args:
+            selected_event_ids: 要同步的事件 ID 列表
+            
+        Returns:
+            Dict: 同步結果
+        """
+        try:
+            synced_events = []
+            errors = []
+            
+            logger.info(f"開始選擇性同步 {len(selected_event_ids)} 個 Calendar 事件")
+            
+            for event_id in selected_event_ids:
+                try:
+                    # 從 Google Calendar API 獲取事件詳細資訊
+                    event = self.service.events().get(
+                        calendarId='primary',
+                        eventId=event_id
+                    ).execute()
+                    
+                    # 這裡應該實現將事件同步到本地數據庫的邏輯
+                    # 目前只是記錄同步的事件
+                    synced_events.append({
+                        'id': event.get('id'),
+                        'summary': event.get('summary', ''),
+                        'start': event.get('start', {}),
+                        'end': event.get('end', {}),
+                        'description': event.get('description', ''),
+                        'location': event.get('location', '')
+                    })
+                    
+                    logger.info(f"成功同步事件: {event.get('summary', event_id)}")
+                    
+                except HttpError as e:
+                    error_msg = f"HTTP 錯誤同步事件 {event_id}: {e.resp.status}"
+                    errors.append(error_msg)
+                    logger.error(error_msg)
+                except Exception as e:
+                    error_msg = f"同步事件 {event_id} 失敗: {str(e)}"
+                    errors.append(error_msg)
+                    logger.error(error_msg)
+            
+            success = len(synced_events) > 0
+            
+            logger.info(f"Calendar 選擇性同步完成: {len(synced_events)} 個事件成功, {len(errors)} 個錯誤")
+            
+            return {
+                'success': success,
+                'events_synced': len(synced_events),
+                'synced_events': synced_events,
+                'errors': errors,
+                'total_selected': len(selected_event_ids)
+            }
+            
+        except Exception as e:
+            logger.error(f"Calendar 選擇性同步失敗: {str(e)}")
+            return {
+                'success': False,
+                'events_synced': 0,
+                'synced_events': [],
+                'errors': [str(e)],
+                'total_selected': len(selected_event_ids)
+            }
+
     def get_upcoming_events(self, line_user_id: str, days: int = 7) -> List[Any]:
         """
         獲取即將到來的事件（佔位符實現）

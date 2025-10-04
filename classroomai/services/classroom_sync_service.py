@@ -141,7 +141,55 @@ class ClassroomSyncService:
             result['success'] = False
         
         return result
-    
+
+    def _selective_sync_courses(self, selected_course_ids: List[str]) -> Dict:
+        """
+        選擇性同步指定的課程
+        
+        Args:
+            selected_course_ids: 選擇的 Google Classroom 課程 ID 列表
+            
+        Returns:
+            Dict: 同步結果統計
+        """
+        logger.info(f"Starting selective sync for {len(selected_course_ids)} courses")
+        
+        result = {
+            'success': True,
+            'courses_synced': 0,
+            'assignments_synced': 0,
+            'errors': []
+        }
+        
+        try:
+            for google_course_id in selected_course_ids:
+                try:
+                    # 獲取課程資訊
+                    classroom_course = self._get_course_with_retry(google_course_id)
+                    
+                    # 同步單一課程
+                    course_result = self._sync_single_course_data(classroom_course)
+                    result['courses_synced'] += 1
+                    result['assignments_synced'] += course_result['assignments_synced']
+                    
+                    logger.info(f"Selective sync completed for course: {google_course_id}")
+                    
+                except Exception as e:
+                    error_msg = f"選擇性同步課程失敗 {google_course_id}: {str(e)}"
+                    logger.error(error_msg)
+                    result['errors'].append(error_msg)
+                    result['success'] = False
+            
+            logger.info(f"Selective sync completed. Courses: {result['courses_synced']}, Assignments: {result['assignments_synced']}")
+            
+        except Exception as e:
+            error_msg = f"選擇性同步過程發生未預期錯誤: {str(e)}"
+            logger.error(error_msg)
+            result['errors'].append(error_msg)
+            result['success'] = False
+        
+        return result
+
     def _sync_single_course_data(self, classroom_course: Dict) -> Dict:
         """
         同步單一課程的資料（內部方法）

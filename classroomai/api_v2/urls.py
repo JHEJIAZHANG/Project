@@ -50,6 +50,10 @@ urlpatterns = [
 
     path('sync/manual-sync-all/', sync_views.manual_sync_all, name='manual_sync_all'),
     
+    # 新的預覽同步 API
+    path('sync/preview-sync-all/', sync_views.preview_sync_all, name='preview_sync_all'),
+    path('sync/confirm-import/', sync_views.confirm_import, name='confirm_import'),
+    
     # Google Calendar API
     path('calendar/get_calendar_events/', calendar_views.get_calendar_events, name='get_calendar_events'),
     path('calendar/create_calendar_event/', calendar_views.create_calendar_event, name='create_calendar_event'),
