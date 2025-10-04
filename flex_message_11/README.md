@@ -17,6 +17,7 @@
 - **add_schedule.json** – 新增行程
 - **confirm_delete_schedule_multiple.json** – 確認是否刪除多項行程
 - **confirm_delete_schedule.json** – 確認是否刪除行程 
+- **registation.json** – 註冊成功 
 - **today_schedule.json** – 顯示今日行程  
 - **today_summary.json** – 顯示今日摘要  
 
@@ -31,6 +32,7 @@
 - **TodaySchedule.png** – 今日行程 Flex Message 預覽圖  
 - **TodaySummary.png** – 今日摘要 Flex Message 預覽圖  
 - **HomeworkNotice.png** – 作業通知 Flex Message 預覽圖  
+- **Registation.png** – 註冊成功 Flex Message 預覽圖
 - **GroupCourseBinding.png** – 群組課程成功綁定通知 Flex Message 預覽圖  
 - **CreateCourse(bubble).png** – 建立課程（bubble）Flex Message 預覽圖  
 - **CreateCourse(carousel).png** – 建立課程（carousel）Flex Message 預覽圖  
