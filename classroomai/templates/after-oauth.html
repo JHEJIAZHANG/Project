@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <title>註冊完成，正在返回課程管理…</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- 強制防快取：確保不會因為快取問題導致回到註冊頁 -->
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="Expires" content="0" />
+  <style>
+    body{display:flex;flex-direction:column;align-items:center;justify-content:center;
+         height:100vh;font-family:sans-serif;background:#f0f9ff}
+    .success-icon{font-size:4rem;margin-bottom:1rem}
+    .title{color:#059669;font-size:1.5rem;font-weight:bold;margin-bottom:0.5rem}
+    .message{color:#065f46;margin-bottom:1rem}
+    .link{color:#0369a1;text-decoration:none}
+    .link:hover{text-decoration:underline}
+  </style>
+</head>
+<body>
+  <div class="success-icon">🎉</div>
+  <h2 class="title">註冊完成！</h2>
+  <p class="message">正在返回課程管理應用…</p>
+  <a id="back" href="#" class="link">若未自動跳轉，請點此返回</a>
+
+  <script>
+    const qs = new URLSearchParams(location.search);
+    const liffId = qs.get('liff_id');
+    const status = qs.get('status') || 'success';
+    
+    // 註冊完成後，直接跳轉到課程管理首頁，不再經過註冊狀態檢查
+    // 使用 home 作為 redirect 參數，讓前端直接跳轉到首頁
+    const cacheBust = Date.now().toString();
+    const params = new URLSearchParams({ 
+      status: 'registered', 
+      redirect: 'home', 
+      cb: cacheBust,
+      registered: 'true'  // 明確標示已註冊完成
+    });
+
+    // 主要深連結（直接喚起 LINE App 內的 LIFF 並跳轉到首頁）
+    const lineDeepLink = `line://app/${liffId}?${params.toString()}`;
+    // HTTP 後備（若瀏覽器攔阻 line:// 協議，改用官方 HTTP 入口）
+    const lineHttpLink = `https://line.me/R/app/${liffId}?${params.toString()}`;
+
+    function returnToCourseManagement() {
+      try {
+        console.log('註冊完成，正在返回課程管理首頁...');
+        // 使用 replace 避免把此頁加入歷史紀錄
+        location.replace(lineDeepLink);
+        
+        // 若 1 秒內未成功跳轉，嘗試 HTTP 後備
+        setTimeout(() => {
+          console.log('嘗試 HTTP 後備連結...');
+          location.replace(lineHttpLink);
+        }, 1000);
+      } catch (e) {
+        console.error('跳轉失敗，使用最終後備方案:', e);
+        // 最終後備：導向 HTTP 入口
+        location.href = lineHttpLink;
+      }
+    }
+
+    // 1. 立即跳回 LINE 課程管理應用
+    returnToCourseManagement();
+
+    // 2. 1.5 秒後嘗試關閉分頁（可能被瀏覽器阻擋）
+    setTimeout(() => {
+      try { 
+        window.close(); 
+        console.log('嘗試關閉視窗');
+      } catch (e) {
+        console.log('無法關閉視窗:', e);
+      }
+    }, 1500);
+
+    // 3. 提供手動點擊備援（使用 HTTP 入口，成功率較高）
+    document.getElementById('back').href = lineHttpLink;
+    document.getElementById('back').onclick = function(e) {
+      e.preventDefault();
+      returnToCourseManagement();
+    };
+
+    // 4. 防止頁面被快取，確保每次都是最新的跳轉邏輯
+    window.addEventListener('pageshow', function(event) {
+      if (event.persisted) {
+        console.log('頁面從快取載入，重新執行跳轉邏輯');
+        returnToCourseManagement();
+      }
+    });
+  </script>
+</body>
+</html>
