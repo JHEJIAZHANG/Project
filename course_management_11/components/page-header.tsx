@@ -1,18 +1,48 @@
 import type React from "react"
+import { Button } from "@/components/ui/button"
+import { ArrowLeftIcon } from "@/components/icons"
+
 interface PageHeaderProps {
-  title: string
+  title: string | React.ReactNode
   subtitle?: string
   action?: React.ReactNode
+  onBack?: () => void
 }
 
-export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
+export function PageHeader({ title, subtitle, action, onBack }: PageHeaderProps) {
   return (
-    <header className="flex items-center justify-between mb-6 lg:mb-12">
-      <div>
-        <h1 className="text-2xl lg:text-4xl xl:text-5xl font-bold text-foreground text-balance">{title}</h1>
-        {subtitle && <p className="text-sm lg:text-lg xl:text-xl text-muted-foreground mt-1 lg:mt-3">{subtitle}</p>}
+    <header className="mb-6 lg:mb-12 animate-slide-down">
+      <div className="flex items-start justify-between gap-3 sm:gap-4 mobile-spacing">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+          {onBack && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={onBack} 
+              className="p-2 flex-shrink-0 hover-scale rounded-xl transition-all duration-300"
+            >
+              <ArrowLeftIcon className="w-5 h-5" />
+            </Button>
+          )}
+          <div className="min-w-0 flex-1">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl xl:text-4xl font-bold text-foreground text-balance leading-tight animate-fade-in">
+              {title}
+            </h1>
+            {subtitle && (
+              <p className="text-sm sm:text-base lg:text-lg text-muted-foreground mt-2 lg:mt-3 animate-slide-up">
+                {subtitle}
+              </p>
+            )}
+          </div>
+        </div>
+        {action && (
+          <div className="flex-shrink-0 animate-fade-in" style={{ animationDelay: '200ms' }}>
+            <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+              {action}
+            </div>
+          </div>
+        )}
       </div>
-      {action && <div>{action}</div>}
     </header>
   )
 }

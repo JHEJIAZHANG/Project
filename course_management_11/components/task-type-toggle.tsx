@@ -73,7 +73,7 @@ export function TaskTypeToggle({
   const [editingCategory, setEditingCategory] = useState<string | null>(null)
 
   const handleAddCategory = (name: string, icon: string) => {
-    console.log("[v0] Adding category:", { name, icon })
+
     if (onAddCategory) {
       onAddCategory(name, icon)
       setIsAdding(false)
@@ -81,7 +81,7 @@ export function TaskTypeToggle({
   }
 
   const handleEditCategory = (oldName: string, newName: string, newIcon: string) => {
-    console.log("[v0] Editing category:", { oldName, newName, newIcon })
+
     if (onEditCategory) {
       onEditCategory(oldName, newName, newIcon)
       setEditingCategory(null)

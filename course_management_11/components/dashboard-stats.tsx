@@ -1,5 +1,31 @@
 "use client"
+import { useEffect, useState } from "react"
 
+export default function LiveDashboardStats() {
+  const [payload, setPayload] = useState<{ ts: number; counter: number; message: string } | null>(null)
+  useEffect(() => {
+    const es = new EventSource("/api/stream")
+    es.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data)
+        setPayload(data)
+      } catch (err) {
+        console.error("SSE 解析失敗", err)
+      }
+    }
+    return () => es.close()
+  }, [])
+
+  return (
+    <div className="text-xs text-muted-foreground">
+      {payload ? (
+        <span>伺服器推送：{new Date(payload.ts).toLocaleTimeString()}（第 {payload.counter} 次）</span>
+      ) : (
+        <span>等待伺服器推送…</span>
+      )}
+    </div>
+  )
+}
 import { Card } from "@/components/ui/card"
 import { CalendarIcon, ClockIcon, ClipboardIcon, DocumentIcon } from "@/components/icons"
 import type { Course, Assignment, Note, Exam } from "@/types/course"

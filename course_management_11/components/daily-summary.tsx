@@ -2,8 +2,10 @@
 
 import { useState } from "react"
 import { Card } from "@/components/ui/card"
+import { EmptyStateSimple } from "@/components/empty-state"
 import { ChevronDownIcon, ChevronUpIcon } from "@/components/icons"
 import type { Course, Assignment, Exam } from "@/types/course"
+import { getTaiwanTime } from "@/lib/taiwan-time"
 
 interface DailySummaryProps {
   courses: Course[]
@@ -18,8 +20,11 @@ interface DailySummaryProps {
 export function DailySummary({ courses, assignments, exams, user }: DailySummaryProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
-  const today = new Date()
-  const todayDay = today.getDay()
+  const today = getTaiwanTime()
+  // 將 JavaScript 的 getDay() 結果轉換為後端格式
+  // JavaScript Date: 0=週日, 1=週一, 2=週二, 3=週三, 4=週四, 5=週五, 6=週六
+  // 我們的系統: 0=週一, 1=週二, 2=週三, 3=週四, 4=週五, 5=週六, 6=週日
+  const todayDay = today.getDay() === 0 ? 6 : today.getDay() - 1
 
   // Get today's courses
   const todayCourses = courses.filter((course) => course.schedule.some((slot) => slot.dayOfWeek === todayDay))
@@ -96,7 +101,9 @@ export function DailySummary({ courses, assignments, exams, user }: DailySummary
                 )}
               </p>
             ) : (
-              <p className="text-muted-foreground">今天沒有課程安排</p>
+              <div className="py-2">
+                <p className="text-muted-foreground text-sm">今天沒有課程安排</p>
+              </div>
             )}
           </div>
 
@@ -118,7 +125,9 @@ export function DailySummary({ courses, assignments, exams, user }: DailySummary
                 到期
               </p>
             ) : (
-              <p className="text-muted-foreground">今天沒有作業或考試到期</p>
+              <div className="py-2">
+                <p className="text-muted-foreground text-sm">今天沒有作業或考試到期</p>
+              </div>
             )}
           </div>
 

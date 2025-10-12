@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { ClockIcon, TrashIcon, CheckIcon, ChevronDownIcon, ChevronUpIcon } from "@/components/icons"
 import type { Course } from "@/types/course"
 import type { CustomCategoryItem } from "./custom-category-form"
-import { getDaysDifferenceTaiwan, isTodayTaiwan, isSameDayTaiwan } from "@/lib/taiwan-time"
+import { getDaysDifferenceTaiwan, isTodayTaiwan, isSameDayTaiwan, getTaiwanTime } from "@/lib/taiwan-time"
+import { useStatusUpdateFeedback } from "@/hooks/use-status-update-feedback"
 
 interface CustomCategoryCardProps {
   item: CustomCategoryItem
@@ -27,8 +28,10 @@ export function CustomCategoryCard({
   onDelete,
 }: CustomCategoryCardProps) {
   const [showDescription, setShowDescription] = useState(false)
+  const { executeWithFeedback, getUpdateState } = useStatusUpdateFeedback()
+  const isUpdating = getUpdateState(item.id).isUpdating
 
-  const today = new Date()
+  const today = getTaiwanTime()
   const daysUntilDue = getDaysDifferenceTaiwan(today, item.dueDate)
   const isOverdue = item.status === "overdue" || (item.status === "pending" && daysUntilDue < 0)
   const isDueToday = isSameDayTaiwan(item.dueDate, today)
@@ -89,6 +92,34 @@ export function CustomCategoryCard({
     setShowDescription(!showDescription)
   }
 
+  const handleStatusChange = async (e: React.MouseEvent, newStatus: "pending" | "completed") => {
+    e.stopPropagation()
+
+    const statusMessages = {
+      completed: "待辦事項已標記為完成",
+      pending: "待辦事項已標記為未完成",
+    }
+
+    try {
+      await executeWithFeedback(
+        item.id,
+        async () => {
+          await onStatusChange(item.id, newStatus)
+        },
+        {
+          successMessage: statusMessages[newStatus],
+          errorMessage: "狀態更新失敗，請稍後再試",
+        }
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (message.includes("操作進行中")) {
+        return
+      }
+      console.error("更新自訂待辦狀態失敗:", error)
+    }
+  }
+
   return (
     <Card
       className="p-5 cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 ease-out hover:bg-white/90 dark:hover:bg-slate-900/90"
@@ -141,7 +172,7 @@ export function CustomCategoryCard({
         <div>
           <p className={`text-sm font-semibold ${getStatusColor().split(" ")[0]}`}>{getStatusText()}</p>
           <p className="text-xs text-muted-foreground mt-1 font-medium">
-            {item.dueDate.toLocaleDateString("zh-TW")}{" "}
+            {item.dueDate.toLocaleDateString("zh-TW")} {" "}
             {item.dueDate.toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })}
           </p>
         </div>
@@ -158,10 +189,8 @@ export function CustomCategoryCard({
           <Button
             size="sm"
             variant="outline"
-            onClick={(e) => {
-              e.stopPropagation()
-              onStatusChange(item.id, "completed")
-            }}
+            onClick={(e) => handleStatusChange(e, "completed")}
+            disabled={isUpdating}
             className="flex-1 rounded-xl font-medium"
           >
             標記完成
@@ -171,10 +200,8 @@ export function CustomCategoryCard({
           <Button
             size="sm"
             variant="outline"
-            onClick={(e) => {
-              e.stopPropagation()
-              onStatusChange(item.id, "pending")
-            }}
+            onClick={(e) => handleStatusChange(e, "pending")}
+            disabled={isUpdating}
             className="flex-1 rounded-xl font-medium"
           >
             標記未完成

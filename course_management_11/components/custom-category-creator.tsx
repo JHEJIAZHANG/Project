@@ -59,7 +59,7 @@ export function CustomCategoryCreator({ onAddCategory, onCancel }: CustomCategor
 
   const handleSubmit = () => {
     if (categoryName.trim()) {
-      console.log("[v0] Submitting category:", { name: categoryName.trim(), icon: selectedIcon })
+  
       onAddCategory(categoryName.trim(), selectedIcon)
       setCategoryName("")
       setSelectedIcon("clipboard")
@@ -77,7 +77,7 @@ export function CustomCategoryCreator({ onAddCategory, onCancel }: CustomCategor
   const selectedIconData = AVAILABLE_ICONS.find((icon) => icon.id === selectedIcon)
   const SelectedIconComponent = selectedIconData?.icon || ClipboardIcon
 
-  console.log("[v0] Current selected icon:", { selectedIcon, selectedIconData })
+  
 
   return (
     <div className="flex items-center gap-2">
@@ -96,7 +96,7 @@ export function CustomCategoryCreator({ onAddCategory, onCancel }: CustomCategor
                   key={iconOption.id}
                   type="button"
                   onClick={() => {
-                    console.log("[v0] Icon selected:", iconOption.id)
+            
                     setSelectedIcon(iconOption.id)
                     setIsIconPickerOpen(false)
                   }}

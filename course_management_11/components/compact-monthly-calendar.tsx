@@ -4,13 +4,17 @@ import { useState, useEffect } from "react"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { getTaiwanTime } from "@/lib/taiwan-time"
+import { ApiService } from "@/services/apiService"
+import type { Assignment, Exam } from "@/types/course"
+import useSWR from "swr"
 
 interface CalendarEvent {
   id: string
   title: string
   date: Date
   time: string // Added time field for events
-  type: "assignment" | "exam" | "course" | "note"
+  type: "assignment" | "exam" | "course" | "note" | "google_event"
   color: string
 }
 
@@ -18,77 +22,15 @@ interface CompactMonthlyCalendarProps {
   className?: string
   selectedDate?: Date
   onDateSelect?: (date: Date) => void
+  assignments?: Assignment[]
+  exams?: Exam[]
 }
 
-export function CompactMonthlyCalendar({ className, selectedDate, onDateSelect }: CompactMonthlyCalendarProps) {
-  const [currentDate, setCurrentDate] = useState(new Date())
+export function CompactMonthlyCalendar({ className, selectedDate, onDateSelect, assignments = [], exams = [] }: CompactMonthlyCalendarProps) {
+  const [currentDate, setCurrentDate] = useState(getTaiwanTime())
+  // const [googleEvents, setGoogleEvents] = useState<CalendarEvent[]>([])
 
-  const defaultEvents: CalendarEvent[] = [
-    {
-      id: "1",
-      title: "數學作業",
-      date: new Date(2024, 11, 15), // December 15, 2024
-      time: "09:00", // Added time for each event
-      type: "assignment",
-      color: "bg-blue-500",
-    },
-    {
-      id: "2",
-      title: "英文考試",
-      date: new Date(2024, 11, 20), // December 20, 2024
-      time: "14:00",
-      type: "exam",
-      color: "bg-red-500",
-    },
-    {
-      id: "3",
-      title: "物理課程",
-      date: new Date(2024, 11, 18), // December 18, 2024
-      time: "10:30",
-      type: "course",
-      color: "bg-green-500",
-    },
-    {
-      id: "4",
-      title: "化學筆記",
-      date: new Date(2024, 11, 22), // December 22, 2024
-      time: "16:00",
-      type: "note",
-      color: "bg-yellow-500",
-    },
-    {
-      id: "5",
-      title: "歷史報告",
-      date: new Date(2024, 11, 25), // December 25, 2024
-      time: "11:00",
-      type: "assignment",
-      color: "bg-blue-500",
-    },
-    {
-      id: "6",
-      title: "生物實驗",
-      date: new Date(2024, 11, 28), // December 28, 2024
-      time: "13:30",
-      type: "course",
-      color: "bg-green-500",
-    },
-    {
-      id: "7",
-      title: "英文作業",
-      date: new Date(2024, 11, 15), // December 15, 2024 - same day as math
-      time: "15:30",
-      type: "assignment",
-      color: "bg-blue-500",
-    },
-    {
-      id: "8",
-      title: "科學筆記整理",
-      date: new Date(2024, 11, 15), // December 15, 2024 - same day
-      time: "19:00",
-      type: "note",
-      color: "bg-yellow-500",
-    },
-  ]
+  const defaultEvents: CalendarEvent[] = []
 
   useEffect(() => {
     if (selectedDate) {
@@ -96,15 +38,54 @@ export function CompactMonthlyCalendar({ className, selectedDate, onDateSelect }
     }
   }, [selectedDate])
 
-  const today = new Date()
+  const today = getTaiwanTime()
   const currentMonth = currentDate.getMonth()
   const currentYear = currentDate.getFullYear()
 
-  // Get first day of month and number of days
+  // 使用 SWR 載入當月 Google Calendar 事件（自動輪詢，避免整頁刷新）
+  const { data: googleEventsData } = useSWR(
+    ["google-events", currentYear, currentMonth],
+    async () => {
+      const monthStart = new Date(currentYear, currentMonth, 1)
+      const monthEnd = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59)
+      const response = await ApiService.getCalendarEvents({
+        time_min: monthStart.toISOString(),
+        time_max: monthEnd.toISOString(),
+        max_results: 250,
+      })
+      const rawEvents = Array.isArray(response.data?.data) ? (response.data!.data as any[]) : []
+      const mapped: CalendarEvent[] = rawEvents.map((ev) => {
+        const start = ev.start?.dateTime || ev.start?.date
+        const dateObj = start ? new Date(start) : new Date()
+        const timeStr = ev.start?.dateTime
+          ? new Date(ev.start.dateTime).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit" })
+          : "全天"
+        return {
+          id: ev.id,
+          title: ev.summary || "(無標題)",
+          date: dateObj,
+          time: timeStr,
+          type: "google_event",
+          color: "bg-red-500",
+        }
+      })
+      return mapped
+    },
+    {
+      refreshInterval: 60_000,
+      revalidateOnFocus: false,
+    }
+  )
+  const googleEvents = googleEventsData ?? []
+
+  // Get first day of month and number of days using Taiwan time
   const firstDayOfMonth = new Date(currentYear, currentMonth, 1)
   const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0)
   const daysInMonth = lastDayOfMonth.getDate()
-  const startingDayOfWeek = firstDayOfMonth.getDay()
+  
+  // Use Taiwan time to get the correct day of week
+  const taiwanFirstDay = new Date(firstDayOfMonth.getTime() + (8 * 60 * 60 * 1000)) // UTC+8
+  const startingDayOfWeek = taiwanFirstDay.getUTCDay()
 
   // Adjust for Monday start (0 = Sunday, 1 = Monday, etc.)
   const adjustedStartDay = startingDayOfWeek === 0 ? 6 : startingDayOfWeek - 1
@@ -147,26 +128,28 @@ export function CompactMonthlyCalendar({ className, selectedDate, onDateSelect }
     )
   }
 
-  const getEventsForDay = (day: number) => {
-    return defaultEvents.filter(
-      (event) =>
-        event.date.getDate() === day &&
-        event.date.getMonth() === currentMonth &&
-        event.date.getFullYear() === currentYear,
-    )
+  const getEventsCountForDay = (day: number) => {
+    const isSameDay = (d: Date) => d.getDate() === day && d.getMonth() === currentMonth && d.getFullYear() === currentYear
+    const googleCount = googleEvents.filter((e) => isSameDay(e.date)).length
+    const assignmentCount = assignments.filter((a) => isSameDay(a.dueDate)).length
+    const examCount = exams.filter((e) => isSameDay(e.examDate)).length
+    return googleCount + assignmentCount + examCount
   }
 
   const getDailySchedule = (date: Date) => {
-    const dayEvents = defaultEvents.filter(
+    const dayEvents = googleEvents.filter(
       (event) =>
         event.date.getDate() === date.getDate() &&
         event.date.getMonth() === date.getMonth() &&
-        event.date.getFullYear() === date.getFullYear() &&
-        event.type !== "course", // Exclude courses
+        event.date.getFullYear() === date.getFullYear()
     )
 
-    // Sort by time
-    return dayEvents.sort((a, b) => a.time.localeCompare(b.time))
+    // 依時間排序（將「全天」排在最前）
+    return dayEvents.sort((a, b) => {
+      if (a.time === "全天" && b.time !== "全天") return -1
+      if (a.time !== "全天" && b.time === "全天") return 1
+      return a.time.localeCompare(b.time)
+    })
   }
 
   const handleDateClick = (day: number) => {
@@ -190,43 +173,53 @@ export function CompactMonthlyCalendar({ className, selectedDate, onDateSelect }
   }
 
   return (
-    <div className={className}>
-      <Card className="p-3">
+    <div className={`w-full max-w-full space-y-2 sm:space-y-3 ${className}`}>
+      <Card className="p-3 sm:p-4 w-full max-w-full overflow-hidden">
         {/* Header with month navigation */}
-        <div className="flex items-center justify-between mb-3">
-          <Button variant="ghost" size="sm" onClick={goToPreviousMonth} className="h-7 w-7 p-0">
-            <ChevronLeftIcon className="h-4 w-4" />
+        <div className="flex items-center justify-between mb-3 sm:mb-4">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={goToPreviousMonth} 
+            className="h-8 w-8 sm:h-9 sm:w-9 p-0 shrink-0"
+          >
+            <ChevronLeftIcon className="h-4 w-4 sm:h-5 sm:w-5" />
           </Button>
 
-          <h3 className="font-medium text-sm">
+          <h3 className="font-medium text-sm sm:text-base text-center min-w-0 px-2">
             {currentYear}年 {monthNames[currentMonth]}
           </h3>
 
-          <Button variant="ghost" size="sm" onClick={goToNextMonth} className="h-7 w-7 p-0">
-            <ChevronRightIcon className="h-4 w-4" />
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={goToNextMonth} 
+            className="h-8 w-8 sm:h-9 sm:w-9 p-0 shrink-0"
+          >
+            <ChevronRightIcon className="h-4 w-4 sm:h-5 sm:w-5" />
           </Button>
         </div>
 
         {/* Day headers */}
-        <div className="grid grid-cols-7 gap-1 mb-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2 sm:mb-3">
           {dayNames.map((day) => (
-            <div key={day} className="text-center text-xs font-medium text-muted-foreground py-1">
+            <div key={day} className="text-center text-xs sm:text-sm font-medium text-muted-foreground py-1 sm:py-2">
               {day}
             </div>
           ))}
         </div>
 
         {/* Calendar grid */}
-        <div className="grid grid-cols-7 gap-1">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {calendarDays.map((day, index) => {
-            const dayEvents = day ? getEventsForDay(day) : []
+            const dayEventsCount = day ? getEventsCountForDay(day) : 0
 
             return (
               <div
                 key={index}
                 className={`
-                  aspect-square flex flex-col items-start justify-start text-xs rounded p-1 relative
-                  ${day === null ? "" : "hover:bg-accent cursor-pointer"}
+                  aspect-square flex flex-col items-center justify-center text-xs sm:text-sm rounded-md p-1 sm:p-2 relative min-h-[40px] sm:min-h-[48px]
+                  ${day === null ? "" : "hover:bg-accent cursor-pointer transition-colors duration-200"}
                   ${day === null ? "text-transparent" : ""}
                 `}
                 onClick={day ? () => handleDateClick(day) : undefined}
@@ -235,26 +228,25 @@ export function CompactMonthlyCalendar({ className, selectedDate, onDateSelect }
                   <>
                     <span
                       className={`
-                      ${isToday(day) ? "border border-primary rounded-full w-5 h-5 flex items-center justify-center text-primary font-medium" : ""}
-                      ${isSelected(day) && !isToday(day) ? "bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center font-medium" : ""}
-                    `}
+                        flex items-center justify-center font-medium transition-all duration-200
+                        ${isToday(day) 
+                          ? "bg-primary text-primary-foreground rounded-full w-6 h-6 sm:w-7 sm:h-7 text-xs sm:text-sm" 
+                          : ""
+                        }
+                        ${isSelected(day) && !isToday(day) 
+                          ? "border border-primary rounded-full w-6 h-6 sm:w-7 sm:h-7 text-primary text-xs sm:text-sm" 
+                          : ""
+                        }
+                        ${!isToday(day) && !isSelected(day) ? "text-xs sm:text-sm" : ""}
+                      `}
                     >
                       {day}
                     </span>
-                    {dayEvents.length > 0 && (
-                      <div className="flex flex-wrap gap-0.5 mt-0.5">
-                        {dayEvents.slice(0, 3).map((event, eventIndex) => (
-                          <div
-                            key={event.id}
-                            className={`w-1.5 h-1.5 rounded-full ${event.color}`}
-                            title={event.title}
-                          />
-                        ))}
-                        {dayEvents.length > 3 && (
-                          <div
-                            className="w-1.5 h-1.5 rounded-full bg-gray-400"
-                            title={`+${dayEvents.length - 3} more`}
-                          />
+                    {dayEventsCount > 0 && (
+                      <div className="flex items-center justify-center gap-1 mt-1 absolute bottom-1 left-1/2 transform -translate-x-1/2">
+                        <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-primary" title={`有 ${dayEventsCount} 個事件/作業`} />
+                        {dayEventsCount > 1 && (
+                          <span className="text-[10px] sm:text-xs text-primary font-medium">{dayEventsCount}</span>
                         )}
                       </div>
                     )}
@@ -267,23 +259,28 @@ export function CompactMonthlyCalendar({ className, selectedDate, onDateSelect }
       </Card>
 
       {selectedDate && (
-        <Card className="p-3 mt-3">
-          <h4 className="font-medium text-sm mb-3">
+        <Card className="p-3 sm:p-4 mt-3 sm:mt-4 w-full max-w-full overflow-hidden">
+          <h4 className="font-medium text-sm sm:text-base mb-3 sm:mb-4 text-center sm:text-left">
             {selectedDate.getMonth() + 1}月{selectedDate.getDate()}日 行程
           </h4>
-          <div className="space-y-2">
+          <div className="space-y-2 sm:space-y-3">
             {getDailySchedule(selectedDate).length > 0 ? (
-              getDailySchedule(selectedDate).map((event) => (
-                <div key={event.id} className="flex items-center gap-3 p-2 rounded-lg bg-muted/50">
-                  <div className={`w-3 h-3 rounded-full ${event.color}`} />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium">{event.title}</div>
-                    <div className="text-xs text-muted-foreground">{event.time}</div>
-                  </div>
+              getDailySchedule(selectedDate).map((item, index) => (
+                <div key={index} className="flex items-center gap-2 sm:gap-3 p-2 sm:p-3 bg-muted/50 rounded-md text-xs sm:text-sm">
+                  <div className={`w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full shrink-0 ${
+                    item.type === 'assignment' ? 'bg-blue-500' : 
+                    item.type === 'exam' ? 'bg-red-500' : 'bg-green-500'
+                  }`} />
+                  <span className="font-medium truncate flex-1">{item.title}</span>
+                  {item.time && (
+                    <span className="text-muted-foreground shrink-0 text-xs sm:text-sm">{item.time}</span>
+                  )}
                 </div>
               ))
             ) : (
-              <div className="text-sm text-muted-foreground text-center py-4">今日無行程</div>
+              <p className="text-muted-foreground text-center text-xs sm:text-sm py-3 sm:py-4">
+                今日沒有安排
+              </p>
             )}
           </div>
         </Card>

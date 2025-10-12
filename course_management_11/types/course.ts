@@ -6,33 +6,40 @@ export interface Course {
   classroom?: string
   studentCount?: number // 添加學生人數欄位
   schedule: {
-    dayOfWeek: number // 0-6 (Sunday-Saturday)
+    dayOfWeek: number // 0-6 (Monday-Sunday)
     startTime: string // HH:MM format
     endTime: string // HH:MM format
   }[]
   color: string
   createdAt: Date
   source?: "google_classroom" | "manual" // Added source field to distinguish between Google Classroom and manual courses
+  googleClassroomUrl?: string // Google Classroom 課程連結
 }
 
 export interface Assignment {
   id: string
   courseId: string
+  courseName?: string
   title: string
   description?: string
   dueDate: Date
   notificationTime?: Date
   status: "pending" | "completed" | "overdue"
+  priority?: "low" | "medium" | "high"
   googleClassroomId?: string
   googleClassroomUrl?: string
   source?: "manual" | "google_classroom"
+  createdAt?: Date
+  updatedAt?: Date
 }
 
 export interface Note {
   id: string
   courseId: string
+  courseName?: string
   title: string
   content: string
+  tags?: string[]
   attachments?: {
     id: string
     name: string
@@ -47,6 +54,7 @@ export interface Note {
 export interface Exam {
   id: string
   courseId: string
+  courseName?: string
   title: string
   description?: string
   examDate: Date
@@ -55,6 +63,8 @@ export interface Exam {
   location?: string
   type: "midterm" | "final" | "quiz" | "other"
   status: "pending" | "completed" | "overdue"
+  annotations?: string[] // 考試標註/重點標記
+  notes?: string // 考試筆記
   createdAt: Date
   updatedAt: Date
 }

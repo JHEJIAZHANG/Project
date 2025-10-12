@@ -1,355 +1,516 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import type { Course, Assignment, Note, Exam } from "@/types/course"
+import { ApiService } from "@/services/apiService"
+import { 
+  transformBackendCourse, 
+  transformFrontendCourse,
+  transformBackendAssignment,
+  transformFrontendAssignment,
+  transformBackendNote,
+  transformFrontendNote,
+  transformBackendExam,
+  transformFrontendExam
+} from "@/lib/dataTransform"
 
-const STORAGE_KEY = "course-management-data"
+export function useCourses(lineUserId: string) {
+  const [courses, setCourses] = useState<Course[]>([])
+  const [assignments, setAssignments] = useState<Assignment[]>([])
+  const [notes, setNotes] = useState<Note[]>([])
+  const [exams, setExams] = useState<Exam[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-interface CourseData {
-  courses: Course[]
-  assignments: Assignment[]
-  notes: Note[]
-  exams: Exam[] // 新增考試數據
-}
+  // 載入所有資料
+  const fetchAllData = useCallback(async () => {
+    if (!lineUserId) {
+      console.log('❌ 沒有 lineUserId，跳過載入')
+      return
+    }
 
-const defaultData: CourseData = {
-  courses: [
-    {
-      id: "gc-1",
-      name: "計算機概論",
-      courseCode: "CS101",
-      instructor: "張教授",
-      classroom: "資訊大樓 201",
-      studentCount: 45,
-      schedule: [], // Google Classroom courses don't have schedule initially
-      color: "#3b82f6",
-      createdAt: new Date("2024-09-01"),
-      source: "google_classroom",
-    },
-    {
-      id: "gc-2",
-      name: "資料結構與演算法",
-      courseCode: "CS201",
-      instructor: "李教授",
-      classroom: "資訊大樓 305",
-      studentCount: 38,
-      schedule: [], // Google Classroom courses don't have schedule initially
-      color: "#10b981",
-      createdAt: new Date("2024-09-01"),
-      source: "google_classroom",
-    },
-    {
-      id: "manual-1",
-      name: "英文會話",
-      instructor: "王老師",
-      classroom: "語言中心 A102",
-      schedule: [
-        {
-          dayOfWeek: 2, // Tuesday
-          startTime: "14:00",
-          endTime: "15:30",
-        },
-        {
-          dayOfWeek: 4, // Thursday
-          startTime: "14:00",
-          endTime: "15:30",
-        },
-      ],
-      color: "#f59e0b",
-      createdAt: new Date("2024-09-05"),
-      source: "manual",
-    },
-  ],
-  assignments: [
-    // Google Classroom assignments
-    {
-      id: "gc-assign-1",
-      courseId: "gc-1",
-      title: "程式設計基礎練習",
-      description:
-        "完成 Python 基礎語法練習題，包含變數、迴圈、條件判斷等概念。請在 Google Classroom 上提交程式碼檔案。",
-      dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
-      status: "pending" as const,
-      source: "google_classroom",
-      googleClassroomId: "gc_assignment_001",
-      googleClassroomUrl: "https://classroom.google.com/c/NjA2NTg4NzE2NzNa/a/NjA2NTg4NzE2NzNa",
-    },
-    {
-      id: "gc-assign-2",
-      courseId: "gc-1",
-      title: "資料庫設計報告",
-      description: "設計一個小型資料庫系統，包含 ER 圖和正規化過程。報告需包含至少 5 個實體和相關關係。",
-      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 1 week from now
-      status: "pending" as const,
-      source: "google_classroom",
-      googleClassroomId: "gc_assignment_002",
-      googleClassroomUrl: "https://classroom.google.com/c/NjA2NTg4NzE2NzNa/a/NjA2NTg4NzE2NzRa",
-    },
-    {
-      id: "gc-assign-3",
-      courseId: "gc-2",
-      title: "二元搜尋樹實作",
-      description: "使用 C++ 實作二元搜尋樹，包含插入、刪除、搜尋功能。需要處理平衡問題並提供完整的測試案例。",
-      dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000), // 10 days from now
-      status: "pending" as const,
-      source: "google_classroom",
-      googleClassroomId: "gc_assignment_003",
-      googleClassroomUrl: "https://classroom.google.com/c/NjA2NTg4NzE2NzRa/a/NjA2NTg4NzE2NzRa",
-    },
-    {
-      id: "gc-assign-4",
-      courseId: "gc-2",
-      title: "演算法複雜度分析",
-      description: "分析常見排序演算法的時間複雜度和空間複雜度，包含 Bubble Sort、Quick Sort、Merge Sort 等。",
-      dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days from now
-      status: "completed" as const,
-      source: "google_classroom",
-      googleClassroomId: "gc_assignment_004",
-      googleClassroomUrl: "https://classroom.google.com/c/NjA2NTg4NzE2NzRa/a/NjA2NTg4NzE2NzVa",
-    },
-    // Manual assignments
-    {
-      id: "manual-assign-1",
-      courseId: "manual-1",
-      title: "英文口語報告準備",
-      description: "準備 5 分鐘的英文口語報告，主題為「我的興趣愛好」。需要準備投影片並練習發音。",
-      dueDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000), // 4 days from now
-      status: "pending" as const,
-      source: "manual",
-    },
-    {
-      id: "manual-assign-2",
-      courseId: "manual-1",
-      title: "英文作文練習",
-      description: "撰寫一篇 300 字的英文作文，主題為「科技對生活的影響」。注意文法和詞彙的使用。",
-      dueDate: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000), // 6 days from now
-      status: "pending" as const,
-      source: "manual",
-    },
-    {
-      id: "manual-assign-3",
-      courseId: "gc-1",
-      title: "期中專題企劃書",
-      description: "提交期中專題的企劃書，包含專題目標、技術選擇、時程規劃等內容。需要老師面談確認。",
-      dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 2 weeks from now
-      status: "pending" as const,
-      source: "manual",
-    },
-    {
-      id: "manual-assign-4",
-      courseId: "gc-2",
-      title: "演算法競賽練習",
-      description: "完成線上演算法競賽平台的 5 道題目，提升程式解題能力。記錄解題思路和優化過程。",
-      dueDate: new Date(Date.now() + 8 * 24 * 60 * 60 * 1000), // 8 days from now
-      status: "pending" as const,
-      source: "manual",
-    },
-  ],
-  notes: [],
-  exams: [],
-}
+    console.log('🔄 開始載入資料，lineUserId:', lineUserId)
+    try {
+      setLoading(true)
+      setError(null)
 
-export function useCourses() {
-  const [data, setData] = useState<CourseData>(defaultData)
+      // 並行載入所有資料
+      const [coursesRes, assignmentsRes, notesRes, examsRes] = await Promise.all([
+        ApiService.getCourses(lineUserId),
+        ApiService.getAssignments(lineUserId),
+        ApiService.getNotes(lineUserId),
+        ApiService.getExams(lineUserId)
+      ])
+
+      console.log('🔍 API 回應狀態:', {
+        courses: coursesRes,
+        assignments: assignmentsRes,
+        notes: notesRes,
+        exams: examsRes
+      })
+
+      if (coursesRes.error) {
+        console.error('❌ 課程載入錯誤:', coursesRes.error)
+        setError(coursesRes.error)
+        return
+      }
+
+      if (assignmentsRes.error) {
+        console.error('❌ 作業載入錯誤:', assignmentsRes.error)
+        setError(assignmentsRes.error)
+        return
+      }
+
+      if (notesRes.error) {
+        console.error('❌ 筆記載入錯誤:', notesRes.error)
+        setError(notesRes.error)
+        return
+      }
+
+      if (examsRes.error) {
+        console.error('❌ 考試載入錯誤:', examsRes.error)
+        setError(examsRes.error)
+        return
+      }
+
+      // 轉換資料格式 - 處理分頁回應
+      console.log('🔍 API 回應資料:', {
+        courses: coursesRes.data,
+        assignments: assignmentsRes.data,
+        notes: notesRes.data,
+        exams: examsRes.data
+      })
+
+      const coursesData = (coursesRes.data as any)?.results || (coursesRes.data as any) || []
+      const assignmentsData = (assignmentsRes.data as any)?.results || (assignmentsRes.data as any) || []
+      const notesData = (notesRes.data as any)?.results || (notesRes.data as any) || []
+      const examsData = (examsRes.data as any)?.results || (examsRes.data as any) || []
+
+      console.log('🔍 處理後的資料:', {
+        coursesData,
+        assignmentsData,
+        notesData,
+        examsData
+      })
+
+      const transformedCourses = Array.isArray(coursesData) ? coursesData.map(transformBackendCourse) : []
+      const transformedAssignments = Array.isArray(assignmentsData) ? assignmentsData.map(transformBackendAssignment) : []
+      const uuidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/
+      const filteredAssignments = transformedAssignments.filter(a => uuidRegex.test(a.id))
+      const transformedNotes = Array.isArray(notesData) ? notesData.map(transformBackendNote) : []
+      const transformedExams = Array.isArray(examsData) ? examsData.map(transformBackendExam) : []
+
+      console.log('✅ 轉換後的資料:', {
+        transformedCourses,
+        transformedAssignments,
+        transformedNotes,
+        transformedExams
+      })
+
+      setCourses(transformedCourses)
+      // 僅接受 UUID 來源的作業，避免舊假資料殘留
+      setAssignments(filteredAssignments)
+      setNotes(transformedNotes)
+      setExams(transformedExams)
+    } catch (err) {
+      console.error('❌ 載入資料時發生錯誤:', err)
+      setError(err instanceof Error ? err.message : '載入資料失敗')
+    } finally {
+      console.log('✅ 載入完成，設置 loading = false')
+      setLoading(false)
+    }
+  }, [lineUserId])
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      try {
-        const parsedData = JSON.parse(stored)
-        // Convert date strings back to Date objects
-        parsedData.courses = parsedData.courses.map((course: any) => ({
-          ...course,
-          createdAt: new Date(course.createdAt),
-        }))
-        parsedData.assignments = parsedData.assignments.map((assignment: any) => ({
-          ...assignment,
-          dueDate: new Date(assignment.dueDate),
-          notificationTime: assignment.notificationTime ? new Date(assignment.notificationTime) : undefined,
-        }))
-        parsedData.notes = parsedData.notes.map((note: any) => ({
-          ...note,
-          createdAt: new Date(note.createdAt),
-          updatedAt: new Date(note.updatedAt),
-        }))
-        parsedData.exams = (parsedData.exams || []).map((exam: any) => ({
-          ...exam,
-          examDate: new Date(exam.examDate),
-          notificationTime: exam.notificationTime ? new Date(exam.notificationTime) : undefined,
-          status: exam.status || "pending", // Ensure status is always set
-          createdAt: new Date(exam.createdAt),
-          updatedAt: new Date(exam.updatedAt),
-        }))
-        setData(parsedData)
-      } catch (error) {
-        console.error("Failed to parse stored data:", error)
+    console.log('🔄 useEffect 觸發，lineUserId:', lineUserId)
+    
+    // 如果沒有 lineUserId，直接設置載入完成
+    if (!lineUserId) {
+      console.log('❌ 沒有 lineUserId，設置載入完成')
+      setLoading(false)
+      return
+    }
+    
+    fetchAllData()
+  }, [fetchAllData])
+
+  // 課程管理函數
+  const addCourse = useCallback(async (course: Omit<Course, "id" | "createdAt">) => {
+    try {
+      const backendData = transformFrontendCourse(course as Course, lineUserId)
+      const response = await ApiService.createCourse(backendData)
+      
+      if (response.error) {
+        throw new Error(response.error)
       }
-    }
-  }, [])
 
-  const saveData = (newData: CourseData) => {
-    setData(newData)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newData))
-  }
-
-  const addCourse = (course: Omit<Course, "id" | "createdAt">) => {
-    const newCourse: Course = {
-      ...course,
-      id: Date.now().toString(),
-      createdAt: new Date(),
+      if (response.data) {
+        const newCourse = transformBackendCourse(response.data)
+        setCourses(prev => [...prev, newCourse])
+        await fetchAllData()
+        return newCourse
+      } else {
+        throw new Error('API 回應沒有資料')
+      }
+    } catch (err) {
+      console.error('新增課程失敗:', err)
+      throw err
     }
-    const newData = {
-      ...data,
-      courses: [...data.courses, newCourse],
-    }
-    saveData(newData)
-  }
+  }, [lineUserId, fetchAllData])
 
-  const updateCourse = (id: string, updates: Partial<Course>) => {
-    const newData = {
-      ...data,
-      courses: data.courses.map((course) => (course.id === id ? { ...course, ...updates } : course)),
-    }
-    saveData(newData)
-  }
+  const updateCourse = useCallback(async (id: string, updates: Partial<Course>) => {
+    try {
+      const courseId = id
+      const backendData = transformFrontendCourse(updates as Course, lineUserId)
+      const response = await ApiService.updateCourse(courseId, backendData)
+      
+      if (response.error) {
+        throw new Error(response.error)
+      }
 
-  const deleteCourse = (id: string) => {
-    const newData = {
-      courses: data.courses.filter((course) => course.id !== id),
-      assignments: data.assignments.filter((assignment) => assignment.courseId !== id),
-      notes: data.notes.filter((note) => note.courseId !== id),
-      exams: data.exams.filter((exam) => exam.courseId !== id), // 刪除課程時也刪除相關考試
+      if (response.data) {
+        const updatedCourse = transformBackendCourse(response.data)
+        setCourses(prev => prev.map(course => 
+          course.id === id ? updatedCourse : course
+        ))
+        await fetchAllData()
+        return updatedCourse
+      } else {
+        throw new Error('API 回應沒有資料')
+      }
+    } catch (err) {
+      console.error('更新課程失敗:', err)
+      throw err
     }
-    saveData(newData)
-  }
+  }, [lineUserId, fetchAllData])
 
+  const deleteCourse = useCallback(async (id: string) => {
+    try {
+      const courseId = id
+      const response = await ApiService.deleteCourse(courseId)
+
+      if (response.error) {
+        throw new Error(response.error)
+      }
+
+      // API 請求成功後，直接更新本地狀態以觸發UI刷新
+      setCourses(prev => prev.filter(course => course.id !== id))
+      setAssignments(prev => prev.filter(assignment => assignment.courseId !== id))
+      setNotes(prev => prev.filter(note => note.courseId !== id))
+      setExams(prev => prev.filter(exam => exam.courseId !== id))
+
+      // 與新增/更新行為一致：再做一次完整同步，避免其他視圖殘留
+      await fetchAllData()
+
+    } catch (err) {
+      console.error('刪除課程失敗:', err)
+      throw err
+    }
+  }, [setCourses, setAssignments, setNotes, setExams, fetchAllData])
+
+  // 輔助函數
   const getCourseById = (id: string) => {
-    return data.courses.find((course) => course.id === id)
+    return courses.find((course) => course.id === id)
   }
 
   const getAssignmentsByCourse = (courseId: string) => {
-    return data.assignments.filter((assignment) => assignment.courseId === courseId)
+    return assignments.filter((assignment) => assignment.courseId === courseId)
   }
 
   const getNotesByCourse = (courseId: string) => {
-    return data.notes.filter((note) => note.courseId === courseId)
-  }
-
-  const addAssignment = (assignment: Omit<Assignment, "id">) => {
-    const newAssignment: Assignment = {
-      ...assignment,
-      id: Date.now().toString(),
-    }
-    const newData = {
-      ...data,
-      assignments: [...data.assignments, newAssignment],
-    }
-    saveData(newData)
-  }
-
-  const updateAssignment = (id: string, updates: Partial<Assignment>) => {
-    const newData = {
-      ...data,
-      assignments: data.assignments.map((assignment) =>
-        assignment.id === id ? { ...assignment, ...updates } : assignment,
-      ),
-    }
-    saveData(newData)
-  }
-
-  const deleteAssignment = (id: string) => {
-    const newData = {
-      ...data,
-      assignments: data.assignments.filter((assignment) => assignment.id !== id),
-    }
-    saveData(newData)
-  }
-
-  const getAssignmentById = (id: string) => {
-    return data.assignments.find((assignment) => assignment.id === id)
-  }
-
-  const addNote = (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => {
-    const newNote: Note = {
-      ...note,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }
-    const newData = {
-      ...data,
-      notes: [...data.notes, newNote],
-    }
-    saveData(newData)
-  }
-
-  const updateNote = (id: string, updates: Partial<Omit<Note, "id" | "createdAt">>) => {
-    const newData = {
-      ...data,
-      notes: data.notes.map((note) => (note.id === id ? { ...note, ...updates, updatedAt: new Date() } : note)),
-    }
-    saveData(newData)
-  }
-
-  const deleteNote = (id: string) => {
-    const newData = {
-      ...data,
-      notes: data.notes.filter((note) => note.id !== id),
-    }
-    saveData(newData)
+    return notes.filter((note) => note.courseId === courseId)
   }
 
   const getExamsByCourse = (courseId: string) => {
-    return data.exams.filter((exam) => exam.courseId === courseId)
+    return exams.filter((exam) => exam.courseId === courseId)
   }
 
-  const addExam = (exam: Omit<Exam, "id" | "createdAt" | "updatedAt">) => {
-    const newExam: Exam = {
-      ...exam,
-      id: Date.now().toString(),
-      status: exam.status || "pending",
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }
-    const newData = {
-      ...data,
-      exams: [...data.exams, newExam],
-    }
-    saveData(newData)
-  }
-
-  const updateExam = (id: string, updates: Partial<Omit<Exam, "id" | "createdAt">>) => {
-    const newData = {
-      ...data,
-      exams: data.exams.map((exam) => (exam.id === id ? { ...exam, ...updates, updatedAt: new Date() } : exam)),
-    }
-    saveData(newData)
-  }
-
-  const deleteExam = (id: string) => {
-    const newData = {
-      ...data,
-      exams: data.exams.filter((exam) => exam.id !== id),
-    }
-    saveData(newData)
+  const getAssignmentById = (id: string) => {
+    return assignments.find((assignment) => assignment.id === id)
   }
 
   const getExamById = (id: string) => {
-    return data.exams.find((exam) => exam.id === id)
+    return exams.find((exam) => exam.id === id)
   }
 
+  // 作業管理函數
+  const addAssignment = useCallback(async (assignment: Omit<Assignment, "id" | "createdAt" | "updatedAt">) => {
+    try {
+      // 組裝必填欄位
+      const payload: any = {
+        title: assignment.title,
+        description: assignment.description || '',
+        due_date: assignment.dueDate ? assignment.dueDate.toISOString() : null,
+        course: assignment.courseId || null,
+        type: 'assignment',
+        status: assignment.status || 'pending',
+      }
+      if (!payload.title || !payload.due_date || !payload.course) {
+        throw new Error('請選擇課程並填寫標題與截止時間')
+      }
+
+      const response = await ApiService.createAssignment(payload)
+      if (response.error) throw new Error(response.error)
+
+      if (response.data) {
+        const newAssignment = transformBackendAssignment(response.data)
+        setAssignments(prev => [...prev, newAssignment])
+        await fetchAllData()
+        return newAssignment
+      }
+    } catch (err) {
+      throw err
+    }
+  }, [lineUserId, fetchAllData])
+
+  const updateAssignment = useCallback(async (id: string, updates: Partial<Assignment>) => {
+    try {
+      const uuidRegex = /^[0-9a-fA-F-]{36}$/
+      if (!uuidRegex.test(id)) {
+        console.warn('忽略更新非UUID的作業，疑似假資料 id=', id)
+        return
+      }
+
+      // 僅更新狀態：使用專用端點，避免送出其他空欄位
+      if (Object.keys(updates).length === 1 && updates.status) {
+        const response = await ApiService.updateAssignmentStatus(id, updates.status)
+        if (response.error) throw new Error(response.error)
+        if (response.data) {
+          const updated = transformBackendAssignment(response.data)
+          setAssignments(prev => prev.map(a => (a.id === id ? updated : a)))
+          await fetchAllData()
+          return updated
+        } else {
+          // 如果沒有返回資料，拋出錯誤
+          throw new Error('API 調用成功但沒有返回作業資料')
+        }
+      }
+
+      // 部分更新：只組裝提供的欄位
+      const minimal: any = {}
+      if (updates.title !== undefined) minimal.title = updates.title
+      if (updates.description !== undefined) minimal.description = updates.description
+      if ((updates as any).courseId !== undefined) minimal.course = (updates as any).courseId
+      if (updates.dueDate !== undefined) minimal.due_date = updates.dueDate ? updates.dueDate.toISOString() : null
+      if (updates.status !== undefined) minimal.status = updates.status
+
+      const response = await ApiService.updateAssignment(id, minimal)
+      if (response.error) throw new Error(response.error)
+
+      if (response.data) {
+        const updatedAssignment = transformBackendAssignment(response.data)
+        setAssignments(prev => prev.map(assignment => 
+          assignment.id === id ? updatedAssignment : assignment
+        ))
+        await fetchAllData()
+        return updatedAssignment
+      }
+    } catch (err) {
+      throw err
+    }
+  }, [lineUserId, fetchAllData])
+
+  const deleteAssignment = useCallback(async (id: string) => {
+    try {
+      const uuidRegex = /^[0-9a-fA-F-]{36}$/
+      if (!uuidRegex.test(id)) {
+        console.warn('忽略刪除非UUID的作業，疑似假資料 id=', id)
+        // 直接從前端列表移除它，避免再次觸發錯誤
+        setAssignments(prev => prev.filter(assignment => assignment.id !== id))
+        return
+      }
+
+      const response = await ApiService.deleteAssignment(id)
+      if (response.error) throw new Error(response.error)
+      setAssignments(prev => prev.filter(assignment => assignment.id !== id))
+      await fetchAllData()
+    } catch (err) {
+      throw err
+    }
+  }, [fetchAllData])
+
+  // 筆記管理函數
+  const addNote = useCallback(async (note: Omit<Note, "id" | "createdAt" | "updatedAt">) => {
+    try {
+      const backendData = transformFrontendNote(note as Note, lineUserId)
+      const response = await ApiService.createNote(backendData)
+      
+      if (response.error) {
+        throw new Error(response.error)
+      }
+
+      if (response.data) {
+        let created = transformBackendNote(response.data)
+
+        // 後端有時不立即回傳附件，做一次補綁定（fallback）
+        const wantIds = Array.isArray((note as any).attachments)
+          ? (note as any).attachments.map((a: any) => a.id)
+          : []
+        if (wantIds.length > 0 && (!(response.data as any).attachments || (response.data as any).attachments.length === 0)) {
+          const patch = { attachment_ids: wantIds }
+          const fixResp = await ApiService.updateNote(created.id, patch as any)
+          if (!fixResp.error && fixResp.data) {
+            created = transformBackendNote(fixResp.data)
+          }
+        }
+
+        setNotes(prev => [...prev, created])
+        await fetchAllData()
+        return created
+      }
+    } catch (err) {
+      throw err
+    }
+  }, [lineUserId, fetchAllData])
+
+  const updateNote = useCallback(async (id: string, updates: Partial<Omit<Note, "id" | "createdAt">>) => {
+    try {
+      const noteId = id
+      const backendData = transformFrontendNote(updates as Note, lineUserId)
+      const response = await ApiService.updateNote(noteId, backendData)
+      
+      if (response.error) {
+        throw new Error(response.error)
+      }
+
+      if (response.data) {
+        let updated = transformBackendNote(response.data)
+
+        // 補綁定（fallback）：若附件未回傳且本次帶了 attachments
+        const wantIds = Array.isArray((updates as any).attachments)
+          ? (updates as any).attachments.map((a: any) => a.id)
+          : []
+        if (wantIds.length > 0 && (!(response.data as any).attachments || (response.data as any).attachments.length === 0)) {
+          const patch = { attachment_ids: wantIds }
+          const fixResp = await ApiService.updateNote(noteId, patch as any)
+          if (!fixResp.error && fixResp.data) {
+            updated = transformBackendNote(fixResp.data)
+          }
+        }
+
+        setNotes(prev => prev.map(note => 
+          note.id === id ? updated : note
+        ))
+        await fetchAllData()
+        return updated
+      }
+    } catch (err) {
+      throw err
+    }
+  }, [lineUserId, fetchAllData])
+
+  const deleteNote = useCallback(async (id: string) => {
+    try {
+      const noteId = id
+      const response = await ApiService.deleteNote(noteId)
+      
+      if (response.error) {
+        throw new Error(response.error)
+      }
+
+      setNotes(prev => prev.filter(note => note.id !== id))
+      await fetchAllData()
+    } catch (err) {
+      throw err
+    }
+  }, [fetchAllData])
+
+  // 考試管理函數
+  const addExam = useCallback(async (exam: Omit<Exam, "id" | "createdAt" | "updatedAt">) => {
+    try {
+      const backendData = transformFrontendExam(exam as Exam, lineUserId)
+      const response = await ApiService.createExam(backendData)
+      
+      if (response.error) {
+        throw new Error(response.error)
+      }
+
+      if (response.data) {
+        const newExam = transformBackendExam(response.data)
+        setExams(prev => [...prev, newExam])
+        await fetchAllData()
+        return newExam
+      }
+    } catch (err) {
+      throw err
+    }
+  }, [lineUserId, fetchAllData])
+
+  const updateExam = useCallback(async (id: string, updates: Partial<Omit<Exam, "id" | "createdAt">>) => {
+    try {
+      const uuidRegex = /^[0-9a-fA-F-]{36}$/
+      if (!uuidRegex.test(id)) {
+        console.warn('忽略更新非UUID的考試，疑似假資料 id=', id)
+        return
+      }
+
+      // 僅更新狀態：使用專用端點，避免送出其他空欄位
+      if (Object.keys(updates).length === 1 && updates.status) {
+        const response = await ApiService.updateExamStatus(id, updates.status)
+        if (response.error) throw new Error(response.error)
+        if (response.data) {
+          const updated = transformBackendExam(response.data)
+          setExams(prev => prev.map(e => (e.id === id ? updated : e)))
+          await fetchAllData()
+          return updated
+        } else {
+          // 如果沒有返回資料，拋出錯誤
+          throw new Error('API 調用成功但沒有返回考試資料')
+        }
+      }
+
+      // 完整更新：使用一般的更新端點
+      const examId = id
+      const backendData = transformFrontendExam(updates as Exam, lineUserId)
+      const response = await ApiService.updateExam(examId, backendData)
+      
+      if (response.error) {
+        throw new Error(response.error)
+      }
+
+      if (response.data) {
+        const updatedExam = transformBackendExam(response.data)
+        setExams(prev => prev.map(exam => 
+          exam.id === id ? updatedExam : exam
+        ))
+        await fetchAllData()
+        return updatedExam
+      }
+    } catch (err) {
+      throw err
+    }
+  }, [lineUserId, fetchAllData])
+
+  const deleteExam = useCallback(async (id: string) => {
+    try {
+      const examId = id
+      const response = await ApiService.deleteExam(examId)
+      
+      if (response.error) {
+        throw new Error(response.error)
+      }
+
+      setExams(prev => prev.filter(exam => exam.id !== id))
+      await fetchAllData()
+    } catch (err) {
+      throw err
+    }
+  }, [fetchAllData])
+
   return {
-    courses: data.courses,
-    assignments: data.assignments,
-    notes: data.notes,
-    exams: data.exams, // 導出考試數據
+    courses,
+    assignments,
+    notes,
+    exams,
+    loading,
+    error,
     addCourse,
     updateCourse,
     deleteCourse,
     getCourseById,
     getAssignmentsByCourse,
     getNotesByCourse,
-    getExamsByCourse, // 導出考試相關功能
+    getExamsByCourse,
     addAssignment,
     updateAssignment,
     deleteAssignment,
@@ -357,9 +518,10 @@ export function useCourses() {
     addNote,
     updateNote,
     deleteNote,
-    addExam, // 導出考試管理功能
+    addExam,
     updateExam,
     deleteExam,
     getExamById,
+    refetch: fetchAllData
   }
 }

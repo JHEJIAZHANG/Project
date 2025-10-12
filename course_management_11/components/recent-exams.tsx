@@ -2,6 +2,7 @@
 
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { EmptyStateSimple } from "@/components/empty-state"
 import { ClipboardIcon } from "@/components/icons"
 import type { Exam } from "@/types/course"
 import { getDaysDifferenceTaiwan, isTodayTaiwan } from "@/lib/taiwan-time"
@@ -105,7 +106,7 @@ export function RecentExams({ exams, courses, selectedDate, onViewExam, onViewAl
       {recentExams.length > 0 ? (
         <div className="space-y-3">
           {recentExams.map((exam) => {
-            const examColorAndText = getExamColorAndText(exam.examDate)
+            const examColorAndText = getExamColorAndText(exam.examDate.toString())
             const course = courses.find((c) => c.id === exam.courseId)
 
             return (
@@ -125,7 +126,7 @@ export function RecentExams({ exams, courses, selectedDate, onViewExam, onViewAl
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className={`text-xs font-medium ${examColorAndText.textColor}`}>{formatDate(exam.examDate)}</p>
+                  <p className={`text-xs font-medium ${examColorAndText.textColor}`}>{formatDate(exam.examDate.toString())}</p>
                   <p className="text-xs text-slate-600">{new Date(exam.examDate).toLocaleDateString("zh-TW")}</p>
                 </div>
               </div>
@@ -133,7 +134,11 @@ export function RecentExams({ exams, courses, selectedDate, onViewExam, onViewAl
           })}
         </div>
       ) : (
-        <p className="text-muted-foreground text-center py-4">暫無即將到來的考試</p>
+        <EmptyStateSimple
+          title="暫無即將到來的考試"
+          description="新增考試資訊來做好準備"
+          showAction={false}
+        />
       )}
     </Card>
   )

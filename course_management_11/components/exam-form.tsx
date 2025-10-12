@@ -58,6 +58,7 @@ export function ExamForm({ courses, initialData, onSubmit, onCancel }: ExamFormP
       location: formData.location,
       description: formData.description,
       type: formData.type,
+      status: "pending" as const,
     })
   }
 
@@ -74,7 +75,7 @@ export function ExamForm({ courses, initialData, onSubmit, onCancel }: ExamFormP
   }
 
   return (
-    <Card className="bg-white p-6">
+    <Card className="bg-white p-4 sm:p-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <label className="block text-sm font-bold text-foreground mb-2">考試名稱</label>

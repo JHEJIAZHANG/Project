@@ -4,6 +4,13 @@ import type React from "react"
 import { useState } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { CheckIcon, ClockIcon, ExclamationIcon } from "@/components/icons"
+import type { Assignment, Course } from "@/types/course"
+import { getDaysDifferenceTaiwan, isTodayTaiwan, isTomorrowTaiwan } from "@/lib/taiwan-time"
+import { LearningResources } from "./learning-resources"
+import { useStatusUpdateFeedback } from "@/hooks/use-status-update-feedback"
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,11 +21,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { CheckIcon, ClockIcon, ExclamationIcon } from "@/components/icons"
-import type { Assignment, Course } from "@/types/course"
-import { getDaysDifferenceTaiwan, isTodayTaiwan, isTomorrowTaiwan } from "@/lib/taiwan-time"
+import { ExternalLink } from "lucide-react"
 
-// AssignmentCardProps 為組件參數的型別，包含作業資料、課程資料與多個事件回調函式
 interface AssignmentCardProps {
   assignment: Assignment
   course?: Course
@@ -28,7 +32,6 @@ interface AssignmentCardProps {
   onViewDetail?: () => void
 }
 
-// AssignmentCard 元件，展示單筆作業的卡片 UI，根據作業狀態改變外觀與圖示
 export function AssignmentCard({
   assignment,
   course,
@@ -37,11 +40,13 @@ export function AssignmentCard({
   onDelete,
   onViewDetail,
 }: AssignmentCardProps) {
-  // 本地狀態：控制刪除確認對話框與描述欄位顯示
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showDescription, setShowDescription] = useState(false)
+  
+  // 使用狀態更新反饋系統
+  const { executeWithFeedback, getUpdateState } = useStatusUpdateFeedback()
+  const isUpdating = getUpdateState(assignment.id).isUpdating
 
-  // 根據作業狀態及到期日，回傳對應的顏色 class 用於樣式
   const getStatusColor = (status: Assignment["status"], dueDate: Date) => {
     if (status === "completed") {
       return "text-green-700 bg-green-100 border-green-300 dark:text-green-300 dark:bg-green-900/30 dark:border-green-700/50"
@@ -65,7 +70,6 @@ export function AssignmentCard({
     return "text-blue-700 bg-blue-100 border-blue-300 dark:text-blue-300 dark:bg-blue-900/30 dark:border-blue-700/50"
   }
 
-  // 根據狀態返回對應的圖示組件
   const getStatusIcon = (status: Assignment["status"]) => {
     switch (status) {
       case "completed":
@@ -77,7 +81,6 @@ export function AssignmentCard({
     }
   }
 
-  // 根據作業狀態回傳對應的中文狀態文字
   const getStatusText = (status: Assignment["status"]) => {
     switch (status) {
       case "completed":
@@ -89,7 +92,6 @@ export function AssignmentCard({
     }
   }
 
-  // 計算並回傳離截止日的天數描述（含今天、明天、已逾期文字）
   const getDaysUntilDue = () => {
     const daysUntilDue = getDaysDifferenceTaiwan(new Date(), assignment.dueDate)
 
@@ -99,10 +101,8 @@ export function AssignmentCard({
     return `${daysUntilDue}天後到期`
   }
 
-  // 取得目前狀態的圖示組件
   const StatusIcon = getStatusIcon(assignment.status)
 
-  // 處理卡片點擊事件，如果點擊到按鈕或超連結則不執行，如果有描述欄位則顯示/隱藏
   const handleCardClick = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest("button") || (e.target as HTMLElement).closest("a")) {
       return
@@ -112,50 +112,91 @@ export function AssignmentCard({
     }
   }
 
-  // 點擊刪除按鈕時停止事件冒泡，並顯示刪除確認對話框
   const handleDeleteClick = (e: React.MouseEvent) => {
     e.stopPropagation()
     setShowDeleteDialog(true)
   }
 
-  // 確認刪除時觸發傳入的刪除回調，並關閉對話框
   const handleDeleteConfirm = () => {
     onDelete?.()
     setShowDeleteDialog(false)
   }
 
-  // 切換描述欄位的展開與隱藏，避免事件冒泡
   const handleToggleDescription = (e: React.MouseEvent) => {
     e.stopPropagation()
     setShowDescription(!showDescription)
   }
 
-  // JSX 回傳：組件的 UI 結構
+  const handleStatusChange = async (e: React.MouseEvent, newStatus: Assignment["status"]) => {
+    e.stopPropagation()
+    
+    const statusMessages = {
+      completed: "作業已標記為完成",
+      pending: "作業已標記為未完成",
+      overdue: "作業狀態已更新"
+    }
+    
+    try {
+      await executeWithFeedback(
+        assignment.id,
+        () => onStatusChange(assignment.id, newStatus),
+        {
+          successMessage: statusMessages[newStatus],
+          errorMessage: "狀態更新失敗，請稍後再試"
+        }
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      // 重複點擊時的友善處理：忽略錯誤即可
+      if (message.includes("操作進行中")) {
+        return
+      }
+      // 其他錯誤僅記錄，錯誤提示由 useStatusUpdateFeedback 已處理
+      console.error("更新作業狀態失敗:", error)
+    }
+  }
+
   return (
     <>
       <Card
-        className={`p-5 cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 ease-out hover:bg-white/90 dark:hover:bg-slate-900/90`}
+        className={`p-3 sm:p-5 cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 ease-out hover:bg-white/90 dark:hover:bg-slate-900/90`}
         onClick={handleCardClick}
       >
-        {/* 作業標題區與狀態圖示 */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-start gap-4 flex-1">
+        <div className="flex items-start justify-between mb-3 sm:mb-4">
+          <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
             <StatusIcon
-              className={`w-5 h-5 mt-1 ${getStatusColor(assignment.status, assignment.dueDate).split(" ")[0]}`}
+              className={`w-4 h-4 sm:w-5 sm:h-5 mt-1 flex-shrink-0 ${getStatusColor(assignment.status, assignment.dueDate).split(" ")[0]}`}
             />
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-foreground text-balance text-lg leading-tight mb-2">
-                {assignment.title}
+              <h3 className="font-semibold text-foreground text-balance text-base sm:text-lg leading-tight mb-2">
+                {assignment.title || "未命名作業"}
               </h3>
-              <div className="flex items-center justify-between">
-                {course && <p className="text-sm text-muted-foreground font-medium">{course.name}</p>}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                {(course?.name || assignment.courseName) && (
+                  <p className="text-sm text-muted-foreground font-medium truncate">{course?.name || assignment.courseName}</p>
+                )}
                 {assignment.source === "google_classroom" && (
-                  <span className="text-xs rounded-full bg-blue-100 text-blue-800 border border-blue-300 font-medium dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700/50 py-px px-2">
-                    Google Classroom
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs rounded-full bg-blue-100 text-blue-800 border border-blue-300 font-medium dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700/50 py-px px-2 w-fit">
+                      Google Classroom
+                    </span>
+                    {assignment.googleClassroomUrl && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 flex-shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          window.open(assignment.googleClassroomUrl, '_blank')
+                        }}
+                        title="前往 Google Classroom"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
-              {/* 描述欄位，點擊可展開與隱藏 */}
               {assignment.description && showDescription && (
                 <div className="mt-3">
                   <p className="text-sm text-muted-foreground leading-relaxed">{assignment.description}</p>
@@ -165,11 +206,10 @@ export function AssignmentCard({
           </div>
         </div>
 
-        {/* 作業狀態及截止時間區塊 */}
         <div
-          className={`flex items-center justify-between p-4 rounded-2xl border-2 ${getStatusColor(assignment.status, assignment.dueDate)}`}
+          className={`flex items-center justify-between p-3 sm:p-4 rounded-2xl border-2 ${getStatusColor(assignment.status, assignment.dueDate)}`}
         >
-          <div>
+          <div className="min-w-0 flex-1">
             <p
               className={`text-sm font-semibold ${getStatusColor(assignment.status, assignment.dueDate).split(" ")[0]}`}
             >
@@ -181,34 +221,51 @@ export function AssignmentCard({
             </p>
           </div>
 
-          {/* 若狀態為 pending，顯示距離截止的天數 */}
           {assignment.status === "pending" && (
-            <div className="text-right">
+            <div className="text-right flex-shrink-0">
               <p className="text-xs font-semibold text-foreground">{getDaysUntilDue()}</p>
             </div>
           )}
         </div>
 
-        {/* 操作按鈕：根據不同狀態顯示標記完成、標記未完成、查看詳情、編輯及刪除 */}
-        <div className="flex gap-2 mt-4">
-          {(assignment.status === "pending" || assignment.status === "overdue") && (
+        <div className="flex flex-wrap gap-2 sm:gap-3 mt-3 sm:mt-4">
+           {(assignment.status === "pending" || assignment.status === "overdue") && (
+             <Button
+               size="sm"
+               variant="outline"
+               onClick={(e) => handleStatusChange(e, "completed")}
+               disabled={isUpdating}
+               className="flex-1 min-w-0 rounded-xl font-medium text-sm h-9 sm:h-10 px-3 sm:px-4 touch-manipulation"
+             >
+               {isUpdating ? "更新中..." : "標記完成"}
+             </Button>
+           )}
+           {assignment.status === "completed" && (
+             <Button
+               size="sm"
+               variant="outline"
+               onClick={(e) => handleStatusChange(e, "pending")}
+               disabled={isUpdating}
+               className="flex-1 min-w-0 rounded-xl font-medium text-sm h-9 sm:h-10 px-3 sm:px-4 touch-manipulation"
+             >
+               {isUpdating ? "更新中..." : "標記未完成"}
+             </Button>
+           )}
+          {assignment.googleClassroomUrl && (
             <Button
               size="sm"
               variant="outline"
-              onClick={() => onStatusChange(assignment.id, "completed")}
-              className="flex-1 rounded-xl font-medium"
+              onClick={(e) => {
+                e.stopPropagation()
+                window.open(assignment.googleClassroomUrl, '_blank', 'noopener,noreferrer')
+              }}
+              className="rounded-xl font-medium bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100 text-sm h-9 sm:h-10 px-3 sm:px-4 touch-manipulation"
             >
-              標記完成
-            </Button>
-          )}
-          {assignment.status === "completed" && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => onStatusChange(assignment.id, "pending")}
-              className="flex-1 rounded-xl font-medium"
-            >
-              標記未完成
+              <svg className="w-4 h-4 mr-1 sm:mr-2" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+              </svg>
+              <span className="hidden sm:inline">Classroom</span>
+              <span className="sm:hidden">GC</span>
             </Button>
           )}
           {onViewDetail && (
@@ -216,13 +273,14 @@ export function AssignmentCard({
               size="sm"
               variant="outline"
               onClick={onViewDetail}
-              className="rounded-xl font-medium bg-transparent"
+              className="rounded-xl font-medium bg-transparent text-sm h-9 sm:h-10 px-3 sm:px-4 touch-manipulation"
             >
-              查看詳情
+              <span className="hidden sm:inline">查看詳情</span>
+              <span className="sm:hidden">詳情</span>
             </Button>
           )}
           {onEdit && (
-            <Button size="sm" variant="outline" onClick={onEdit} className="rounded-xl font-medium bg-transparent">
+            <Button size="sm" variant="outline" onClick={onEdit} className="rounded-xl font-medium bg-transparent text-sm h-9 sm:h-10 px-3 sm:px-4 touch-manipulation">
               編輯
             </Button>
           )}
@@ -231,7 +289,7 @@ export function AssignmentCard({
               size="sm"
               variant="outline"
               onClick={handleDeleteClick}
-              className="text-destructive hover:text-destructive bg-transparent rounded-xl font-medium"
+              className="text-destructive hover:text-destructive bg-transparent rounded-xl font-medium text-sm h-9 sm:h-10 px-3 sm:px-4 touch-manipulation"
             >
               刪除
             </Button>
@@ -239,7 +297,6 @@ export function AssignmentCard({
         </div>
       </Card>
 
-      {/* 刪除作業時彈跳的確認對話框 */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>

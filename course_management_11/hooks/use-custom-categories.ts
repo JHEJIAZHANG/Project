@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
+import { ApiService } from "@/services/apiService"
 
 export interface CustomCategory {
   id: string
@@ -10,80 +11,90 @@ export interface CustomCategory {
   createdAt: Date
 }
 
-export function useCustomCategories() {
+export function useCustomCategories(lineUserId: string) {
   const [categories, setCategories] = useState<CustomCategory[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // Load categories from localStorage on mount
-  useEffect(() => {
+  // 載入分類資料（僅依賴後端資料）
+  const fetchCategories = useCallback(async () => {
+    if (!lineUserId) return
+
     try {
-      const stored = localStorage.getItem("customCategories")
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        const categoriesWithDates = parsed.map((cat: any) => ({
-          ...cat,
-          createdAt: new Date(cat.createdAt),
+      setIsLoading(true)
+      setError(null)
+
+      // 後端 API 優先
+      const resp = await ApiService.getCustomCategories(lineUserId)
+      const raw = (resp.data as any)?.results || (resp.data as any) || []
+      if (Array.isArray(raw)) {
+        const categories = raw.map((cat: any) => ({
+          id: cat.id,
+          name: cat.name,
+          icon: cat.icon || 'clipboard',
+          color: cat.color || '#3b82f6',
+          createdAt: new Date(cat.created_at),
         }))
-        setCategories(categoriesWithDates)
-      } else {
-        // Initialize with default categories
-        const defaultCategories: CustomCategory[] = [
-          {
-            id: "study",
-            name: "學習",
-            icon: "book",
-            color: "#3b82f6",
-            createdAt: new Date(),
-          },
-          {
-            id: "project",
-            name: "專案",
-            icon: "clipboard",
-            color: "#10b981",
-            createdAt: new Date(),
-          },
-          {
-            id: "personal",
-            name: "個人",
-            icon: "heart",
-            color: "#f59e0b",
-            createdAt: new Date(),
-          },
-        ]
-        setCategories(defaultCategories)
-        localStorage.setItem("customCategories", JSON.stringify(defaultCategories))
+        setCategories(categories)
+        return
       }
+      setCategories([])
     } catch (error) {
-      console.error("Error loading custom categories:", error)
+      setError(error instanceof Error ? error.message : '載入自定義分類失敗')
     } finally {
       setIsLoading(false)
     }
+  }, [lineUserId])
+
+  useEffect(() => {
+    fetchCategories()
+  }, [fetchCategories])
+
+  const addCategory = useCallback(async (category: Omit<CustomCategory, "id" | "createdAt">) => {
+    try {
+      // 後端優先
+      const resp = await ApiService.createCustomCategory({ name: category.name, icon: category.icon, color: category.color })
+      if (!resp.data) {
+        throw new Error('無法建立自訂分類')
+      }
+
+      const createdRaw: any = resp.data
+      const created: CustomCategory = {
+        id: createdRaw.id,
+        name: createdRaw.name,
+        icon: createdRaw.icon || 'clipboard',
+        color: createdRaw.color || '#3b82f6',
+        createdAt: new Date(createdRaw.created_at),
+      }
+      setCategories(prev => [...prev, created])
+      return created
+    } catch (err) {
+      throw err
+    }
   }, [])
 
-  // Save categories to localStorage whenever they change
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem("customCategories", JSON.stringify(categories))
+  const updateCategory = useCallback(async (id: string, updates: Partial<Omit<CustomCategory, "id" | "createdAt">>) => {
+    try {
+      const resp = await ApiService.updateCustomCategory(id, updates)
+      if (resp.error) throw new Error(resp.error)
+
+      setCategories(prev => prev.map(cat =>
+        cat.id === id ? { ...cat, ...updates } : cat
+      ))
+    } catch (err) {
+      throw err
     }
-  }, [categories, isLoading])
+  }, [])
 
-  const addCategory = (category: Omit<CustomCategory, "id" | "createdAt">) => {
-    const newCategory: CustomCategory = {
-      ...category,
-      id: Date.now().toString(),
-      createdAt: new Date(),
+  const deleteCategory = useCallback(async (id: string) => {
+    try {
+      const resp = await ApiService.deleteCustomCategory(id)
+      if (resp.error) throw new Error(resp.error)
+      setCategories(prev => prev.filter(cat => cat.id !== id))
+    } catch (err) {
+      throw err
     }
-    setCategories((prev) => [...prev, newCategory])
-    return newCategory
-  }
-
-  const updateCategory = (id: string, updates: Partial<Omit<CustomCategory, "id" | "createdAt">>) => {
-    setCategories((prev) => prev.map((cat) => (cat.id === id ? { ...cat, ...updates } : cat)))
-  }
-
-  const deleteCategory = (id: string) => {
-    setCategories((prev) => prev.filter((cat) => cat.id !== id))
-  }
+  }, [])
 
   const getCategoryById = (id: string) => {
     return categories.find((cat) => cat.id === id)
@@ -92,9 +103,11 @@ export function useCustomCategories() {
   return {
     categories,
     isLoading,
+    error,
     addCategory,
     updateCategory,
     deleteCategory,
     getCategoryById,
+    refetch: fetchCategories
   }
 }

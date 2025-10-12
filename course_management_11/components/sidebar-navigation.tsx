@@ -40,7 +40,7 @@ export function SidebarNavigation({ activeTab, onTabChange }: SidebarNavigationP
   return (
     <nav
       className={cn(
-        "hidden lg:flex lg:flex-col lg:fixed lg:left-0 lg:top-0 lg:h-full lg:bg-white lg:border-r lg:border-border lg:z-30 transition-all duration-200",
+        "hidden lg:flex lg:flex-col lg:fixed lg:left-0 lg:top-0 lg:h-full lg:bg-sidebar/95 lg:backdrop-blur-md lg:border-r lg:border-sidebar-border lg:z-30 transition-all duration-300 ease-out shadow-lg desktop-sidebar",
         isCollapsed ? "lg:w-16" : "lg:w-64",
       )}
       onMouseEnter={handleMouseEnter}
@@ -48,15 +48,19 @@ export function SidebarNavigation({ activeTab, onTabChange }: SidebarNavigationP
     >
       <div
         className={cn(
-          "border-b border-border flex items-center h-16",
+          "border-b border-sidebar-border flex items-center h-16 transition-all duration-300",
           isCollapsed ? "justify-center" : "justify-start px-6",
         )}
       >
-        {!isCollapsed && showText && <h1 className="text-xl font-bold text-foreground">課程管理系統</h1>}
+        {!isCollapsed && showText && (
+          <h1 className="text-xl font-bold text-sidebar-foreground animate-fade-in">
+            Classroom
+          </h1>
+        )}
       </div>
       <div className="flex-1 p-4">
-        <div className="space-y-2">
-          {tabs.map((tab) => {
+        <div className="space-y-3">
+          {tabs.map((tab, index) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
 
@@ -65,26 +69,38 @@ export function SidebarNavigation({ activeTab, onTabChange }: SidebarNavigationP
                 key={tab.id}
                 onClick={() => onTabChange(tab.id)}
                 className={cn(
-                  "w-full flex items-center rounded-lg transition-colors text-left h-12",
+                  "w-full flex items-center rounded-xl transition-all duration-300 text-left h-12 relative overflow-hidden group",
+                  "hover:scale-105 active:scale-95",
                   isCollapsed
                     ? isActive
-                      ? "text-white bg-primary justify-center"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50 justify-center"
+                      ? "text-sidebar-primary-foreground bg-sidebar-primary justify-center shadow-lg shadow-primary/25"
+                      : "text-sidebar-foreground hover:text-sidebar-primary hover:bg-sidebar-accent justify-center"
                     : isActive
-                      ? "text-white bg-primary"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
+                      ? "text-sidebar-primary-foreground bg-sidebar-primary shadow-lg shadow-primary/25"
+                      : "text-sidebar-foreground hover:text-sidebar-primary hover:bg-sidebar-accent",
                 )}
                 title={isCollapsed ? tab.label : undefined}
+                style={{
+                  animationDelay: `${index * 50}ms`
+                }}
               >
                 <div
                   className={cn(
-                    "flex items-center justify-center flex-shrink-0",
+                    "flex items-center justify-center flex-shrink-0 transition-transform duration-300",
                     isCollapsed ? "w-12 h-12" : "w-12 h-12",
+                    isActive ? "animate-bounce-in" : "group-hover:scale-110"
                   )}
                 >
                   <Icon className="w-5 h-5" />
                 </div>
-                {!isCollapsed && showText && <span className="font-medium ml-1">{tab.label}</span>}
+                {!isCollapsed && showText && (
+                  <span className="font-medium ml-2 animate-fade-in transition-all duration-300">
+                    {tab.label}
+                  </span>
+                )}
+                {isActive && (
+                  <div className="absolute inset-0 bg-sidebar-primary/10 rounded-xl animate-pulse" />
+                )}
               </button>
             )
           })}

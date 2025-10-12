@@ -32,22 +32,22 @@ export function NoteCard({ note, course, onEdit, onDelete, onClick }: NoteCardPr
 
   return (
     <Card
-      className={`p-5 relative ${onClick ? "cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 ease-out hover:bg-white/90 dark:hover:bg-slate-900/90" : ""}`}
+      className={`p-3 sm:p-5 relative ${onClick ? "cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 ease-out hover:bg-white/90 dark:hover:bg-slate-900/90" : ""}`}
       onClick={handleCardClick}
     >
       <div
-        className="w-4 h-4 rounded-full absolute left-4 top-6"
+        className="w-3 h-3 sm:w-4 sm:h-4 rounded-full absolute left-3 sm:left-4 top-5 sm:top-6"
         style={{ backgroundColor: course?.color || "#8b5cf6" }}
       />
-      <div className="flex items-start gap-4 mb-4 ml-8">
+      <div className="flex items-start gap-3 sm:gap-4 mb-3 sm:mb-4 ml-6 sm:ml-8">
         <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-foreground text-balance text-lg leading-tight">{note.title}</h3>
-          {course && <p className="text-sm text-muted-foreground mt-2 font-medium">{course.name}</p>}
+          <h3 className="font-semibold text-foreground text-balance text-base sm:text-lg leading-tight">{note.title}</h3>
+          {course && <p className="text-sm text-muted-foreground mt-2 font-medium truncate">{course.name}</p>}
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
           {note.attachments && note.attachments.length > 0 && (
             <svg
-              className="w-4 h-4 text-muted-foreground opacity-70"
+              className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground opacity-70"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -60,15 +60,15 @@ export function NoteCard({ note, course, onEdit, onDelete, onClick }: NoteCardPr
               />
             </svg>
           )}
-          <DocumentIcon className="w-5 h-5 text-muted-foreground flex-shrink-0 opacity-60" />
+          <DocumentIcon className="w-4 h-4 sm:w-5 sm:h-5 text-muted-foreground flex-shrink-0 opacity-60" />
         </div>
       </div>
 
-      <div className="mb-4 ml-8">
+      <div className="mb-3 sm:mb-4 ml-6 sm:ml-8">
         <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">{stripHtml(note.content)}</p>
       </div>
 
-      <div className="flex items-center justify-between ml-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 ml-6 sm:ml-8">
         <div className="text-xs text-muted-foreground space-y-1">
           <p className="font-medium">建立：{note.createdAt.toLocaleDateString("zh-TW")}</p>
           {note.updatedAt.getTime() !== note.createdAt.getTime() && (
@@ -77,9 +77,9 @@ export function NoteCard({ note, course, onEdit, onDelete, onClick }: NoteCardPr
         </div>
 
         {(onEdit || onDelete) && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 sm:gap-3">
             {onEdit && (
-              <Button size="sm" variant="outline" onClick={onEdit} className="rounded-xl font-medium bg-transparent">
+              <Button size="sm" variant="outline" onClick={onEdit} className="rounded-xl font-medium bg-transparent text-sm h-9 sm:h-10 px-3 sm:px-4 touch-manipulation">
                 編輯
               </Button>
             )}
@@ -88,7 +88,7 @@ export function NoteCard({ note, course, onEdit, onDelete, onClick }: NoteCardPr
                 size="sm"
                 variant="outline"
                 onClick={onDelete}
-                className="text-destructive hover:text-destructive bg-transparent rounded-xl font-medium"
+                className="text-destructive hover:text-destructive bg-transparent rounded-xl font-medium text-sm h-9 sm:h-10 px-3 sm:px-4 touch-manipulation"
               >
                 刪除
               </Button>
