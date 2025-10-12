@@ -9,114 +9,268 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { FileText, Calendar, Camera, Upload } from "lucide-react"
 import type { Course } from "@/types/course"
+import { ApiService } from "@/services/apiService"
+import { OCRPreviewModal } from "@/components/ocr-preview-modal"
+
+// OCR 數據類型定義
+interface OCRSchedule {
+  day_of_week: number
+  start: string
+  end: string
+}
+
+interface OCRConflict {
+  day_of_week: number
+  start_time: string
+  end_time: string
+  conflicting_course: {
+    id: number
+    title: string
+    instructor: string
+    classroom: string
+    start_time: string
+    end_time: string
+  }
+}
+
+interface OCRCourse {
+  title: string
+  instructor: string
+  classroom: string
+  schedule: OCRSchedule[]
+  conflicts?: OCRConflict[]
+  has_conflicts?: boolean
+}
+
+interface OCRPreviewData {
+  items: OCRCourse[]
+  total_courses: number
+  courses_with_conflicts: number
+}
+
+interface OCRConfirmResponse {
+  coursesCreated: number
+  schedulesCreated: number
+  skippedCourses: Array<{ reason: string }>
+}
 
 interface CourseFormProps {
-  onSubmit: (course: Omit<Course, "id" | "createdAt">) => void
+  onSubmit: (course: Omit<Course, "id" | "createdAt">) => Promise<void> | void
   onCancel: () => void
   onBulkImport?: (courses: Omit<Course, "id" | "createdAt">[]) => void
   initialCourse?: Course
+  existingCourses?: Course[] // 用於檢查衝突
 }
 
 const COLORS = ["#8b5cf6", "#3b82f6", "#10b981", "#f59e0b", "#ef4444"]
 
 const DAYS = [
-  { value: 1, label: "週一" },
-  { value: 2, label: "週二" },
-  { value: 3, label: "週三" },
-  { value: 4, label: "週四" },
-  { value: 5, label: "週五" },
-  { value: 6, label: "週六" },
-  { value: 0, label: "週日" },
+  { value: 0, label: "週一" },
+  { value: 1, label: "週二" },
+  { value: 2, label: "週三" },
+  { value: 3, label: "週四" },
+  { value: 4, label: "週五" },
+  { value: 5, label: "週六" },
+  { value: 6, label: "週日" },
 ]
 
-export function CourseForm({ onSubmit, onCancel, onBulkImport, initialCourse }: CourseFormProps) {
+export function CourseForm({ onSubmit, onCancel, onBulkImport, initialCourse, existingCourses = [] }: CourseFormProps) {
   const [formData, setFormData] = useState({
     name: initialCourse?.name || "",
     courseCode: initialCourse?.courseCode || "", // 添加課程代碼欄位
     instructor: initialCourse?.instructor || "",
     classroom: initialCourse?.classroom || "",
     color: initialCourse?.color || COLORS[0],
-    schedule: initialCourse?.schedule || [{ dayOfWeek: 1, startTime: "07:00", endTime: "22:00" }],
+    schedule: initialCourse?.schedule || [{ dayOfWeek: 0, startTime: "08:00", endTime: "10:00" }],
   })
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleFileImport = (event: React.ChangeEvent<HTMLInputElement>, type: "csv" | "ical") => {
+  // OCR 預覽相關狀態
+  const [ocrPreviewOpen, setOcrPreviewOpen] = useState(false)
+  const [ocrPreviewData, setOcrPreviewData] = useState<OCRPreviewData | null>(null)
+  const [ocrLoading, setOcrLoading] = useState(false)
+
+  const handleFileImport = async (event: React.ChangeEvent<HTMLInputElement>, type: "csv" | "ical" | "excel" | "xml") => {
     const file = event.target.files?.[0]
     if (!file) return
 
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const content = e.target?.result as string
-      console.log(`[v0] Importing ${type} file:`, content)
-      // TODO: Implement actual parsing logic for CSV/iCal files
-      // Mock multiple courses for demonstration
-      const mockCourses = [
-        {
-          name: "匯入課程1",
-          courseCode: "IMP001", // 添加課程代碼到模擬數據
-          instructor: "教師A",
-          classroom: "A101",
-          color: COLORS[0],
-          schedule: [{ dayOfWeek: 1, startTime: "09:00", endTime: "11:00" }],
-        },
-        {
-          name: "匯入課程2",
-          courseCode: "IMP002", // 添加課程代碼到模擬數據
-          instructor: "教師B",
-          classroom: "B202",
-          color: COLORS[1],
-          schedule: [{ dayOfWeek: 2, startTime: "14:00", endTime: "16:00" }],
-        },
-      ]
-      onBulkImport?.(mockCourses)
-      alert(`成功匯入 ${mockCourses.length} 個課程`)
+    try {
+      // 使用 ApiService 進行實際的檔案匯入
+      const lineUserId = ApiService.bootstrapLineUserId()
+      const resp = await ApiService.importCourses(file)
+      if ((resp as any)?.error) {
+        throw new Error((resp as any).error)
+      }
+      const result: any = (resp as any).data
+      console.log('匯入結果:', result)
+      
+      if (result.count > 0) {
+        alert(`成功匯入 ${result.count} 個課程`)
+        // 重新載入頁面以顯示新課程
+        window.location.reload()
+      } else {
+        alert('沒有找到可匯入的課程資料')
+      }
+    } catch (error) {
+      console.error('匯入錯誤:', error)
+      alert(`匯入失敗: ${error instanceof Error ? error.message : '未知錯誤'}`)
     }
-    reader.readAsText(file)
   }
 
-  const handleImageScan = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageScan = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
 
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const imageUrl = e.target?.result as string
-      console.log("[v0] Scanning image:", imageUrl)
-      // TODO: Implement OCR/image scanning logic
-      // Mock multiple courses from image scan
-      const mockCourses = [
-        {
-          name: "掃描課程1",
-          courseCode: "SCAN001", // 添加課程代碼到模擬數據
-          instructor: "教師C",
-          classroom: "C303",
-          color: COLORS[2],
-          schedule: [{ dayOfWeek: 3, startTime: "10:00", endTime: "12:00" }],
-        },
-      ]
-      onBulkImport?.(mockCourses)
-      alert(`從圖片識別並匯入 ${mockCourses.length} 個課程`)
+    setOcrLoading(true)
+    try {
+      console.log("[OCR] 開始掃描圖片:", file.name)
+      
+      // 調用預覽模式 OCR API
+      const response = await ApiService.previewTimetableImage(file)
+      
+      if (response.error) {
+        console.error("[OCR] 掃描失敗:", response.error)
+        alert(`OCR掃描失敗: ${response.error}`)
+        return
+      }
+
+      // 檢查是否有課程數據
+      if ((response.data as any)?.items && (response.data as any).items.length > 0) {
+        console.log("[OCR] 成功識別課程:", (response.data as any).total_courses, "個")
+        setOcrPreviewData(response.data as OCRPreviewData)
+        setOcrPreviewOpen(true)
+      } else {
+        console.warn("[OCR] 未識別到課程數據")
+        alert("未能從圖片中識別到課程信息，請確認圖片清晰度或嘗試其他圖片")
+      }
+    } catch (error) {
+      console.error("[OCR] 掃描過程發生錯誤:", error)
+      alert("OCR掃描過程發生錯誤，請稍後再試")
+    } finally {
+      setOcrLoading(false)
+      // 清空文件輸入
+      event.target.value = ''
     }
-    reader.readAsDataURL(file)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleOcrConfirm = async (selectedCourses: OCRCourse[]) => {
+    setOcrLoading(true)
+    try {
+      console.log("[OCR] 確認創建課程:", selectedCourses.length, "個")
+      
+      const response = await ApiService.confirmTimetableImport(selectedCourses)
+      
+      if (response.error) {
+        console.error("[OCR] 創建失敗:", response.error)
+        alert(`課程創建失敗: ${response.error}`)
+        return
+      }
+
+      const responseData = response.data as OCRConfirmResponse
+      const coursesCreated = responseData?.coursesCreated || 0
+      const schedulesCreated = responseData?.schedulesCreated || 0
+      const skippedCourses = responseData?.skippedCourses || []
+      
+      if (coursesCreated > 0) {
+        let message = `成功創建 ${coursesCreated} 個課程，${schedulesCreated} 個時段！`
+        if (skippedCourses.length > 0) {
+          message += `\n跳過 ${skippedCourses.length} 個課程（${skippedCourses.map(c => c.reason).join(', ')}）`
+        }
+        alert(message)
+        
+        // 關閉模態框
+        setOcrPreviewOpen(false)
+        setOcrPreviewData(null)
+        
+        // 觸發父組件刷新課程列表
+        if (onBulkImport) {
+          // 如果有批量導入回調，調用它來刷新數據
+          onBulkImport([])
+        } else {
+          // 如果沒有回調，則刷新頁面作為後備方案
+          window.location.reload()
+        }
+      } else {
+        alert("沒有課程被創建，可能都存在時段衝突")
+        setOcrPreviewOpen(false)
+        setOcrPreviewData(null)
+      }
+    } catch (error) {
+      console.error("[OCR] 確認創建過程發生錯誤:", error)
+      alert("課程創建過程發生錯誤，請稍後再試")
+    } finally {
+      setOcrLoading(false)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.name.trim()) return
+    if (!formData.name.trim() || isSubmitting) return
 
-    onSubmit({
-      name: formData.name.trim(),
-      courseCode: formData.courseCode.trim() || undefined, // 包含課程代碼在提交數據中
-      instructor: formData.instructor.trim() || undefined,
-      classroom: formData.classroom.trim() || undefined,
-      color: formData.color,
-      schedule: formData.schedule,
-    })
+    // 檢查課程時段衝突：同一星期日，時間區間重疊則視為衝突
+    const conflicts: { with: string; day: number; start: string; end: string }[] = []
+    for (const slot of formData.schedule) {
+      const newStart = slot.startTime
+      const newEnd = slot.endTime
+      if (!newStart || !newEnd || newStart >= newEnd) {
+        alert('請確認上課時間區間有效（開始時間需早於結束時間）')
+        return
+      }
+      existingCourses.forEach((c) => {
+        // 編輯時忽略自身
+        if (initialCourse && c.id === initialCourse.id) return
+        c.schedule.forEach((s) => {
+          if (s.dayOfWeek === slot.dayOfWeek) {
+            const overlap = !(newEnd <= s.startTime || newStart >= s.endTime)
+            if (overlap) {
+              conflicts.push({ with: c.name, day: slot.dayOfWeek, start: s.startTime, end: s.endTime })
+            }
+          }
+        })
+      })
+    }
+    if (conflicts.length > 0) {
+      const dayLabel = (d: number) => {
+        const dayMap: { [key: number]: string } = {
+          0: '週一',
+          1: '週二', 
+          2: '週三',
+          3: '週四',
+          4: '週五',
+          5: '週六',
+          6: '週日'
+        }
+        return dayMap[d] || '未知'
+      }
+      const msg = conflicts
+        .map((c) => `與「${c.with}」在 ${dayLabel(c.day)} ${c.start}~${c.end} 衝突`)
+        .join('\n')
+      alert(`時段衝突，無法新增/更新：\n${msg}`)
+      return
+    }
+
+    try {
+      setIsSubmitting(true)
+      await onSubmit({
+        name: formData.name.trim(),
+        courseCode: formData.courseCode.trim() || undefined, // 包含課程代碼在提交數據中
+        instructor: formData.instructor.trim() || undefined,
+        classroom: formData.classroom.trim() || undefined,
+        color: formData.color,
+        schedule: formData.schedule,
+      })
+    } catch (error) {
+      console.error('提交課程表單失敗:', error)
+      alert('操作失敗，請稍後再試')
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const addScheduleSlot = () => {
     setFormData((prev) => ({
       ...prev,
-      schedule: [...prev.schedule, { dayOfWeek: 1, startTime: "07:00", endTime: "22:00" }],
+      schedule: [...prev.schedule, { dayOfWeek: 0, startTime: "08:00", endTime: "10:00" }],
     }))
   }
 
@@ -137,16 +291,8 @@ export function CourseForm({ onSubmit, onCancel, onBulkImport, initialCourse }: 
   }
 
   const getTimeConstraints = (timeValue: string, isStartTime: boolean) => {
-    const hour = Number.parseInt(timeValue.split(":")[0])
-
-    // For AM times (before 12:00), don't allow hours before 7
-    if (hour < 12) {
-      return { min: "07:00", max: "11:59" }
-    }
-    // For PM times (12:00 and after), don't allow hours after 22 (10 PM)
-    else {
-      return { min: "12:00", max: "22:00" }
-    }
+    // 設定合理的上課時間範圍：早上 7:00 到晚上 22:00
+    return { min: "07:00", max: "22:00" }
   }
 
   return (
@@ -158,7 +304,7 @@ export function CourseForm({ onSubmit, onCancel, onBulkImport, initialCourse }: 
             <Label className="font-bold text-lg text-blue-800">批量匯入課程</Label>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <div className="relative">
               <input
                 type="file"
@@ -188,13 +334,54 @@ export function CourseForm({ onSubmit, onCancel, onBulkImport, initialCourse }: 
             <div className="relative">
               <input
                 type="file"
-                accept="image/*"
-                onChange={handleImageScan}
+                accept=".xlsx,.xls"
+                onChange={(e) => handleFileImport(e, "excel")}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
               <Button type="button" variant="outline" className="w-full bg-white hover:bg-blue-50 border-blue-300">
-                <Camera className="w-4 h-4 mr-2" />
-                圖片掃描
+                <FileText className="w-4 h-4 mr-2" />
+                Excel檔案
+              </Button>
+            </div>
+
+            <div className="relative">
+              <input
+                type="file"
+                accept=".xml"
+                onChange={(e) => handleFileImport(e, "xml")}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+              />
+              <Button type="button" variant="outline" className="w-full bg-white hover:bg-blue-50 border-blue-300">
+                <FileText className="w-4 h-4 mr-2" />
+                XML檔案
+              </Button>
+            </div>
+
+            <div className="relative">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageScan}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                disabled={ocrLoading}
+              />
+              <Button 
+                type="button" 
+                variant="outline" 
+                className="w-full bg-white hover:bg-blue-50 border-blue-300"
+                disabled={ocrLoading}
+              >
+                {ocrLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                    掃描中...
+                  </>
+                ) : (
+                  <>
+                    <Camera className="w-4 h-4 mr-2" />
+                    圖片掃描
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -323,8 +510,8 @@ export function CourseForm({ onSubmit, onCancel, onBulkImport, initialCourse }: 
           </div>
 
           <div className="flex gap-2 pt-4">
-            <Button type="submit" className="flex-1">
-              {initialCourse ? "更新課程" : "新增課程"}
+            <Button type="submit" className="flex-1" disabled={isSubmitting}>
+              {isSubmitting ? "處理中..." : (initialCourse ? "更新課程" : "新增課程")}
             </Button>
             <Button type="button" variant="outline" onClick={onCancel} className="flex-1 bg-transparent">
               取消
@@ -332,6 +519,18 @@ export function CourseForm({ onSubmit, onCancel, onBulkImport, initialCourse }: 
           </div>
         </form>
       </Card>
+
+      {/* OCR 預覽模態框 */}
+      <OCRPreviewModal
+        isOpen={ocrPreviewOpen}
+        onClose={() => {
+          setOcrPreviewOpen(false)
+          setOcrPreviewData(null)
+        }}
+        data={ocrPreviewData}
+        onConfirm={handleOcrConfirm}
+        loading={ocrLoading}
+      />
     </div>
   )
 }

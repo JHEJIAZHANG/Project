@@ -2,7 +2,8 @@
 
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { CheckIcon } from "@/components/icons"
+import { EmptyStateSimple } from "@/components/empty-state"
+import { CheckIcon, PlusIcon } from "@/components/icons"
 import {
   BookIcon,
   ClipboardIcon,
@@ -17,6 +18,9 @@ import {
 import type { Assignment, Exam } from "@/types/course"
 import type { CustomCategoryItem } from "./custom-category-form"
 import { getDaysDifferenceTaiwan, isTodayTaiwan } from "@/lib/taiwan-time"
+import { useState } from "react"
+import { ApiService } from "@/services/apiService"
+import { useToastContext } from "@/contexts/toast-context"
 
 interface TodoItem {
   id: string
@@ -42,6 +46,9 @@ interface UnifiedTodoSectionProps {
   }
   onViewItem?: (id: string, type: "assignment" | "exam" | "custom") => void
   onViewAllTodos?: () => void
+  onAssignmentStatusChange?: (id: string, status: Assignment["status"]) => void
+  onExamStatusChange?: (id: string, status: Exam["status"]) => void
+  onCustomTodoStatusChange?: (id: string, status: "pending" | "completed" | "overdue") => void
 }
 
 export function UnifiedTodoSection({
@@ -53,9 +60,14 @@ export function UnifiedTodoSection({
   notificationSettings,
   onViewItem,
   onViewAllTodos,
+  onAssignmentStatusChange,
+  onExamStatusChange,
+  onCustomTodoStatusChange,
 }: UnifiedTodoSectionProps) {
   const viewingDate = selectedDate || new Date()
   const isViewingToday = isTodayTaiwan(viewingDate)
+  const [updatingItems, setUpdatingItems] = useState<Set<string>>(new Set())
+  const { showSuccess, showError } = useToastContext()
 
   // Convert reminder timing to days
   const getReminderDays = (timing: string) => {
@@ -85,10 +97,16 @@ export function UnifiedTodoSection({
   // Filter and convert assignments to todo items
   const assignmentTodos: TodoItem[] = assignments
     .filter((assignment) => {
-      if (assignment.status === "completed") return false
-
       const daysUntilDue = getDaysDifferenceTaiwan(viewingDate, assignment.dueDate)
-      return daysUntilDue <= reminderDays && daysUntilDue >= 0
+      // 顯示範圍內的所有作業，包括已完成的
+      if (daysUntilDue <= reminderDays && daysUntilDue >= 0) {
+        return true
+      }
+      // 如果是已完成的作業，也在當天顯示
+      if (assignment.status === "completed" && daysUntilDue >= -1 && daysUntilDue <= reminderDays) {
+        return true
+      }
+      return false
     })
     .map((assignment) => {
       const course = getCourseById(assignment.courseId)
@@ -136,11 +154,11 @@ export function UnifiedTodoSection({
       if (item.status === "completed") return false
 
       // Use notification time if available, otherwise use due date with reminder days
-      const referenceDate = item.notificationTime || item.dueDate
+      const referenceDate = (item as any).notificationTime || item.dueDate
       const daysUntilReference = getDaysDifferenceTaiwan(viewingDate, referenceDate)
 
       // If notification time is set, show from notification time onwards
-      if (item.notificationTime) {
+      if ((item as any).notificationTime) {
         return daysUntilReference <= 0 && getDaysDifferenceTaiwan(viewingDate, item.dueDate) >= 0
       }
 
@@ -160,7 +178,7 @@ export function UnifiedTodoSection({
         dueDate: item.dueDate,
         status: item.status,
         category: item.category,
-        icon: item.icon,
+        icon: (item as any).icon,
         priority: daysUntilDue <= 1 ? 1 : daysUntilDue <= 2 ? 2 : 3,
       }
     })
@@ -179,38 +197,58 @@ export function UnifiedTodoSection({
   const getItemColor = (item: TodoItem) => {
     const daysUntil = getDaysDifferenceTaiwan(viewingDate, item.dueDate)
 
-    if (item.status === "pending") {
-      return "#3b82f6" // Blue for all in-progress items
+    // 已完成的作業顯示綠色
+    if (item.status === "completed") {
+      return "#22c55e" // Green for completed items
     }
 
-    if (daysUntil <= 0) {
-      return "#ef4444" // Red for overdue/today
+    if (item.status === "pending") {
+      if (daysUntil <= 0) {
+        return "#ef4444" // Red for overdue/today
+      }
+      if (daysUntil <= 1) {
+        return "#f97316" // Orange for urgent (tomorrow)
+      }
+      if (daysUntil <= 2) {
+        return "#eab308" // Yellow for soon
+      }
+      return "#3b82f6" // Blue for future
     }
-    if (daysUntil <= 1) {
-      return "#f97316" // Orange for urgent (tomorrow)
+
+    // 逾期狀態
+    if (item.status === "overdue") {
+      return "#ef4444" // Red for overdue
     }
-    if (daysUntil <= 2) {
-      return "#eab308" // Yellow for soon
-    }
-    return "#3b82f6" // Blue for future
+
+    return "#3b82f6" // Default blue
   }
 
   const getItemTextColor = (item: TodoItem) => {
     const daysUntil = getDaysDifferenceTaiwan(viewingDate, item.dueDate)
 
+    // 已完成的作業顯示綠色文字
+    if (item.status === "completed") {
+      return "text-green-700"
+    }
+
     if (item.status === "pending") {
+      if (daysUntil <= 0) {
+        return "text-red-700"
+      }
+      if (daysUntil <= 1) {
+        return "text-orange-700"
+      }
+      if (daysUntil <= 2) {
+        return "text-yellow-700"
+      }
       return "text-blue-700"
     }
 
-    if (daysUntil <= 0) {
+    // 逾期狀態
+    if (item.status === "overdue") {
       return "text-red-700"
     }
-    if (daysUntil <= 1) {
-      return "text-orange-700"
-    }
-    if (daysUntil <= 2) {
-      return "text-yellow-700"
-    }
+
     return "text-blue-700"
   }
 
@@ -258,6 +296,42 @@ export function UnifiedTodoSection({
     return type === "assignment" ? "作業" : "考試"
   }
 
+
+
+  const handleStatusChange = async (item: TodoItem, newStatus: string) => {
+    // 防止重複點擊
+    if (updatingItems.has(item.id)) {
+      return
+    }
+
+    // 添加到更新中的項目集合
+    setUpdatingItems(prev => new Set(prev).add(item.id))
+
+    try {
+      if (item.type === "assignment" && onAssignmentStatusChange) {
+        await onAssignmentStatusChange(item.id, newStatus as Assignment["status"])
+        showSuccess(`作業狀態已更新為${newStatus === "completed" ? "已完成" : "未完成"}`)
+      } else if (item.type === "exam" && onExamStatusChange) {
+        await onExamStatusChange(item.id, newStatus as Exam["status"])
+        showSuccess(`考試狀態已更新為${newStatus === "completed" ? "已完成" : "未完成"}`)
+      } else if (item.type === "custom" && onCustomTodoStatusChange) {
+        await onCustomTodoStatusChange(item.id, newStatus as "pending" | "completed" | "overdue")
+        showSuccess(`代辦事項狀態已更新為${newStatus === "completed" ? "已完成" : "未完成"}`)
+      }
+    } catch (error: any) {
+      console.error('狀態更新錯誤:', error)
+      const errorMessage = error?.message || error?.error || '狀態更新失敗'
+      showError(`更新失敗: ${errorMessage}`)
+    } finally {
+      // 從更新中的項目集合移除
+      setUpdatingItems(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(item.id)
+        return newSet
+      })
+    }
+  }
+
   return (
     <Card className="bg-white p-4">
       <div className="flex items-center justify-between mb-3">
@@ -265,9 +339,11 @@ export function UnifiedTodoSection({
           <CheckIcon className="w-5 h-5 text-primary" />
           待辦事項
         </h2>
-        <Button variant="outline" size="sm" onClick={onViewAllTodos}>
-          查看全部
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={onViewAllTodos}>
+            查看全部
+          </Button>
+        </div>
       </div>
 
       {allTodos.length > 0 ? (
@@ -275,30 +351,78 @@ export function UnifiedTodoSection({
           {allTodos.map((item) => (
             <div
               key={`${item.type}-${item.id}`}
-              className="flex items-center justify-between p-2 bg-muted rounded-lg cursor-pointer hover:shadow-sm transition-shadow"
-              onClick={() => onViewItem?.(item.id, item.type)}
+              className="flex items-center justify-between p-3 bg-muted rounded-lg hover:shadow-sm transition-shadow"
             >
-              <div className="flex items-center gap-2">
+              <div 
+                className="flex items-center gap-2 flex-1 cursor-pointer"
+                onClick={() => onViewItem?.(item.id, item.type)}
+              >
                 <div className="w-1 h-8 flex-shrink-0 rounded-sm" style={{ backgroundColor: getItemColor(item) }} />
-                <div>
+                <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-sm font-medium text-foreground">{item.title}</p>
+                    <p className={`text-sm font-medium text-foreground ${item.status === "completed" ? "line-through opacity-60" : ""}`}>
+                      {item.title || "未命名項目"}
+                    </p>
                     <span className="text-xs px-1.5 py-0.5 bg-slate-100 text-slate-700 rounded">
                       {getTypeLabel(item.type, item.category, item.icon)}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground">{item.courseName}</p>
+                  <p className={`text-xs text-muted-foreground ${item.status === "completed" ? "line-through opacity-60" : ""}`}>
+                    {item.courseName}
+                  </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className={`text-xs font-medium ${getItemTextColor(item)}`}>{formatDueDate(item.dueDate)}</p>
-                <p className="text-xs text-slate-600">{item.dueDate.toLocaleDateString("zh-TW")}</p>
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <p className={`text-xs font-medium ${getItemTextColor(item)}`}>{formatDueDate(item.dueDate)}</p>
+                  <p className="text-xs text-slate-600">{item.dueDate.toLocaleDateString("zh-TW")}</p>
+                </div>
+                {item.status !== "completed" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleStatusChange(item, "completed")
+                    }}
+                    disabled={updatingItems.has(item.id)}
+                    className="h-8 px-2 text-xs"
+                  >
+                    {updatingItems.has(item.id) ? (
+                      <div className="w-3 h-3 border border-gray-300 border-t-blue-600 rounded-full animate-spin" />
+                    ) : (
+                      <CheckIcon className="w-3 h-3" />
+                    )}
+                  </Button>
+                )}
+                {item.status === "completed" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleStatusChange(item, "pending")
+                    }}
+                    disabled={updatingItems.has(item.id)}
+                    className="h-8 px-2 text-xs bg-green-50 text-green-600 border-green-200"
+                  >
+                    {updatingItems.has(item.id) ? (
+                      <div className="w-3 h-3 border border-green-300 border-t-green-600 rounded-full animate-spin" />
+                    ) : (
+                      <CheckIcon className="w-3 h-3" />
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <p className="text-muted-foreground text-center py-4">暫無待辦事項</p>
+        <EmptyStateSimple
+          title="暫無待辦事項"
+          description="新增待辦事項來保持高效率"
+          showAction={false}
+        />
       )}
 
       {reminderDays > 0 && (

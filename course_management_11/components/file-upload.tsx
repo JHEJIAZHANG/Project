@@ -4,6 +4,7 @@ import type React from "react"
 import { useRef, useState } from "react"
 import { Button } from "./ui/button"
 import { PaperclipIcon, XIcon } from "@/components/icons"
+import { ApiService } from "@/services/apiService"
 
 interface FileAttachment {
   id: string
@@ -46,18 +47,37 @@ export function FileUpload({ attachments, onAttachmentsChange, maxFiles = 5, max
           continue
         }
 
-        // Create blob URL for file
-        const url = URL.createObjectURL(file)
+        try {
+          // 使用 API 上傳檔案（若外層已知 noteId，可改為傳入 extra）
+          const response = await ApiService.uploadFile(file)
+          
+          if (response.error) {
+            throw new Error(response.error)
+          }
 
-        const attachment: FileAttachment = {
-          id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-          name: file.name,
-          size: file.size,
-          type: file.type,
-          url: url,
+          if (response.data) {
+            const attachment: FileAttachment = {
+              id: (response.data as any).id.toString(),
+              name: (response.data as any).name || file.name,
+              size: (response.data as any).size || file.size,
+              type: (response.data as any).type || file.type,
+              url: (response.data as any).url || (response.data as any).file_url,
+            }
+            newAttachments.push(attachment)
+          }
+        } catch (apiError) {
+          console.error("API upload failed, using local fallback:", apiError)
+          // 如果 API 上傳失敗，使用本地 blob URL 作為備用方案
+          const url = URL.createObjectURL(file)
+          const attachment: FileAttachment = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            url: url,
+          }
+          newAttachments.push(attachment)
         }
-
-        newAttachments.push(attachment)
       }
 
       onAttachmentsChange([...attachments, ...newAttachments])
@@ -114,7 +134,11 @@ export function FileUpload({ attachments, onAttachmentsChange, maxFiles = 5, max
           {attachments.map((attachment) => (
             <div key={attachment.id} className="flex items-center justify-between p-2 bg-muted rounded-lg">
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                <PaperclipIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                {attachment.type?.startsWith('image/') ? (
+                  <img src={`${ApiService.backendOrigin}${attachment.url}`} alt={attachment.name} className="h-10 w-10 object-cover rounded" />
+                ) : (
+                  <PaperclipIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium truncate">{attachment.name}</p>
                   <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>

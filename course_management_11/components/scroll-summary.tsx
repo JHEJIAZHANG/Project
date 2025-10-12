@@ -5,8 +5,11 @@ import type React from "react"
 import { useState, useEffect, useRef } from "react"
 import type { Course, Assignment, Exam } from "@/types/course"
 import { isSameDayTaiwan, isTodayTaiwan } from "@/lib/taiwan-time"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, CalendarIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
 
 interface ScrollSummaryProps {
   courses: Course[]
@@ -21,13 +24,13 @@ interface ScrollSummaryProps {
 }
 
 export function ScrollSummary({ courses, assignments, exams, selectedDate, onDateChange, user }: ScrollSummaryProps) {
-  const isExpandedRef = useRef(true)
-  const [isExpanded, setIsExpanded] = useState(true)
+  const [isExpanded, setIsExpanded] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [startY, setStartY] = useState(0)
   const [dragDistance, setDragDistance] = useState(0)
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false)
+  const isExpandedRef = useRef(false)
   const containerRef = useRef<HTMLDivElement>(null)
-  const dateInputRef = useRef<HTMLInputElement>(null)
 
   const isToday = () => {
     return isTodayTaiwan(selectedDate)
@@ -45,32 +48,10 @@ export function ScrollSummary({ courses, assignments, exams, selectedDate, onDat
     }
   }
 
-  const handleDateClick = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-
-    if (dateInputRef.current) {
-      try {
-        if (dateInputRef.current.showPicker) {
-          dateInputRef.current.showPicker()
-        } else {
-          dateInputRef.current.focus()
-          dateInputRef.current.click()
-        }
-      } catch (error) {
-        try {
-          dateInputRef.current.focus()
-          dateInputRef.current.click()
-        } catch (fallbackError) {
-          console.warn("Date picker could not be triggered")
-        }
-      }
-    }
-  }
-
-  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.value) {
-      onDateChange(new Date(e.target.value + "T00:00:00"))
+  const handleDateSelect = (date: Date | undefined) => {
+    if (date) {
+      onDateChange(date)
+      setIsCalendarOpen(false)
     }
   }
 
@@ -163,7 +144,10 @@ export function ScrollSummary({ courses, assignments, exams, selectedDate, onDat
   }
 
   const getSelectedDateData = () => {
-    const selectedDay = selectedDate.getDay()
+    // 將 JavaScript 的 getDay() 結果轉換為後端格式
+    // JavaScript Date: 0=週日, 1=週一, 2=週二, 3=週三, 4=週四, 5=週五, 6=週六
+    // 我們的系統: 0=週一, 1=週二, 2=週三, 3=週四, 4=週五, 5=週六, 6=週日
+    const selectedDay = selectedDate.getDay() === 0 ? 6 : selectedDate.getDay() - 1
 
     const dateCourses = courses.filter((course) => course.schedule.some((slot) => slot.dayOfWeek === selectedDay))
 
@@ -225,27 +209,42 @@ export function ScrollSummary({ courses, assignments, exams, selectedDate, onDat
       style={{ transform: isDragging ? `translateY(${Math.min(dragDistance * 0.3, 20)}px)` : undefined }}
       onClick={handleClick}
     >
-      <input
-        ref={dateInputRef}
-        type="date"
-        value={selectedDate.toISOString().split("T")[0]}
-        onChange={handleDateChange}
-        className="fixed top-0 left-0 opacity-0 pointer-events-none w-1 h-1"
-        style={{ zIndex: -9999 }}
-        tabIndex={-1}
-      />
-
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-baseline gap-2">
-          <span
-            className="text-4xl font-bold text-foreground hover:text-blue-600 cursor-pointer transition-colors"
-            onClick={handleDateClick}
+        <div className="flex items-baseline gap-3">
+          <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn(
+                  "text-4xl font-bold text-foreground hover:text-blue-600 transition-colors p-0 h-auto",
+                  "hover:bg-transparent focus:bg-transparent"
+                )}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {dateStr}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={handleDateSelect}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            className="p-1 h-auto text-muted-foreground hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsCalendarOpen(true)
+            }}
           >
-            {dateStr}
-          </span>
-          <div className="flex items-center gap-1">
-            <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-          </div>
+            <CalendarIcon className="h-5 w-5" />
+          </Button>
         </div>
         <div className="text-right">
           <div className="text-sm text-muted-foreground">{monthStr}</div>
@@ -261,7 +260,7 @@ export function ScrollSummary({ courses, assignments, exams, selectedDate, onDat
         <div className="mb-6 space-y-4">
           <div className="text-muted-foreground">
             <span className="text-xl">{getGreeting()}, </span>
-            <span className="text-xl font-medium text-foreground">{user?.isLoggedIn ? user.name : "Username"}</span>
+            <span className="text-xl font-medium text-foreground">{user?.isLoggedIn ? user.name : "同學"}</span>
           </div>
 
           <div className="space-y-3">

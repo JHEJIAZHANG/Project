@@ -15,8 +15,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { CheckIcon, ClockIcon, ExclamationIcon, MapPinIcon } from "@/components/icons"
-import type { Exam, Course } from "@/types"
+import type { Exam, Course } from "@/types/course"
 import { isExamEndedTaiwan, getDaysToExamEndTaiwan, getExamDueTimeText } from "@/lib/taiwan-time"
+import { useStatusUpdateFeedback } from "@/hooks/use-status-update-feedback"
 
 interface ExamCardProps {
   exam: Exam
@@ -30,6 +31,10 @@ interface ExamCardProps {
 export function ExamCard({ exam, course, onStatusChange, onEdit, onDelete, onViewDetail }: ExamCardProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showDescription, setShowDescription] = useState(false)
+  
+  // 使用狀態更新反饋系統
+  const { executeWithFeedback, getUpdateState } = useStatusUpdateFeedback()
+  const isUpdating = getUpdateState(exam.id).isUpdating
 
   const getStatusColor = (status: Exam["status"], examDate: Date, duration: number) => {
     if (status === "completed") {
@@ -117,6 +122,32 @@ export function ExamCard({ exam, course, onStatusChange, onEdit, onDelete, onVie
     setShowDeleteDialog(false)
   }
 
+  const handleStatusChange = async (e: React.MouseEvent, newStatus: Exam["status"]) => {
+    e.stopPropagation()
+    
+    const statusMessages = {
+      completed: "考試已標記為結束",
+      pending: "考試已標記為未完成"
+    }
+    
+    try {
+      await executeWithFeedback(
+        exam.id,
+        () => onStatusChange(exam.id, newStatus),
+        {
+          successMessage: statusMessages[newStatus],
+          errorMessage: "狀態更新失敗，請稍後再試"
+        }
+      )
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (message.includes("操作進行中")) {
+        return
+      }
+      console.error("更新考試狀態失敗:", error)
+    }
+  }
+
   const handleToggleDescription = (e: React.MouseEvent) => {
     e.stopPropagation()
     setShowDescription(!showDescription)
@@ -125,17 +156,17 @@ export function ExamCard({ exam, course, onStatusChange, onEdit, onDelete, onVie
   return (
     <>
       <Card
-        className="p-5 cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 ease-out hover:bg-white/90 dark:hover:bg-slate-900/90"
+        className="p-3 sm:p-5 cursor-pointer hover:shadow-xl hover:scale-[1.02] transition-all duration-200 ease-out hover:bg-white/90 dark:hover:bg-slate-900/90"
         onClick={handleCardClick}
       >
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-start gap-4 flex-1">
+        <div className="flex items-start justify-between mb-3 sm:mb-4">
+          <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
             <StatusIcon
-              className={`w-5 h-5 mt-1 ${getStatusColor(exam.status, exam.examDate, exam.duration).split(" ")[0]}`}
+              className={`w-4 h-4 sm:w-5 sm:h-5 mt-1 flex-shrink-0 ${getStatusColor(exam.status, exam.examDate, exam.duration).split(" ")[0]}`}
             />
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-foreground text-balance text-lg leading-tight">{exam.title}</h3>
-              {course && <p className="text-sm text-muted-foreground mt-2 font-medium">{course.name}</p>}
+              <h3 className="font-semibold text-foreground text-balance text-base sm:text-lg leading-tight">{exam.title}</h3>
+              {course && <p className="text-sm text-muted-foreground mt-2 font-medium truncate">{course.name}</p>}
               {exam.description && showDescription && (
                 <div className="mt-3">
                   <p className="text-sm text-muted-foreground leading-relaxed">{exam.description}</p>
@@ -143,24 +174,24 @@ export function ExamCard({ exam, course, onStatusChange, onEdit, onDelete, onVie
               )}
               {exam.location && (
                 <div className="flex items-center gap-2 mt-3">
-                  <MapPinIcon className="w-4 h-4 text-muted-foreground" />
-                  <p className="text-sm text-muted-foreground font-medium">{exam.location}</p>
+                  <MapPinIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <p className="text-sm text-muted-foreground font-medium truncate">{exam.location}</p>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2 ml-3">
-            <span className="text-xs px-3 py-1.5 rounded-full bg-gray-100 text-gray-800 font-medium dark:bg-gray-800/50 dark:text-gray-300">
+          <div className="flex items-center gap-2 ml-2 sm:ml-3 flex-shrink-0">
+            <span className="text-xs px-2 sm:px-3 py-1 sm:py-1.5 rounded-full bg-gray-100 text-gray-800 font-medium dark:bg-gray-800/50 dark:text-gray-300 w-fit">
               {getExamTypeText(exam.type)}
             </span>
           </div>
         </div>
 
         <div
-          className={`flex items-center justify-between p-4 rounded-2xl border-2 ${getStatusColor(exam.status, exam.examDate, exam.duration)}`}
+          className={`flex items-center justify-between p-3 sm:p-4 rounded-2xl border-2 ${getStatusColor(exam.status, exam.examDate, exam.duration)}`}
         >
-          <div>
+          <div className="min-w-0 flex-1">
             <p
               className={`text-sm font-semibold ${getStatusColor(exam.status, exam.examDate, exam.duration).split(" ")[0]}`}
             >
@@ -173,7 +204,7 @@ export function ExamCard({ exam, course, onStatusChange, onEdit, onDelete, onVie
           </div>
 
           {exam.status !== "completed" && (
-            <div className="text-right">
+            <div className="text-right flex-shrink-0">
               <p className="text-xs font-semibold text-foreground">
                 {getExamDueTimeText(exam.examDate, exam.duration)}
               </p>
@@ -181,25 +212,27 @@ export function ExamCard({ exam, course, onStatusChange, onEdit, onDelete, onVie
           )}
         </div>
 
-        <div className="flex gap-2 mt-4">
+        <div className="flex flex-wrap gap-2 sm:gap-3 mt-3 sm:mt-4">
           {exam.status === "pending" && (
             <Button
               size="sm"
               variant="outline"
-              onClick={() => onStatusChange(exam.id, "completed")}
-              className="flex-1 rounded-xl font-medium"
+              onClick={(e) => handleStatusChange(e, "completed")}
+              disabled={isUpdating}
+              className="flex-1 min-w-0 rounded-xl font-medium text-sm h-9 sm:h-10 px-3 sm:px-4 touch-manipulation"
             >
-              標記結束
+              {isUpdating ? "更新中..." : "標記結束"}
             </Button>
           )}
           {exam.status === "completed" && (
             <Button
               size="sm"
               variant="outline"
-              onClick={() => onStatusChange(exam.id, "pending")}
-              className="flex-1 rounded-xl font-medium"
+              onClick={(e) => handleStatusChange(e, "pending")}
+              disabled={isUpdating}
+              className="flex-1 min-w-0 rounded-xl font-medium text-sm h-9 sm:h-10 px-3 sm:px-4 touch-manipulation"
             >
-              標記未完成
+              {isUpdating ? "更新中..." : "標記未完成"}
             </Button>
           )}
           {onViewDetail && (
@@ -207,13 +240,14 @@ export function ExamCard({ exam, course, onStatusChange, onEdit, onDelete, onVie
               size="sm"
               variant="outline"
               onClick={onViewDetail}
-              className="rounded-xl font-medium bg-transparent"
+              className="rounded-xl font-medium bg-transparent text-sm h-9 sm:h-10 px-3 sm:px-4 touch-manipulation"
             >
-              查看詳情
+              <span className="hidden sm:inline">查看詳情</span>
+              <span className="sm:hidden">詳情</span>
             </Button>
           )}
           {onEdit && (
-            <Button size="sm" variant="outline" onClick={onEdit} className="rounded-xl font-medium bg-transparent">
+            <Button size="sm" variant="outline" onClick={onEdit} className="rounded-xl font-medium bg-transparent text-sm h-9 sm:h-10 px-3 sm:px-4 touch-manipulation">
               編輯
             </Button>
           )}
@@ -222,7 +256,7 @@ export function ExamCard({ exam, course, onStatusChange, onEdit, onDelete, onVie
               size="sm"
               variant="outline"
               onClick={handleDeleteClick}
-              className="text-destructive hover:text-destructive bg-transparent rounded-xl font-medium"
+              className="text-destructive hover:text-destructive bg-transparent rounded-xl font-medium text-sm h-9 sm:h-10 px-3 sm:px-4 touch-manipulation"
             >
               刪除
             </Button>

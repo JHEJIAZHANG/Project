@@ -73,7 +73,7 @@ export function CustomCategoryForm({ courses, category, onSubmit, onCancel, init
   }
 
   return (
-    <Card className="p-6">
+    <Card className="p-4 sm:p-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <Label htmlFor="courseId" className="font-bold">

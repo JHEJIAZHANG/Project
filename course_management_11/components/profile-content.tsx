@@ -11,6 +11,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserIcon, SettingsIcon, GoogleIcon, LogOutIcon, ChevronRightIcon, LineIcon } from "@/components/icons"
 import { PageHeader } from "@/components/page-header"
+import { GoogleAuth } from "@/components/google-auth"
+import { GoogleSyncAll } from "@/components/google-sync-all"
 
 interface User {
   id: string
@@ -44,9 +46,9 @@ interface ProfileContentProps {
 
 export function ProfileContent({ user: propUser, onUserChange }: ProfileContentProps) {
   const [user, setUser] = useState<User>({
-    id: "1",
-    name: "學生",
-    email: "student@example.com",
+    id: "",
+    name: "",
+    email: "",
     avatar: "",
     isLoggedIn: false,
   })
@@ -84,21 +86,7 @@ export function ProfileContent({ user: propUser, onUserChange }: ProfileContentP
     }
   }, [propUser])
 
-  // Load notification settings from localStorage on component mount
   useEffect(() => {
-    const savedSettings = localStorage.getItem("notificationSettings")
-    if (savedSettings) {
-      try {
-        const parsedSettings = JSON.parse(savedSettings)
-        setNotificationSettings(parsedSettings)
-      } catch (error) {
-        console.error("Failed to parse notification settings:", error)
-      }
-    }
-  }, [])
-
-  useEffect(() => {
-    localStorage.setItem("notificationSettings", JSON.stringify(notificationSettings))
     // Dispatch custom event to notify other components of settings change
     window.dispatchEvent(
       new CustomEvent("notificationSettingsChanged", {
@@ -122,18 +110,7 @@ export function ProfileContent({ user: propUser, onUserChange }: ProfileContentP
     }
   }
 
-  const handleLineLogin = () => {
-    // 模擬 LINE 登入流程
-    const newUser = {
-      ...user,
-      name: "張小明", // 這裡可以從 LINE API 獲取真實姓名
-      email: "已透過LINE登入",
-      isLoggedIn: true,
-    }
-    setUser(newUser)
-    onUserChange?.(newUser)
-    alert("已成功透過 LINE 登入！")
-  }
+  // 已移除模擬 LINE 登入流程，請改用真正的 LIFF 登入
 
   const handleLogout = () => {
     const newUser = {
@@ -145,21 +122,7 @@ export function ProfileContent({ user: propUser, onUserChange }: ProfileContentP
     setIsGoogleClassroomConnected(false)
   }
 
-  const handleGoogleClassroomConnect = () => {
-    if (!user.isLoggedIn) {
-      alert("請先登入帳戶")
-      return
-    }
 
-    // 模擬 Google Classroom 連接
-    setIsGoogleClassroomConnected(!isGoogleClassroomConnected)
-
-    if (!isGoogleClassroomConnected) {
-      alert("已成功連接 Google Classroom！")
-    } else {
-      alert("已中斷 Google Classroom 連接")
-    }
-  }
 
   const handleSemesterSettingsSave = () => {
     setShowSemesterSettings(false)
@@ -172,22 +135,22 @@ export function ProfileContent({ user: propUser, onUserChange }: ProfileContentP
       if (Notification.permission === "default") {
         Notification.requestPermission().then((permission) => {
           if (permission === "granted") {
-            new Notification("測試通知", {
-              body: "這是一個測試推播通知",
+            new Notification("通知測試", {
+              body: "通知功能正常運作",
               icon: "/favicon.ico",
             })
           }
         })
       } else if (Notification.permission === "granted") {
-        new Notification("測試通知", {
-          body: "這是一個測試推播通知",
+        new Notification("通知測試", {
+          body: "通知功能正常運作",
           icon: "/favicon.ico",
         })
       }
     }
 
     if (notificationSettings.lineNotifications) {
-      alert("LINE 推播測試通知已發送！")
+      alert("LINE 通知測試已發送")
     }
 
     if (!notificationSettings.browserNotifications && !notificationSettings.lineNotifications) {
@@ -200,7 +163,7 @@ export function ProfileContent({ user: propUser, onUserChange }: ProfileContentP
       <div>
         <PageHeader title="登入帳戶" onBack={() => setShowLoginForm(false)} />
 
-        <Card className="p-6">
+        <Card className="p-4 sm:p-6">
           <div className="space-y-4">
             <div>
               <Label htmlFor="email">電子郵件</Label>
@@ -353,7 +316,7 @@ export function ProfileContent({ user: propUser, onUserChange }: ProfileContentP
 
           <div>
             <h3 className="font-bold text-lg mb-3">提醒時間</h3>
-            <Card className="p-4">
+            <Card className="p-4 sm:p-6">
               <div className="flex items-center justify-between">
                 <Label htmlFor="reminderTiming" className="font-medium text-base">
                   待辦事項提醒時機
@@ -553,39 +516,37 @@ export function ProfileContent({ user: propUser, onUserChange }: ProfileContentP
               <LogOutIcon className="w-4 h-4 mr-1" />
               登出
             </Button>
-          ) : (
-            <Button size="sm" onClick={handleLineLogin}>
-              line登入
-            </Button>
-          )}
+          ) : null}
         </div>
       </Card>
 
-      {/* Google Classroom 連接 */}
+      {/* Google Classroom 授權 */}
+      <GoogleAuth 
+        onAuthSuccess={() => {
+          setIsGoogleClassroomConnected(true)
+        }}
+        onAuthError={(error) => {
+          console.error('Google 授權失敗:', error)
+          setIsGoogleClassroomConnected(false)
+        }}
+      />
+
+      {/* Google 同步功能 */}
       <Card className="p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <GoogleIcon className="w-8 h-8" />
-            <div>
-              <h3 className="font-semibold">Google Classroom</h3>
-              <p className="text-sm text-muted-foreground">{isGoogleClassroomConnected ? "已連接" : "未連接"}</p>
-            </div>
-          </div>
-
-          <Button
-            variant={isGoogleClassroomConnected ? "outline" : "default"}
-            size="sm"
-            onClick={handleGoogleClassroomConnect}
-          >
-            {isGoogleClassroomConnected ? "中斷連接" : "開始連接"}
-          </Button>
+        <h3 className="font-semibold mb-4 flex items-center gap-2">
+          <GoogleIcon className="w-5 h-5" />
+          Google 同步
+        </h3>
+        
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            一鍵同步 Google Classroom 課程、作業和 Google Calendar 事件
+          </p>
+          <GoogleSyncAll onSync={() => {
+            // 同步完成後可以重新載入頁面資料
+            window.location.reload()
+          }} />
         </div>
-
-        {isGoogleClassroomConnected && (
-          <div className="mt-4 p-3 bg-green-50 rounded-lg">
-            <p className="text-sm text-green-700">✓ 已成功連接 Google Classroom，可以同步課程和作業資料</p>
-          </div>
-        )}
       </Card>
 
       {/* 設定選項 */}
@@ -636,30 +597,6 @@ export function ProfileContent({ user: propUser, onUserChange }: ProfileContentP
 }
 
 export function getNotificationSettings(): NotificationSettings {
-  if (typeof window === "undefined") {
-    // Return default settings for server-side rendering
-    return {
-      assignmentReminders: true,
-      examReminders: true,
-      assignmentReminderTiming: "1day",
-      lineNotifications: true,
-      browserNotifications: true,
-      doNotDisturbEnabled: false,
-      doNotDisturbStart: "22:00",
-      doNotDisturbEnd: "08:00",
-    }
-  }
-
-  const savedSettings = localStorage.getItem("notificationSettings")
-  if (savedSettings) {
-    try {
-      return JSON.parse(savedSettings)
-    } catch (error) {
-      console.error("Failed to parse notification settings:", error)
-    }
-  }
-
-  // Return default settings if none saved
   return {
     assignmentReminders: true,
     examReminders: true,

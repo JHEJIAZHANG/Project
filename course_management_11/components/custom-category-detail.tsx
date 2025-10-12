@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import type { Course } from "@/types/course"
 import type { CustomCategoryItem } from "./custom-category-form"
-import { getDaysDifferenceTaiwan, isTodayTaiwan, isSameDayTaiwan } from "@/lib/taiwan-time"
+import { getDaysDifferenceTaiwan, isTodayTaiwan, isSameDayTaiwan, getTaiwanTime } from "@/lib/taiwan-time"
 
 interface CustomCategoryDetailProps {
   item: CustomCategoryItem
@@ -38,7 +38,7 @@ export function CustomCategoryDetail({
 }: CustomCategoryDetailProps) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
-  const today = new Date()
+  const today = getTaiwanTime()
   const daysUntilDue = getDaysDifferenceTaiwan(today, item.dueDate)
   const isOverdue = item.status === "overdue" || (item.status === "pending" && daysUntilDue < 0)
   const isDueToday = isSameDayTaiwan(item.dueDate, today)
@@ -105,10 +105,10 @@ export function CustomCategoryDetail({
         </div>
 
         {/* Notification Time */}
-        {item.notificationTime && (
+        {(item as any).notificationTime && (
           <div className="space-y-1">
             <span className="text-sm font-medium">通知時間</span>
-            <p className="text-sm text-muted-foreground">{item.notificationTime.toLocaleString("zh-TW")}</p>
+            <p className="text-sm text-muted-foreground">{(item as any).notificationTime.toLocaleString("zh-TW")}</p>
           </div>
         )}
 

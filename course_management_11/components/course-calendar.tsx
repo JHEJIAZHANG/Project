@@ -66,8 +66,11 @@ export function CourseCalendar({ courses, onCourseClick }: CourseCalendarProps) 
         const daysWithCourses = new Set<number>()
         courses.forEach((course) => {
           course.schedule.forEach((slot) => {
-            const dayIndex = slot.dayOfWeek === 0 ? 6 : slot.dayOfWeek - 1 // Convert to our index system
-            daysWithCourses.add(dayIndex)
+            // Convert dayOfWeek to DAYS array index
+            // Backend dayOfWeek: 0=週一, 1=週二, 2=週三, 3=週四, 4=週五, 5=週六, 6=週日
+            // DAYS array: 0=週一, 1=週二, 2=週三, 3=週四, 4=週五, 5=週六, 6=週日
+            // No conversion needed - they match directly
+            daysWithCourses.add(slot.dayOfWeek)
           })
         })
         return Array.from(daysWithCourses).sort()
@@ -77,7 +80,7 @@ export function CourseCalendar({ courses, onCourseClick }: CourseCalendarProps) 
   }
 
   const visibleDayIndices = getVisibleDays()
-  const visibleDayOfWeekValues = visibleDayIndices.map((index) => (index === 6 ? 0 : index + 1)) // Convert to dayOfWeek values
+  const visibleDayOfWeekValues = visibleDayIndices // No conversion needed - already correct dayOfWeek values
 
   // Create a map of course colors
   const courseColorMap = courses.reduce(

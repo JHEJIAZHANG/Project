@@ -7,8 +7,10 @@ import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { BookOpen, Users, Clock, MapPin, Plus, X } from "lucide-react"
+import { BookOpen, Users, Clock, MapPin, Plus, X, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import type { Course } from "@/types/course"
+import { ApiService } from "@/services/apiService"
 
 interface GoogleClassroomImportProps {
   isOpen: boolean
@@ -28,33 +30,45 @@ export function GoogleClassroomImport({ isOpen, onClose, onImport }: GoogleClass
   const [previewCourse, setPreviewCourse] = useState<Omit<Course, "id" | "createdAt" | "schedule"> | null>(null)
   const [customSchedule, setCustomSchedule] = useState<TimeSlot[]>([])
   const [step, setStep] = useState<"input" | "schedule" | "preview">("input")
+  const [error, setError] = useState<string | null>(null)
 
-  const dayNames = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"]
+  const dayNames = ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
 
   const handleFetchCourse = async () => {
     if (!courseCode.trim()) return
 
     setIsLoading(true)
+    setError(null)
 
-    // 模擬API調用延遲
-    await new Promise((resolve) => setTimeout(resolve, 1500))
+    try {
+      // 使用真實的 API 調用
+      const courseData = await ApiService.syncGoogleClassroomCourse(courseCode.trim())
+      
+      if (courseData) {
+        const course: Omit<Course, "id" | "createdAt" | "schedule"> = {
+          name: (courseData as any).name || "未知課程",
+          courseCode: (courseData as any).courseCode || courseCode.trim(),
+          instructor: (courseData as any).instructor || "未知教師",
+          classroom: (courseData as any).classroom || "未指定教室",
+          studentCount: (courseData as any).studentCount || 0,
+          color: (courseData as any).color || "#3b82f6",
+        }
 
-    const mockCourse: Omit<Course, "id" | "createdAt" | "schedule"> = {
-      name: "資料結構與演算法",
-      courseCode: courseCode.trim(),
-      instructor: "張教授",
-      classroom: "資工系 E301",
-      studentCount: 45,
-      color: "#3b82f6",
+        setPreviewCourse(course)
+        setStep("schedule")
+      } else {
+        setError("無法獲取課程資訊，請檢查課程代碼是否正確")
+      }
+    } catch (err) {
+      console.error("Failed to fetch course:", err)
+      setError("獲取課程失敗，請檢查 Google Classroom 連接狀態")
+    } finally {
+      setIsLoading(false)
     }
-
-    setPreviewCourse(mockCourse)
-    setIsLoading(false)
-    setStep("schedule")
   }
 
   const addTimeSlot = () => {
-    setCustomSchedule([...customSchedule, { dayOfWeek: 1, startTime: "09:00", endTime: "12:00" }])
+    setCustomSchedule([...customSchedule, { dayOfWeek: 0, startTime: "09:00", endTime: "12:00" }])
   }
 
   const removeTimeSlot = (index: number) => {
@@ -87,6 +101,7 @@ export function GoogleClassroomImport({ isOpen, onClose, onImport }: GoogleClass
     setCourseCode("")
     setPreviewCourse(null)
     setCustomSchedule([])
+    setError(null)
     setStep("input")
     onClose()
   }
@@ -101,7 +116,7 @@ export function GoogleClassroomImport({ isOpen, onClose, onImport }: GoogleClass
 
   return (
     <Dialog open={isOpen} onOpenChange={handleCancel}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BookOpen className="w-5 h-5" />
@@ -129,6 +144,13 @@ export function GoogleClassroomImport({ isOpen, onClose, onImport }: GoogleClass
                   </Button>
                 </div>
                 <p className="text-sm text-muted-foreground">請輸入您在 Google Classroom 中的課程代碼</p>
+                
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
               </div>
             </>
           )}

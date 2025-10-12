@@ -2,185 +2,177 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { ApiService } from "@/services/apiService"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import type { Assignment, Course } from "@/types/course"
+import type { Assignment, Course, Exam } from "@/types/course"
 
 interface LearningResource {
   title: string
   url: string
-  type: "youtube" | "website" | "documentation"
+  type: "youtube" | "website" | "documentation" | "github" | "stackoverflow" | "medium" | "coursera" | "udemy"
   description: string
+  source?: "ai" | "manual" | "keyword"
+  score?: number
+  difficulty?: "beginner" | "intermediate" | "advanced"
+  duration?: string
+  language?: string
 }
 
 interface LearningResourcesProps {
   assignment?: Assignment
+  exam?: Exam
   course?: Course
   searchQuery?: string
 }
 
-const extractYouTubeInfo = (url: string) => {
+// 與 ApiService 對齊的後端設定
+const API_BASE = ApiService.backendOrigin
+const LINE_USER_ID = ApiService.bootstrapLineUserId()
+
+type RecItem = {
+  source: string
+  url: string
+  title: string
+  snippet?: string
+  score?: number
+}
+
+type RecResponse = {
+  assignment: string
+  query: string
+  results: RecItem[]
+}
+
+const extractResourceInfo = (url: string) => {
+  // YouTube
   const youtubeRegex = /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/
-  const match = url.match(youtubeRegex)
-  if (match) {
-    const videoId = match[1]
+  const youtubeMatch = url.match(youtubeRegex)
+  if (youtubeMatch) {
+    const videoId = youtubeMatch[1]
     return {
       title: `YouTube 影片 - ${videoId}`,
       description: "從 YouTube 拖曳新增的學習資源",
       type: "youtube" as const,
+      source: "manual" as const,
     }
   }
+
+  // GitHub
+  if (url.includes('github.com')) {
+    const pathParts = url.split('/')
+    const repo = pathParts.slice(-2).join('/')
+    return {
+      title: `GitHub 專案 - ${repo}`,
+      description: "開源程式碼專案",
+      type: "github" as const,
+      source: "manual" as const,
+    }
+  }
+
+  // Stack Overflow
+  if (url.includes('stackoverflow.com')) {
+    return {
+      title: "Stack Overflow 問答",
+      description: "程式設計問題解答",
+      type: "stackoverflow" as const,
+      source: "manual" as const,
+    }
+  }
+
+  // Medium
+  if (url.includes('medium.com')) {
+    return {
+      title: "Medium 文章",
+      description: "技術文章和教學",
+      type: "medium" as const,
+      source: "manual" as const,
+    }
+  }
+
+  // Coursera
+  if (url.includes('coursera.org')) {
+    return {
+      title: "Coursera 課程",
+      description: "線上課程平台",
+      type: "coursera" as const,
+      source: "manual" as const,
+    }
+  }
+
+  // Udemy
+  if (url.includes('udemy.com')) {
+    return {
+      title: "Udemy 課程",
+      description: "線上學習課程",
+      type: "udemy" as const,
+      source: "manual" as const,
+    }
+  }
+
   return null
 }
 
 const extractWebsiteInfo = (url: string) => {
   try {
     const urlObj = new URL(url)
+    const domain = urlObj.hostname.replace("www.", "")
+
+    // 檢查是否為文檔網站
+    if (domain.includes('docs.') || domain.includes('documentation') || 
+        url.includes('/docs/') || url.includes('/documentation/')) {
+      return {
+        title: `文檔 - ${domain}`,
+        description: "技術文檔和API參考",
+        type: "documentation" as const,
+        source: "manual" as const,
+      }
+    }
+
     return {
-      title: `網站資源 - ${urlObj.hostname}`,
-      description: `從 ${urlObj.hostname} 新增的學習資源`,
+      title: `網站 - ${domain}`,
+      description: "從網站拖曳新增的學習資源",
       type: "website" as const,
+      source: "manual" as const,
     }
   } catch {
     return {
-      title: "網站資源",
-      description: "新增的學習資源",
+      title: "網站連結",
+      description: "從網站拖曳新增的學習資源",
       type: "website" as const,
+      source: "manual" as const,
     }
   }
 }
 
-// 模擬學習資源數據庫
-const getResourcesByKeywords = (keywords: string[]): LearningResource[] => {
-  const resourceDatabase: Record<string, LearningResource[]> = {
-    演算法: [
-      {
-        title: "演算法與資料結構完整教學",
-        url: "https://www.youtube.com/watch?v=8hly31xKli0",
-        type: "youtube",
-        description: "完整的演算法基礎概念教學",
-      },
-      {
-        title: "LeetCode 演算法練習",
-        url: "https://leetcode.com/",
-        type: "website",
-        description: "線上演算法題目練習平台",
-      },
-    ],
-    排序: [
-      {
-        title: "排序演算法視覺化教學",
-        url: "https://www.youtube.com/watch?v=kPRA0W1kECg",
-        type: "youtube",
-        description: "各種排序演算法的動畫演示",
-      },
-      {
-        title: "排序演算法比較",
-        url: "https://visualgo.net/en/sorting",
-        type: "website",
-        description: "互動式排序演算法視覺化工具",
-      },
-    ],
-    網頁: [
-      {
-        title: "HTML CSS JavaScript 完整教學",
-        url: "https://www.youtube.com/watch?v=UB1O30fR-EE",
-        type: "youtube",
-        description: "前端開發基礎教學",
-      },
-      {
-        title: "MDN Web 文檔",
-        url: "https://developer.mozilla.org/",
-        type: "documentation",
-        description: "權威的網頁開發技術文檔",
-      },
-    ],
-    程式: [
-      {
-        title: "程式設計入門教學",
-        url: "https://www.youtube.com/watch?v=zOjov-2OZ0E",
-        type: "youtube",
-        description: "程式設計基礎概念",
-      },
-      {
-        title: "GitHub 程式碼範例",
-        url: "https://github.com/",
-        type: "website",
-        description: "開源程式碼學習平台",
-      },
-    ],
-    資料結構: [
-      {
-        title: "資料結構詳解",
-        url: "https://www.youtube.com/watch?v=RBSGKlAvoiM",
-        type: "youtube",
-        description: "各種資料結構的實作與應用",
-      },
-      {
-        title: "資料結構視覺化",
-        url: "https://www.cs.usfca.edu/~galles/visualization/Algorithms.html",
-        type: "website",
-        description: "互動式資料結構學習工具",
-      },
-    ],
-    專案: [
-      {
-        title: "專案開發流程教學",
-        url: "https://www.youtube.com/watch?v=7EHnQ0VM4KY",
-        type: "youtube",
-        description: "軟體專案開發完整流程",
-      },
-      {
-        title: "專案管理工具",
-        url: "https://trello.com/",
-        type: "website",
-        description: "線上專案管理平台",
-      },
-    ],
-    報告: [
-      {
-        title: "學術報告撰寫技巧",
-        url: "https://www.youtube.com/watch?v=WK7khA0Q1DA",
-        type: "youtube",
-        description: "如何撰寫高品質的學術報告",
-      },
-      {
-        title: "簡報設計工具",
-        url: "https://www.canva.com/",
-        type: "website",
-        description: "專業簡報設計平台",
-      },
-    ],
-  }
 
-  const matchedResources: LearningResource[] = []
 
-  keywords.forEach((keyword) => {
-    Object.keys(resourceDatabase).forEach((key) => {
-      if (keyword.includes(key) || key.includes(keyword)) {
-        matchedResources.push(...resourceDatabase[key])
-      }
-    })
-  })
-
-  // 去重並限制數量
-  const uniqueResources = matchedResources.filter(
-    (resource, index, self) => index === self.findIndex((r) => r.url === resource.url),
-  )
-
-  return uniqueResources.slice(0, 6)
+// 移除模擬學習資源數據庫，改為空函數
+const getResourcesByKeywords = (keywords: Array<string | undefined | null>): LearningResource[] => {
+  // 不再使用假資料，只依賴後端 API 結果
+  return []
 }
 
 const getTypeIcon = (type: LearningResource["type"]) => {
   switch (type) {
     case "youtube":
-      return "🎥"
+      return "📺"
     case "website":
       return "🌐"
     case "documentation":
       return "📚"
+    case "github":
+      return "💻"
+    case "stackoverflow":
+      return "❓"
+    case "medium":
+      return "📝"
+    case "coursera":
+      return "🎓"
+    case "udemy":
+      return "🎯"
     default:
       return "🔗"
   }
@@ -189,21 +181,37 @@ const getTypeIcon = (type: LearningResource["type"]) => {
 const getTypeText = (type: LearningResource["type"]) => {
   switch (type) {
     case "youtube":
-      return "YouTube"
+      return "影片"
     case "website":
       return "網站"
     case "documentation":
       return "文檔"
+    case "github":
+      return "程式碼"
+    case "stackoverflow":
+      return "問答"
+    case "medium":
+      return "文章"
+    case "coursera":
+      return "課程"
+    case "udemy":
+      return "課程"
     default:
       return "連結"
   }
 }
 
-export function LearningResources({ assignment, course, searchQuery }: LearningResourcesProps) {
+export function LearningResources({ assignment, exam, course, searchQuery }: LearningResourcesProps) {
   const [customSearch, setCustomSearch] = useState("")
   const [showCustomSearch, setShowCustomSearch] = useState(false)
+  const [submittedQuery, setSubmittedQuery] = useState<string>("")
   const [customResources, setCustomResources] = useState<LearningResource[]>([])
   const [isDragOver, setIsDragOver] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [backendResources, setBackendResources] = useState<LearningResource[]>([])
+  const [backendQuery, setBackendQuery] = useState<string>("")
+  const [sortBy, setSortBy] = useState<"relevance" | "type" | "difficulty" | "source">("relevance")
 
   // 生成搜索關鍵字
   const generateKeywords = (): string[] => {
@@ -218,6 +226,11 @@ export function LearningResources({ assignment, course, searchQuery }: LearningR
       if (assignment.description) {
         keywords.push(assignment.description)
       }
+    } else if (exam) {
+      keywords.push(exam.title)
+      if (exam.description) {
+        keywords.push(exam.description)
+      }
     }
 
     if (course) {
@@ -228,12 +241,139 @@ export function LearningResources({ assignment, course, searchQuery }: LearningR
   }
 
   const keywords = generateKeywords()
-  const resources = getResourcesByKeywords(keywords)
-  const allResources = [...resources, ...customResources]
+
+  // 從後端取得推薦結果（若有 assignment 或 exam）
+  useEffect(() => {
+    let aborted = false
+    async function fetchRecommendations() {
+      if (!assignment?.id && !exam?.id) {
+        setBackendResources([])
+        setBackendQuery("")
+        return
+      }
+      try {
+        setLoading(true)
+        setError(null)
+        const params: any = { limit: 12, perSource: 6 }
+        // 若未輸入自訂查詢，改以 keywords 合成預設查詢字串，確保後端使用 perplexity / youtube 管線能得到合理結果
+        if (submittedQuery && submittedQuery.trim()) {
+          params.q = submittedQuery.trim()
+        } else if (keywords && keywords.length) {
+          params.q = keywords.join(' ').slice(0, 300)
+        }
+        
+        let resp
+        if (assignment?.id) {
+          resp = await ApiService.getAssignmentRecommendations(assignment.id, params)
+        } else if (exam?.id) {
+          resp = await ApiService.getExamRecommendations(exam.id, params)
+        } else {
+          throw new Error("No assignment or exam ID provided")
+        }
+        if (resp.error) {
+          // 如果是 404 錯誤（作業不存在），顯示友善的錯誤訊息
+          if (resp.error.includes('404') || resp.error.includes('does not exist') || resp.error.includes('No AssignmentV2 matches')) {
+            throw new Error("此作業可能已被刪除或不存在，請重新整理頁面")
+          }
+          throw new Error(resp.error)
+        }
+        // 在瀏覽器 Console 顯示來源統計，確認是否有使用到 perplexity / youtube
+         const meta: any = (resp as any)?.data?.meta
+        const data: RecResponse = resp.data as any
+        if (aborted) return
+        setBackendQuery(data.query)
+        const mapped: LearningResource[] = (data.results || []).map((r) => {
+          let type: LearningResource["type"] = "website"
+          
+          // 根據來源和URL判斷類型
+          if (r.source === "youtube" || r.url.includes('youtube.com') || r.url.includes('youtu.be')) {
+            type = "youtube"
+          } else if (r.url.includes('github.com')) {
+            type = "github"
+          } else if (r.url.includes('stackoverflow.com')) {
+            type = "stackoverflow"
+          } else if (r.url.includes('medium.com')) {
+            type = "medium"
+          } else if (r.url.includes('coursera.org')) {
+            type = "coursera"
+          } else if (r.url.includes('udemy.com')) {
+            type = "udemy"
+          } else if (r.url.includes('/docs/') || r.url.includes('documentation')) {
+            type = "documentation"
+          }
+          
+          return {
+            title: r.title,
+            url: r.url,
+            type,
+            description: r.snippet || "",
+            source: "ai",
+            score: r.score,
+          }
+        })
+        setBackendResources(mapped)
+      } catch (e: any) {
+        if (aborted) return
+        setError(e?.message || "載入失敗")
+        setBackendResources([])
+      } finally {
+        if (!aborted) setLoading(false)
+      }
+    }
+    fetchRecommendations()
+    return () => {
+      aborted = true
+    }
+    // 僅 assignment 或 exam 變動時觸發
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assignment?.id, exam?.id, submittedQuery])
+
+  // 只使用後端結果，不使用本地假資料
+  const defaultResources = useMemo(() => {
+    return backendResources
+  }, [backendResources])
+
+  const allResources = useMemo(() => {
+    const merged = [...defaultResources]
+    // 合併自訂資源（去重）
+    for (const r of customResources) {
+      if (!merged.some((m) => m.url === r.url)) merged.push(r)
+    }
+    
+    // 排序邏輯
+    return merged.sort((a, b) => {
+      switch (sortBy) {
+        case "relevance":
+          // AI推薦優先，然後按評分排序
+          if (a.source === "ai" && b.source !== "ai") return -1
+          if (b.source === "ai" && a.source !== "ai") return 1
+          return (b.score || 0) - (a.score || 0)
+        
+        case "type":
+          return a.type.localeCompare(b.type)
+        
+        case "difficulty":
+          const difficultyOrder = { beginner: 1, intermediate: 2, advanced: 3 }
+          const aDiff = difficultyOrder[a.difficulty as keyof typeof difficultyOrder] || 0
+          const bDiff = difficultyOrder[b.difficulty as keyof typeof difficultyOrder] || 0
+          return aDiff - bDiff
+        
+        case "source":
+          const sourceOrder = { ai: 1, manual: 2, keyword: 3 }
+          const aSource = sourceOrder[a.source as keyof typeof sourceOrder] || 4
+          const bSource = sourceOrder[b.source as keyof typeof sourceOrder] || 4
+          return aSource - bSource
+        
+        default:
+          return 0
+      }
+    })
+  }, [defaultResources, customResources, sortBy])
 
   const handleCustomSearch = () => {
     if (customSearch.trim()) {
-      // 觸發重新搜索
+      // 設定提交的查詢字串並觸發重新搜索
+      setSubmittedQuery(customSearch.trim())
       setShowCustomSearch(false)
     }
   }
@@ -271,32 +411,26 @@ export function LearningResources({ assignment, course, searchQuery }: LearningR
       url = e.dataTransfer.getData("URL")
     }
 
-    console.log("[v0] Dropped data:", url)
-
     if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
-      // Check if URL already exists
-      const existsInDefault = resources.some((resource) => resource.url === url)
-      const existsInCustom = customResources.some((resource) => resource.url === url)
+       // Check if URL already exists
+       const existsInDefault = allResources.some((resource: LearningResource) => resource.url === url)
+       const existsInCustom = customResources.some((resource: LearningResource) => resource.url === url)
 
-      if (existsInDefault || existsInCustom) {
-        console.log("[v0] URL already exists:", url)
-        return // Don't add duplicate
-      }
+       if (existsInDefault || existsInCustom) {
+         return // Don't add duplicate
+       }
 
-      // Extract info based on URL type
-      const youtubeInfo = extractYouTubeInfo(url)
-      const websiteInfo = extractWebsiteInfo(url)
+       // Extract info based on URL type
+       const resourceInfo = extractResourceInfo(url)
+       const websiteInfo = extractWebsiteInfo(url)
 
-      const newResource: LearningResource = {
-        url,
-        ...(youtubeInfo || websiteInfo),
-      }
+       const newResource: LearningResource = {
+         url,
+         ...(resourceInfo || websiteInfo),
+       }
 
-      console.log("[v0] Adding new resource:", newResource)
-      setCustomResources((prev) => [newResource, ...prev])
-    } else {
-      console.log("[v0] Invalid URL or no URL found:", url)
-    }
+       setCustomResources((prev) => [newResource, ...prev])
+     }
   }
 
   const removeCustomResource = (urlToRemove: string) => {
@@ -318,9 +452,21 @@ export function LearningResources({ assignment, course, searchQuery }: LearningR
           <span>🎯</span>
           學習資源推薦
         </h2>
-        <Button variant="outline" size="sm" onClick={() => setShowCustomSearch(!showCustomSearch)}>
-          自訂搜索
-        </Button>
+        <div className="flex gap-2">
+          <select 
+            value={sortBy} 
+            onChange={(e) => setSortBy(e.target.value as any)}
+            className="text-xs px-2 py-1 border rounded bg-background"
+          >
+            <option value="relevance">相關性排序</option>
+            <option value="type">類型排序</option>
+            <option value="difficulty">難度排序</option>
+            <option value="source">來源排序</option>
+          </select>
+          <Button variant="outline" size="sm" onClick={() => setShowCustomSearch(!showCustomSearch)}>
+            自訂搜索
+          </Button>
+        </div>
       </div>
 
       {showCustomSearch && (
@@ -346,10 +492,21 @@ export function LearningResources({ assignment, course, searchQuery }: LearningR
         </div>
       )}
 
-      {keywords.length > 0 && (
+      {(backendQuery || keywords.length > 0) && (
         <div className="mb-3">
-          <p className="text-xs text-muted-foreground">搜索關鍵字：{keywords.join(", ")}</p>
+          {backendQuery ? (
+            <p className="text-xs text-muted-foreground">推薦查詢：{backendQuery}</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">搜索關鍵字：{keywords.join(", ")}</p>
+          )}
         </div>
+      )}
+
+      {loading && (
+        <div className="mb-3 p-3 bg-muted rounded">正在載入推薦資源…</div>
+      )}
+      {error && (
+        <div className="mb-3 p-3 bg-destructive/10 text-destructive rounded text-sm">{error}</div>
       )}
 
       {allResources.length > 0 ? (
@@ -365,14 +522,59 @@ export function LearningResources({ assignment, course, searchQuery }: LearningR
                 <div className="flex items-start gap-3 flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <span className="text-lg">{getTypeIcon(resource.type)}</span>
-                    <span className="text-xs px-2 py-1 bg-background rounded-full text-muted-foreground">
-                      {getTypeText(resource.type)}
-                    </span>
+                    <div className="flex flex-col gap-1">
+                      <span className="text-xs px-2 py-1 bg-background rounded-full text-muted-foreground">
+                        {getTypeText(resource.type)}
+                      </span>
+                      {resource.source && (
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          resource.source === "ai" 
+                            ? "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300" 
+                            : resource.source === "manual"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                            : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                        }`}>
+                          {resource.source === "ai" ? "🤖 AI推薦" : 
+                           resource.source === "manual" ? "👤 手動新增" : "🔍 關鍵字"}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <h3 className="font-medium text-foreground text-balance mb-1">{resource.title}</h3>
                     <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{resource.description}</p>
+                    
+                    {/* 額外資訊標籤 */}
+                    <div className="flex flex-wrap gap-1 mb-1">
+                      {resource.difficulty && (
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          resource.difficulty === "beginner" 
+                            ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
+                            : resource.difficulty === "intermediate"
+                            ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
+                            : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                        }`}>
+                          {resource.difficulty === "beginner" ? "🟢 初級" : 
+                           resource.difficulty === "intermediate" ? "🟡 中級" : "🔴 高級"}
+                        </span>
+                      )}
+                      {resource.duration && (
+                        <span className="text-xs px-2 py-1 bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300 rounded-full">
+                          ⏱️ {resource.duration}
+                        </span>
+                      )}
+                      {resource.language && (
+                        <span className="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 dark:bg-indigo-900 dark:text-indigo-300 rounded-full">
+                          🌐 {resource.language}
+                        </span>
+                      )}
+                      {resource.score && (
+                        <span className="text-xs px-2 py-1 bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300 rounded-full">
+                          ⭐ {(resource.score * 100).toFixed(0)}%
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 

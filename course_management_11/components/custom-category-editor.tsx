@@ -25,6 +25,16 @@ import {
   FireIcon,
 } from "@/components/icons"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 const AVAILABLE_ICONS = [
   { id: "book", icon: BookIcon, label: "書本" },
@@ -65,6 +75,7 @@ export function CustomCategoryEditor({
   const [editName, setEditName] = useState(categoryName)
   const [editIcon, setEditIcon] = useState(categoryIcon)
   const [isIconPickerOpen, setIsIconPickerOpen] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   const handleSave = () => {
     if (editName.trim()) {
@@ -78,6 +89,11 @@ export function CustomCategoryEditor({
     } else if (e.key === "Escape") {
       onCancel()
     }
+  }
+
+  const handleDeleteConfirm = () => {
+    onDelete()
+    setShowDeleteDialog(false)
   }
 
   const selectedIconData = AVAILABLE_ICONS.find((icon) => icon.id === editIcon)
@@ -133,9 +149,29 @@ export function CustomCategoryEditor({
         <XIcon className="w-4 h-4" />
       </Button>
 
-      <Button size="sm" variant="destructive" onClick={onDelete} title="刪除分類">
+      <Button size="sm" variant="destructive" onClick={() => setShowDeleteDialog(true)} title="刪除分類">
         <TrashIcon className="w-4 h-4" />
       </Button>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>確定要刪除這個分類？</AlertDialogTitle>
+            <AlertDialogDescription>
+              此操作無法復原。分類「{categoryName}」及其下的所有待辦事項將被永久刪除。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              刪除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

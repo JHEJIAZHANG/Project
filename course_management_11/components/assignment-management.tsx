@@ -9,17 +9,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { AssignmentCard } from "@/components/assignment-card"
 import { AssignmentForm } from "@/components/assignment-form"
 import { PageHeader } from "@/components/page-header"
+import { EmptyState } from "@/components/empty-state"
 import { PlusIcon, FilterIcon, GoogleIcon } from "@/components/icons"
 import { useCourses } from "@/hooks/use-courses"
 import type { Assignment } from "@/types/course"
+import { ApiService } from "@/services/apiService"
 
 interface AssignmentManagementProps {
   onBack?: () => void
 }
 
 export function AssignmentManagement({ onBack }: AssignmentManagementProps) {
+  const lineUserId = ApiService.bootstrapLineUserId()
   const { assignments, courses, addAssignment, updateAssignment, deleteAssignment, getAssignmentById, getCourseById } =
-    useCourses()
+    useCourses(lineUserId)
 
   const [showForm, setShowForm] = useState(false)
   const [editingAssignment, setEditingAssignment] = useState<string | null>(null)
@@ -79,7 +82,7 @@ export function AssignmentManagement({ onBack }: AssignmentManagementProps) {
         <PageHeader title={editingAssignment ? "編輯作業" : "新增作業"} onBack={handleFormCancel} />
         <AssignmentForm
           courses={courses}
-          initialData={editingAssignment ? getAssignmentById(editingAssignment) : undefined}
+          initialData={editingAssignment ? getAssignmentById(editingAssignment) || undefined : undefined}
           onSubmit={handleFormSubmit}
           onCancel={handleFormCancel}
         />
@@ -105,7 +108,7 @@ export function AssignmentManagement({ onBack }: AssignmentManagementProps) {
             篩選條件
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <Input
                 placeholder="搜尋作業標題或內容..."
@@ -155,7 +158,7 @@ export function AssignmentManagement({ onBack }: AssignmentManagementProps) {
       </Card>
 
       {/* Statistics */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <Card className="p-4">
           <div className="text-2xl font-bold text-primary">{filteredAssignments.length}</div>
           <div className="text-sm text-muted-foreground">總作業數</div>
@@ -234,17 +237,13 @@ export function AssignmentManagement({ onBack }: AssignmentManagementProps) {
 
       {/* Empty State */}
       {filteredAssignments.length === 0 && (
-        <Card className="p-8 text-center">
-          <div className="text-muted-foreground mb-4">
-            {searchQuery || selectedCourse !== "all" || selectedSource !== "all" || selectedStatus !== "all"
-              ? "沒有符合篩選條件的作業"
-              : "還沒有任何作業"}
-          </div>
-          <Button onClick={() => setShowForm(true)} className="gap-2">
-            <PlusIcon className="w-4 h-4" />
-            新增第一個作業
-          </Button>
-        </Card>
+        <EmptyState
+          type="assignments"
+          title={searchQuery || selectedCourse !== "all" || selectedSource !== "all" || selectedStatus !== "all"
+            ? "沒有符合篩選條件的作業"
+            : undefined}
+          onAction={() => setShowForm(true)}
+        />
       )}
     </div>
   )

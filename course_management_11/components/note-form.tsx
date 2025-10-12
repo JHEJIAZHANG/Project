@@ -38,7 +38,7 @@ export function NoteForm({ courses, onSubmit, onCancel, initialData }: NoteFormP
   }
 
   return (
-    <Card className="p-6">
+    <Card className="p-4 sm:p-6">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
           <Label htmlFor="courseId" className="font-bold">
@@ -93,6 +93,7 @@ export function NoteForm({ courses, onSubmit, onCancel, initialData }: NoteFormP
             maxFiles={5}
             maxSize={10}
           />
+          <p className="text-xs text-muted-foreground mt-1">單檔上限 10MB，總上限受伺服器限制。</p>
         </div>
 
         <div className="flex gap-2 pt-4">

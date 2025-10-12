@@ -2,6 +2,7 @@
 
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { EmptyStateSimple } from "@/components/empty-state"
 import { DocumentIcon, PaperclipIcon } from "@/components/icons"
 import type { Note, Course } from "@/types/course"
 import { isSameDayTaiwan, isTodayTaiwan } from "@/lib/taiwan-time"
@@ -75,7 +76,11 @@ export function RecentNotes({ notes, courses, selectedDate, onViewNote, onViewAl
           })}
         </div>
       ) : (
-        <p className="text-muted-foreground text-center py-4">{isViewingToday ? "還沒有任何筆記" : "該日期沒有筆記"}</p>
+        <EmptyStateSimple
+          title={isViewingToday ? "還沒有任何筆記" : "該日期沒有筆記"}
+          description="開始記錄學習筆記和重點"
+          showAction={false}
+        />
       )}
     </Card>
   )

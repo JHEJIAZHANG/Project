@@ -10,13 +10,20 @@ interface UpcomingScheduleProps {
   selectedDate?: Date
 }
 
-const DAYS = ["週日", "週一", "週二", "週三", "週四", "週五", "週六"]
+const DAYS = ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
+
+// 將 JavaScript 的 getDay() 結果轉換為後端格式
+// JavaScript Date: 0=週日, 1=週一, 2=週二, 3=週三, 4=週四, 5=週五, 6=週六
+  // 我們的系統: 0=週一, 1=週二, 2=週三, 3=週四, 4=週五, 5=週六, 6=週日
+const convertJsDayToBackend = (jsDay: number): number => {
+  return jsDay === 0 ? 6 : jsDay - 1
+}
 
 export function UpcomingSchedule({ courses, selectedDate }: UpcomingScheduleProps) {
   const today = getTaiwanTime()
   const viewingDate = selectedDate || today
   const isViewingToday = isTodayTaiwan(viewingDate)
-  const currentDay = viewingDate.getDay()
+  const currentDay = convertJsDayToBackend(viewingDate.getDay())
   const currentTime = today.toTimeString().slice(0, 5)
 
   const upcomingDays = []

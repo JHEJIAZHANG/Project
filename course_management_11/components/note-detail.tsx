@@ -3,8 +3,9 @@
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/page-header"
-import { PaperclipIcon, DownloadIcon, EyeIcon } from "@/components/icons"
+import { PaperclipIcon, DownloadIcon, EyeIcon, LightbulbIcon } from "@/components/icons"
 import { useState } from "react"
+import { ApiService } from "@/services/apiService"
 import type { Note, Course } from "@/types/course"
 
 interface NoteDetailProps {
@@ -17,6 +18,8 @@ interface NoteDetailProps {
 
 export function NoteDetail({ note, course, onBack, onEdit, onDelete }: NoteDetailProps) {
   const [previewFile, setPreviewFile] = useState<{ name: string; url: string; type: string } | null>(null)
+  const [aiSummary, setAiSummary] = useState<{ summary: string; keywords: string[] } | null>(null)
+  const [isAiLoading, setIsAiLoading] = useState(false)
 
   const formatFileSize = (bytes: number) => {
     if (bytes === 0) return "0 Bytes"
@@ -28,7 +31,10 @@ export function NoteDetail({ note, course, onBack, onEdit, onDelete }: NoteDetai
 
   const handleDownload = (attachment: { name: string; url: string }) => {
     const link = document.createElement("a")
-    link.href = attachment.url
+    const absoluteUrl = attachment.url?.startsWith("http")
+      ? attachment.url
+      : `${ApiService.backendOrigin}${attachment.url}`
+    link.href = absoluteUrl
     link.download = attachment.name
     document.body.appendChild(link)
     link.click()
@@ -36,7 +42,34 @@ export function NoteDetail({ note, course, onBack, onEdit, onDelete }: NoteDetai
   }
 
   const handlePreview = (attachment: { name: string; url: string; type: string }) => {
-    setPreviewFile(attachment)
+    const absoluteUrl = attachment.url?.startsWith("http")
+      ? attachment.url
+      : `${ApiService.backendOrigin}${attachment.url}`
+    setPreviewFile({ ...attachment, url: absoluteUrl })
+  }
+
+  const handleAiSummary = async () => {
+    setIsAiLoading(true)
+    try {
+      // 透過 ApiService 呼叫後端，並確保已初始化使用者 ID
+      const lineUserId = ApiService.bootstrapLineUserId()
+      const resp = await ApiService.getNoteAiSummary(note.id)
+      if ((resp as any)?.error) {
+        throw new Error((resp as any).error)
+      }
+      const result: any = (resp as any).data || {}
+
+      
+      setAiSummary({
+        summary: result.summary || '',
+        keywords: result.keywords || []
+      })
+    } catch (error) {
+      console.error('AI 摘要錯誤:', error)
+      alert(`AI 摘要失敗: ${error instanceof Error ? error.message : '未知錯誤'}`)
+    } finally {
+      setIsAiLoading(false)
+    }
   }
 
   const isPreviewable = (type: string, fileName: string) => {
@@ -146,9 +179,20 @@ export function NoteDetail({ note, course, onBack, onEdit, onDelete }: NoteDetai
       <PageHeader
         title={note.title}
         action={
-          <Button variant="outline" size="sm" onClick={onBack}>
-            返回
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleAiSummary}
+              disabled={isAiLoading}
+            >
+              <LightbulbIcon className="w-4 h-4 mr-1" />
+              {isAiLoading ? 'AI 分析中...' : 'AI 摘要'}
+            </Button>
+            <Button variant="outline" size="sm" onClick={onBack}>
+              返回
+            </Button>
+          </div>
         }
       />
 
@@ -177,6 +221,39 @@ export function NoteDetail({ note, course, onBack, onEdit, onDelete }: NoteDetai
           )}
         </div>
       </div>
+
+      {/* AI Summary */}
+      {aiSummary && (
+        <Card className="p-4 mb-4 bg-blue-50 border-blue-200">
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <LightbulbIcon className="w-5 h-5 text-blue-600" />
+              <h3 className="font-semibold text-blue-800">AI 摘要</h3>
+            </div>
+            <div className="space-y-2">
+              <div>
+                <h4 className="text-sm font-medium text-blue-700 mb-1">摘要</h4>
+                <p className="text-sm text-blue-600 whitespace-pre-line">{aiSummary.summary}</p>
+              </div>
+              {aiSummary.keywords.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-blue-700 mb-1">關鍵詞</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {aiSummary.keywords.map((keyword, index) => (
+                      <span
+                        key={index}
+                        className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full"
+                      >
+                        {keyword}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Note Content */}
       <Card className="p-4 mb-4">
